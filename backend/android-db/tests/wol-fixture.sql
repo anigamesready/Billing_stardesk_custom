@@ -2,7 +2,7 @@
 -- This is test-only and is never applied to the user's Android DB.
 CREATE SCHEMA IF NOT EXISTS extensions;
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
-DO $ BEGIN CREATE ROLE ani_api_runtime; EXCEPTION WHEN duplicate_object THEN NULL; END $;
+DO $$ BEGIN CREATE ROLE ani_api_runtime; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE SCHEMA IF NOT EXISTS private;
 CREATE SCHEMA IF NOT EXISTS api;
 CREATE SCHEMA IF NOT EXISTS remote_play;
