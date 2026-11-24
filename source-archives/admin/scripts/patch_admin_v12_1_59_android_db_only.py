@@ -228,7 +228,7 @@ for name in ("admin.html","index.html","admin-control.html"):
         page = page.replace("SB_FUNCTION_URL+'/iot/power'", "localApiBase()+'/iot/power'")
         page = page.replace("apikey:SB_KEY,", "")
         # All RPC calls must pass through the authenticated Android DB API adapter.
-        page = re.sub(r"\\bsb\\.rpc\\s*\\(", "rpc(", page)
+        page = re.sub(r"\bsb\.rpc\s*\(", "rpc(", page)
         # Redirect the old boot caller to the new Android DB adapter.
         page, n = re.subn(r"startDualDbAdmin\(\);", "startLocalAdmin();", page, count=1)
         if n == 0 and "startLocalAdmin();" not in page:
@@ -275,8 +275,8 @@ for name in ("admin.html","index.html","admin-control.html"):
     for forbidden in ("supabase.co","supabase.createclient","sb.schema(","sb.from(","ani-games-db-android-stage","127.0.0.1:8788","DB1_URL","DB2_URL","SB_FUNCTION_URL","SB_KEY"):
         if forbidden.lower() in lower:
             raise SystemExit("FORBIDDEN_ADMIN_BACKEND_REFERENCE:"+name+":"+forbidden)
-    if re.search(r"\\bsb\\.", page, re.I):
-        refs=[f"{i+1}:{line.strip()[:220]}" for i,line in enumerate(page.splitlines()) if re.search(r"\\bsb\\.", line, re.I)]
+    if re.search(r"\bsb\.", page, re.I):
+        refs=[f"{i+1}:{line.strip()[:220]}" for i,line in enumerate(page.splitlines()) if re.search(r"\bsb\.", line, re.I)]
         raise SystemExit("LEGACY_SUPABASE_CLIENT_REFERENCES:"+name+":"+" || ".join(refs[:30]))
     if "DB_TARGET" in page:
         refs=[f"{i+1}:{line.strip()[:220]}" for i,line in enumerate(page.splitlines()) if "DB_TARGET" in line]
