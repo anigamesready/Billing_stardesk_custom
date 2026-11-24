@@ -288,7 +288,7 @@ BEGIN
   UPDATE remote_play.wol_relay_commands SET status=p_status,
     packet_sent_at=CASE WHEN p_status='packet_sent' THEN now() ELSE packet_sent_at END,
     result=coalesce(p_result,'{}'::jsonb)
-  WHERE id=p_command_id AND remote_play.wol_relay_commands.v_relay_id=v_relay_id AND status='delivered';
+  WHERE id=p_command_id AND remote_play.wol_relay_commands.relay_id=v_relay_id AND status='delivered';
   GET DIAGNOSTICS n=ROW_COUNT;
   IF n<>1 THEN RAISE EXCEPTION 'WOL_RELAY_ACK_REJECTED'; END IF;
   UPDATE remote_play.wol_relay_devices SET last_packet_at=CASE WHEN p_status='packet_sent' THEN now() ELSE last_packet_at END,
@@ -345,7 +345,7 @@ BEGIN
    WHERE token_hash=v_hash AND revoked_at IS NULL LIMIT 1;
   IF v_relay_id IS NULL THEN RAISE EXCEPTION 'INVALID_WOL_RELAY_TOKEN'; END IF;
   UPDATE remote_play.wol_relay_probes SET status='online',responded_at=now()
-   WHERE id=p_probe_id AND remote_play.wol_relay_probes.v_relay_id=v_relay_id AND nonce=p_nonce
+   WHERE id=p_probe_id AND remote_play.wol_relay_probes.relay_id=v_relay_id AND nonce=p_nonce
      AND status='pending' AND expires_at>now();
   GET DIAGNOSTICS n=ROW_COUNT;
   IF n<>1 THEN RAISE EXCEPTION 'WOL_RELAY_PROBE_NOT_PENDING'; END IF;
