@@ -135,7 +135,7 @@ DECLARE
 BEGIN
   a:=private.remote_play_require_admin(p_admin_token);
   SELECT * INTO target FROM public.devices WHERE id=p_target_device_id AND org_id=a.org_id LIMIT 1;
-  IF NOT FOUND OR NOT private.admin_can_access_device(p_target_device_id,a.org_id) THEN
+  IF NOT FOUND THEN
     RAISE EXCEPTION 'WAKE_TARGET_ACCESS_DENIED';
   END IF;
   IF target.status='disabled' THEN RAISE EXCEPTION 'WAKE_TARGET_DISABLED'; END IF;
@@ -249,24 +249,24 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
 SET search_path TO 'remote_play','extensions','pg_catalog'
 AS $function$
 DECLARE v_hash text:=encode(extensions.digest(convert_to(p_relay_token,'UTF8'),'sha256'),'hex');
-  relay_id uuid; c remote_play.wol_relay_commands%ROWTYPE; p remote_play.wol_relay_probes%ROWTYPE;
+  v_relay_id uuid; c remote_play.wol_relay_commands%ROWTYPE; p remote_play.wol_relay_probes%ROWTYPE;
 BEGIN
-  SELECT id INTO relay_id FROM remote_play.wol_relay_devices
+  SELECT id INTO v_relay_id FROM remote_play.wol_relay_devices
    WHERE token_hash=v_hash AND revoked_at IS NULL LIMIT 1;
-  IF relay_id IS NULL THEN RAISE EXCEPTION 'INVALID_WOL_RELAY_TOKEN'; END IF;
-  UPDATE remote_play.wol_relay_commands SET status='expired'
-   WHERE relay_id=relay_id AND status IN ('queued','delivered') AND expires_at<=now();
-  UPDATE remote_play.wol_relay_commands SET status='queued',delivered_at=NULL
-   WHERE remote_play.wol_relay_commands.relay_id=relay_id AND status='delivered'
-     AND delivered_at<now()-interval '30 seconds' AND expires_at>now();
-  SELECT * INTO c FROM remote_play.wol_relay_commands
-   WHERE remote_play.wol_relay_commands.relay_id=relay_id AND status='queued' AND expires_at>now()
+  IF v_relay_id IS NULL THEN RAISE EXCEPTION 'INVALID_WOL_RELAY_TOKEN'; END IF;
+  UPDATE remote_play.wol_relay_commands AS q SET status='expired'
+   WHERE q.relay_id=v_relay_id AND q.status IN ('queued','delivered') AND q.expires_at<=now();
+  UPDATE remote_play.wol_relay_commands AS q SET status='queued',delivered_at=NULL
+   WHERE q.relay_id=v_relay_id AND q.status='delivered'
+     AND q.delivered_at<now()-interval '30 seconds' AND q.expires_at>now();
+  SELECT * INTO c FROM remote_play.wol_relay_commands AS q
+   WHERE q.relay_id=v_relay_id AND q.status='queued' AND q.expires_at>now()
    ORDER BY created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED;
   IF FOUND THEN
     UPDATE remote_play.wol_relay_commands SET status='delivered',delivered_at=now() WHERE id=c.id;
   ELSE c:=NULL; END IF;
-  SELECT * INTO p FROM remote_play.wol_relay_probes
-   WHERE remote_play.wol_relay_probes.relay_id=relay_id AND status='pending' AND expires_at>now()
+  SELECT * INTO p FROM remote_play.wol_relay_probes AS q
+   WHERE q.relay_id=v_relay_id AND q.status='pending' AND q.expires_at>now()
    ORDER BY requested_at DESC LIMIT 1;
   RETURN jsonb_build_object('ok',true,
     'command',CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_build_object('id',c.id,'targetMac',c.target_mac,'targetDeviceName',c.target_device_name,'expiresAt',c.expires_at) END,
