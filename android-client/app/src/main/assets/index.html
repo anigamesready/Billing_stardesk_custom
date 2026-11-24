@@ -81,7 +81,7 @@ function nativeRpc(name,payload={},token=""){
 window.__onNativeApiResult=(id,result)=>{
  const p=pendingApi.get(String(id));if(!p)return;pendingApi.delete(String(id));
  const status=Number(result?.http_status||200);
- if(status<200||status>=300||result?.ok===false&&result?.error){p.reject(new Error(result?.error||result?.message||"ANDROID_DB_REQUEST_FAILED"));return}
+ if(status<200||status>=300||result?.ok===false){p.reject(new Error(result?.error||result?.message||"ANDROID_DB_REQUEST_FAILED"));return}
  p.resolve(result||{});
 };
 function secretGet(k){try{return native?.getSecureValue(k)||""}catch(_){return""}}
