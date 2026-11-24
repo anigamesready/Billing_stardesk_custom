@@ -127,9 +127,6 @@ jobs:
           set -euo pipefail
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/tests/014_remote_play_stream_billing_clock_smoke.sql
 
-        run: |
-          set -euo pipefail
-
       - name: Test coin wallet lots, top-ups, expiry, rates and StarDesk mapping without touching rental time
         env:
           PGPASSWORD: postgres
@@ -137,12 +134,6 @@ jobs:
           set -euo pipefail
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/tests/015_remote_coin_wallet_smoke.sql
 
-      - name: Test coin wallet lots, top-ups, expiry, rates and StarDesk mapping without touching rental time
-        env:
-          PGPASSWORD: postgres
-        run: |
-          set -euo pipefail
-          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/tests/015_remote_coin_wallet_smoke.sql
 
       - name: Install Node dependency and syntax-check DB Android API gateway
         uses: actions/setup-node@v4
