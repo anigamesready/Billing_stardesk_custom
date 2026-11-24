@@ -594,6 +594,8 @@ jobs:
           node --check /tmp/admin-v1259-admin.js
           node --check /tmp/admin-v1259-index.js
           node --check /tmp/admin-v1259-admin-control.js
+          node --check /tmp/billing-v1259.js
+          node --check "$ANDROID_PROJECT_DIR/app/src/main/assets/web/v11-cloud.js"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
