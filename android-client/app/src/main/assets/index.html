@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#09091f">
+<title>Ani Games Ready Remote</title>
+<style>
+:root{color-scheme:dark;--bg:#09091f;--panel:#151638;--line:#393579;--line2:#5547a0;--violet:#9146ff;--blue:#167fff;--text:#f8f6ff;--muted:#aaa8cd;--green:#42e89a;--yellow:#ffc54c;--red:#ff587c}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(45rem 25rem at 110% -5%,#352171 0,transparent 60%),radial-gradient(38rem 24rem at -15% 105%,#10275c 0,transparent 65%),var(--bg);color:var(--text);font:15px system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}
+.app{max-width:540px;min-height:100vh;min-height:100dvh;margin:auto;padding:20px 16px calc(24px + env(safe-area-inset-bottom));display:flex;flex-direction:column}
+.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}.brand{font-weight:950;letter-spacing:.3px;font-size:15px}.brand span{color:#7ecbff}.sub{font-size:9px;color:#aaa8d5;letter-spacing:2.4px;margin-top:2px}
+button{border:1px solid #51488f;background:#211c4b;color:white;border-radius:13px;padding:11px 14px;font:inherit;font-size:12px;font-weight:850;cursor:pointer}
+button:disabled{opacity:.48;cursor:not-allowed}.primary{border:0;background:linear-gradient(100deg,#953eff,#315dff,#159dff);box-shadow:0 8px 24px #6634d955}
+.out{background:#211a45;border-color:#51448d}.hidden{display:none!important}
+.login{margin:auto 0;text-align:center}.logo{width:92px;height:92px;border:1px solid #8d7aff;border-radius:27px;margin:0 auto 22px;display:grid;place-items:center;background:linear-gradient(145deg,#292064,#0b2b61);font-size:44px;box-shadow:0 0 42px #7646f455}
+h1{font-size:25px;line-height:1.15;margin:0;font-weight:950}h1 span{color:#83caff}.lead{color:var(--muted);margin:10px auto 23px;max-width:330px;line-height:1.5}
+.card{padding:19px;background:linear-gradient(145deg,#1b1948,#101a38);border:1px solid var(--line);border-radius:20px;text-align:left}
+.label{font-size:11px;font-weight:850;display:block;margin-bottom:8px;letter-spacing:.5px}
+.field{height:51px;width:100%;border-radius:13px;border:1px solid #655bc0;background:#090e28;color:white;padding:0 14px;font:inherit;font-size:16px;outline:none}
+.field:focus{border-color:#9a76ff;box-shadow:0 0 0 3px #8b55ff24}.card .primary{width:100%;margin-top:13px;height:48px}
+.hint{font-size:11px;color:#a9a7cb;text-align:center;line-height:1.45;margin:12px 0 0}
+.notice{font-size:11px;color:#d8d2ff;background:#211847;border:1px solid #51438f;border-radius:13px;padding:12px;margin:16px auto 0;max-width:430px;line-height:1.5;text-align:left}
+.hello{font-size:22px;font-weight:950;margin:3px 0 13px}.blue{color:#8bd2ff}
+.profile,.counts{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid #45408a;border-radius:16px;overflow:hidden;background:linear-gradient(110deg,#1c1951,#101d3c);margin-bottom:13px}
+.profile>div,.counts>div{text-align:center;padding:13px 5px;min-width:0}.profile>div+div,.counts>div+div{border-left:1px solid #474077}
+.cap{font-size:9px;color:#b5b1d9;font-weight:850;letter-spacing:.35px}.val{font-size:14px;font-weight:950;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.time{color:#71dfff}
+.lock{background:#30152d;border:1px solid #943d68;border-radius:14px;padding:12px 13px;margin:0 0 12px;color:#ffe2e9;font-size:12px;line-height:1.45}
+.lock small{display:block;color:#e7bcca;margin-top:3px;font-size:11px}
+.counts{background:#121633;margin:16px 0}.counts strong{font-size:21px;display:block}.counts span{font-size:9px;font-weight:950;letter-spacing:.5px}
+.green{color:var(--green)}.yellow{color:var(--yellow)}.red{color:var(--red)}
+.head{display:flex;justify-content:space-between;align-items:center;margin:4px 2px 10px}.head h2{font-size:16px;margin:0}
+.list{display:grid;gap:9px}.pc{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:10px;align-items:center;background:#141735;border:1px solid #35316f;border-radius:15px;padding:10px}
+.monitor{width:48px;height:44px;border:1px solid #715ed0;background:linear-gradient(135deg,#793aff,#09396b);border-radius:10px;display:grid;place-items:center;font-size:20px}
+.name{font-weight:950;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.meta{font-size:10px;color:#aaa9cc;margin-top:3px;line-height:1.4}
+.state{font-size:10px;font-weight:950;margin-top:4px;letter-spacing:.25px}.pc button{font-size:9px;padding:9px 10px;max-width:112px}
+.busy{border-color:#574d3a}.offline{opacity:.66}
+.empty{border:1px dashed #51488f;background:#141331;border-radius:15px;padding:18px;text-align:center;color:#aaa8cd;font-size:12px}
+.footer{text-align:center;color:#8382aa;font-size:10px;margin-top:auto;padding-top:22px;line-height:1.5}
+.toast{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:#211847;border:1px solid #7665cd;border-radius:12px;padding:12px 15px;font-size:12px;display:none;width:max-content;max-width:calc(100% - 24px);box-shadow:0 8px 25px #0008;z-index:10}
+.loading{opacity:.65;pointer-events:none}
+@media(max-width:360px){.app{padding-left:12px;padding-right:12px}.profile>div,.counts>div{padding-left:3px;padding-right:3px}.val{font-size:12px}.pc{grid-template-columns:42px minmax(0,1fr) auto;gap:8px}.monitor{width:42px;height:42px}.pc button{max-width:94px;padding:8px 7px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="top">
+  <div class="brand">▣ ANI GAMES <span>READY</span><div class="sub">REMOTE PLAY</div></div>
+  <button id="logout" class="out hidden">Keluar ↗</button>
+</header>
+
+<section id="login" class="login">
+  <div class="logo">🎮</div>
+  <h1>ANI GAMES <span>READY</span></h1>
+  <p class="lead">Pilih PC gaming yang tersedia dan mulai bermain dari mana saja.</p>
+  <form id="form" class="card">
+    <label class="label" for="uid">USER ID RENTAL</label>
+    <input id="uid" class="field" maxlength="80" placeholder="Masukkan User ID" autocomplete="off" autocapitalize="characters" required>
+    <button id="loginButton" class="primary" type="submit">MASUK KE DASHBOARD</button>
+    <p class="hint">Gunakan User ID rental Ani Games Ready Anda.</p>
+  </form>
+  <div class="notice">Daftar PC dan saldo dibaca langsung dari server Ani Games Ready. Akun yang expired atau saldonya habis tetap dapat melihat status akun, tetapi tidak dapat memulai sesi.</div>
+</section>
+
+<section id="dashboard" class="hidden">
+  <div class="hello">Halo, <span id="welcome" class="blue">player</span></div>
+  <div class="profile">
+    <div><div class="cap">USER ID</div><div id="pid" class="val">—</div></div>
+    <div><div class="cap">SISA WAKTU</div><div id="time" class="val time">—</div></div>
+    <div><div class="cap">EXPIRED</div><div id="exp" class="val">—</div></div>
+  </div>
+  <div id="lock" class="lock hidden"><b id="lockTitle">Akses rental tidak aktif</b><small id="reason"></small></div>
+  <div class="counts">
+    <div><strong id="ready" class="green">0</strong><span class="green">READY</span></div>
+    <div><strong id="active" class="yellow">0</strong><span class="yellow">ACTIVE</span></div>
+    <div><strong id="offline" class="red">0</strong><span class="red">OFFLINE</span></div>
+  </div>
+  <div class="head"><h2>Daftar PC</h2><button id="refresh">↻ Refresh</button></div>
+  <div id="pcs" class="list"><div class="empty">Memuat daftar PC…</div></div>
+  <div class="notice">StarDesk tetap menangani streaming remote. Integrasi host StarDesk untuk tombol Hubungkan sedang disiapkan; PC yang belum dipasangkan tidak akan membuka koneksi palsu.</div>
+  <div class="footer">ANI GAMES READY • POWERED BY STARDESK<br>Versi 0.1.0</div>
+</section>
+</div>
+<div id="toast" class="toast"></div>
+
+<script>
+const API_BASE = "https://wzkjpycjizexxcxrfdvr.supabase.co/functions/v1/stardesk-client-api";
+const API_KEY = "sb_publishable_1Jsp3ZQDLwtoZ2hSPO83YA_7e1j723g";
+const $ = (id) => document.getElementById(id);
+let session = { token: localStorage.getItem("ani_client_token") || "", userId: localStorage.getItem("ani_user_id") || "" };
+let busy = false;
+
+function toast(message) {
+  const el = $("toast");
+  el.textContent = message;
+  el.style.display = "block";
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(() => { el.style.display = "none"; }, 2800);
+}
+window.showNativeMessage = toast;
+
+function clientId() {
+  try {
+    if (window.AniAndroid && window.AniAndroid.getClientId) return window.AniAndroid.getClientId();
+  } catch (_) {}
+  let value = localStorage.getItem("ani_client_id");
+  if (!value) {
+    value = "web-" + (window.crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
+    localStorage.setItem("ani_client_id", value);
+  }
+  return value;
+}
+function deviceName() {
+  try { if (window.AniAndroid && window.AniAndroid.getDeviceName) return window.AniAndroid.getDeviceName(); } catch (_) {}
+  return "Android client";
+}
+function appVersion() {
+  try { if (window.AniAndroid && window.AniAndroid.getAppVersion) return window.AniAndroid.getAppVersion(); } catch (_) {}
+  return "web-preview";
+}
+async function api(path, body) {
+  const response = await fetch(API_BASE + "/" + path, {
+    method: "POST",
+    headers: { "apikey": API_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify(body || {})
+  });
+  let data = {};
+  try { data = await response.json(); } catch (_) {}
+  if (!response.ok || data.ok !== true) {
+    const error = new Error(data.error || "REQUEST_FAILED");
+    error.status = response.status;
+    throw error;
+  }
+  return data;
+}
+function humanError(error) {
+  const messages = {
+    RENTAL_NOT_FOUND: "User ID rental tidak ditemukan.",
+    RENTAL_CODE_AMBIGUOUS: "User ID tidak unik. Hubungi admin untuk pemeriksaan.",
+    TOO_MANY_ATTEMPTS: "Terlalu banyak percobaan. Coba lagi beberapa saat.",
+    CLIENT_SESSION_INVALID: "Sesi login berakhir. Silakan masuk kembali.",
+    PC_LIST_UNAVAILABLE: "Daftar PC belum dapat dimuat.",
+    PC_STATUS_UNAVAILABLE: "Status PC belum dapat dimuat.",
+    ORGANIZATION_SUSPENDED: "Akses organisasi sedang dinonaktifkan.",
+    SERVICE_UNAVAILABLE: "Server sedang tidak tersedia.",
+    RATE_LIMIT_SERVICE_UNAVAILABLE: "Layanan login sedang sibuk."
+  };
+  if (error && error.message === "Failed to fetch") return "Tidak dapat terhubung ke server. Periksa koneksi internet.";
+  return messages[error && error.message] || "Terjadi kendala: " + (error && error.message ? error.message : "coba lagi");
+}
+function formatTime(seconds) {
+  seconds = Math.max(0, Math.floor(Number(seconds) || 0));
+  const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60);
+  if (h > 0) return String(h).padStart(2,"0") + "j " + String(m).padStart(2,"0") + "m";
+  return String(m).padStart(2,"0") + " menit";
+}
+function formatDate(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("id-ID",{day:"2-digit",month:"short",year:"numeric"}).format(date);
+}
+function updateRental(rental, userId) {
+  $("welcome").textContent = userId || "player";
+  $("pid").textContent = userId || "—";
+  $("time").textContent = formatTime(rental.remainingSeconds);
+  $("exp").textContent = formatDate(rental.expiryAt);
+  const locked = rental.canPlay !== true;
+  $("lock").classList.toggle("hidden", !locked);
+  if (locked) {
+    const state = rental.accessState || "expired";
+    const title = state === "time_empty" ? "Saldo waktu habis" : state === "disabled" ? "Akun rental dinonaktifkan" : "Masa aktif rental berakhir";
+    const reason = state === "time_empty" ? "Pilihan PC dikunci sampai saldo ditambahkan." : state === "disabled" ? "Akun ini sedang dinonaktifkan. Hubungi admin rental." : "Masa aktif sudah berakhir. Pilihan PC dikunci.";
+    $("lockTitle").textContent = title;
+    $("reason").textContent = reason;
+  }
+}
+function renderPcs(pcs, canPlay) {
+  const list = $("pcs");
+  list.replaceChildren();
+  if (!Array.isArray(pcs) || pcs.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = "Belum ada PC terdaftar.";
+    list.appendChild(empty);
+    return;
+  }
+  for (const pc of pcs) {
+    const status = ["ready","active","offline"].includes(pc.status) ? pc.status : "offline";
+    const card = document.createElement("article");
+    card.className = "pc" + (status === "active" ? " busy" : status === "offline" ? " offline" : "");
+    const icon = document.createElement("div");
+    icon.className = "monitor";
+    icon.textContent = "🎮";
+    const info = document.createElement("div");
+    const name = document.createElement("div");
+    name.className = "name";
+    name.textContent = pc.name || "PC Gaming";
+    const state = document.createElement("div");
+    state.className = "state " + (status === "ready" ? "green" : status === "active" ? "yellow" : "red");
+    state.textContent = "● " + (status === "ready" ? "READY" : status === "active" ? "ACTIVE" : "OFFLINE");
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    meta.textContent = status === "ready" ? "Online • Siap dipilih" : status === "active" ? "Sedang digunakan" : "PC tidak terhubung";
+    info.append(name,state,meta);
+    const button = document.createElement("button");
+    button.disabled = true;
+    button.textContent = status === "ready" ? (canPlay ? "Segera hadir" : "Terkunci") : status === "active" ? "Dipakai" : "Offline";
+    card.append(icon,info,button);
+    list.appendChild(card);
+  }
+}
+function showDashboard() {
+  $("login").classList.add("hidden");
+  $("dashboard").classList.remove("hidden");
+  $("logout").classList.remove("hidden");
+}
+function showLogin() {
+  $("dashboard").classList.add("hidden");
+  $("login").classList.remove("hidden");
+  $("logout").classList.add("hidden");
+}
+async function loadCatalog() {
+  if (!session.token || busy) return;
+  busy = true;
+  $("refresh").disabled = true;
+  try {
+    const data = await api("catalog", { clientToken: session.token });
+    updateRental(data.rental || {}, data.userId || session.userId);
+    $("ready").textContent = data.counts?.ready ?? 0;
+    $("active").textContent = data.counts?.active ?? 0;
+    $("offline").textContent = data.counts?.offline ?? 0;
+    renderPcs(data.pcs || [], data.rental?.canPlay === true);
+    showDashboard();
+  } catch (error) {
+    if (error.status === 401 || error.message === "CLIENT_SESSION_INVALID") {
+      session = { token: "", userId: "" };
+      localStorage.removeItem("ani_client_token");
+      localStorage.removeItem("ani_user_id");
+      showLogin();
+    }
+    toast(humanError(error));
+  } finally {
+    busy = false;
+    $("refresh").disabled = false;
+  }
+}
+$("form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (busy) return;
+  const userId = $("uid").value.trim().toUpperCase();
+  if (!userId) return;
+  busy = true;
+  $("loginButton").disabled = true;
+  $("loginButton").textContent = "MEMERIKSA AKUN…";
+  try {
+    const data = await api("login", {
+      userId,
+      clientId: clientId(),
+      deviceName: deviceName(),
+      appVersion: appVersion()
+    });
+    session.token = data.clientToken;
+    session.userId = data.userId || userId;
+    localStorage.setItem("ani_client_token", session.token);
+    localStorage.setItem("ani_user_id", session.userId);
+    await loadCatalog();
+  } catch (error) {
+    toast(humanError(error));
+  } finally {
+    busy = false;
+    $("loginButton").disabled = false;
+    $("loginButton").textContent = "MASUK KE DASHBOARD";
+  }
+});
+$("refresh").addEventListener("click", loadCatalog);
+$("logout").addEventListener("click", async () => {
+  const token = session.token;
+  session = { token: "", userId: "" };
+  localStorage.removeItem("ani_client_token");
+  localStorage.removeItem("ani_user_id");
+  showLogin();
+  try { if (token) await api("logout", { clientToken: token }); } catch (_) {}
+});
+window.onAniAppResume = () => {
+  if (session.token) loadCatalog();
+};
+if (session.token) loadCatalog();
+</script>
+</body>
+</html>
