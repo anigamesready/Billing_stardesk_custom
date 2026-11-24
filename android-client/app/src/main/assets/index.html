@@ -216,6 +216,6 @@ $("manualAmount").addEventListener("input",updateCalc);$("refresh").addEventList
 $("logout").addEventListener("click",logout);$("confirmWa").addEventListener("click",confirmTopup);
 $("copyAmount").addEventListener("click",()=>{const n=String(currentAmount());if(native?.copyText)native.copyText(n);else toast("Nominal: "+rupiah(n))});
 $("qrisZoom").addEventListener("click",()=>$("modal").classList.remove("hidden"));$("closeModal").addEventListener("click",()=>$("modal").classList.add("hidden"));$("modal").addEventListener("click",e=>{if(e.target===$("modal"))$("modal").classList.add("hidden")});
-if(native){$("apiBase").value=native.getApiBase()||"";setConnectionBadge("ANDROID DB READY",false)}else{$("loginNotice").textContent="Buka APK Android untuk menggunakan koneksi Android DB."}
+if(native){$("apiBase").value=native.getApiBase()||"";setConnectionBadge(native.getApiBase()?"HTTPS API TERSIMPAN • BELUM DIUJI":"SET URL ANDROID DB",false)}else{$("loginNotice").textContent="Buka APK Android untuk menggunakan koneksi Android DB."}
 updateCalc();
 </script></body>
