@@ -315,7 +315,7 @@ async function rpcRequest(req, res, name, body) {
 }
 
 async function deviceRequest(req, res, path, body) {
-  // Accept the same Bearer device token used by the Supabase Edge Function client;
+  // Accept the Android DB device Bearer token; body.token remains supported for legacy compatibility.
   // body.token remains supported for legacy compatibility. Never log either value.
   const token = bearer(req) || str(body.token, 512);
   if (path === "/device/enroll") {
