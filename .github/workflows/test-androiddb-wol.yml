@@ -1,0 +1,48 @@
+name: Test Android DB Additive WoL Extension
+
+on:
+  push:
+    branches:
+      - feature/admin-v1258-source-port
+    paths:
+      - "backend/android-db/**"
+      - ".github/workflows/test-androiddb-wol.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-wol-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: android-db-test
+          POSTGRES_DB: ani_android_db_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ani_android_db_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: android-db-test
+      PGDATABASE: ani_android_db_test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Android DB API syntax
+        run: node --check backend/android-db/server/server.mjs
+      - name: Apply disposable fixture
+        run: psql -v ON_ERROR_STOP=1 -f backend/android-db/tests/wol-fixture.sql
+      - name: Apply additive WoL migration
+        run: psql -v ON_ERROR_STOP=1 -f backend/android-db/migrations/020_android_wol_relay.sql
+      - name: Run WoL enrollment, polling, command and probe smoke tests
+        run: psql -v ON_ERROR_STOP=1 -f backend/android-db/tests/wol-smoke.sql
