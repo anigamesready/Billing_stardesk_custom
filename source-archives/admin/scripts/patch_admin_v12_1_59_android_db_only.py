@@ -381,7 +381,7 @@ if len(billing_scripts) != 1:
     raise SystemExit("BILLING_INLINE_SCRIPT_COUNT_INVALID:" + str(len(billing_scripts)))
 def inject_billing_bridge(match):
     return match.group(1) + match.group(2) + "\n" + billing_bridge + "\n" + match.group(3)
-billing_html, bridge_count = re.subn(r'<script\b(?![^>]*\bsrc=)[^>]*>.*?</script>', inject_billing_bridge, billing_html, count=1, flags=re.I | re.S)
+billing_html, bridge_count = re.subn(r'(<script\b(?![^>]*\bsrc=)[^>]*>)(.*?)(</script>)', inject_billing_bridge, billing_html, count=1, flags=re.I | re.S)
 if bridge_count != 1:
     raise SystemExit("BILLING_REMOTE_COMMAND_BRIDGE_INJECTION_FAILED")
 Path("/tmp/billing-v1259.js").write_text(billing_scripts[0][1] + "\n" + billing_bridge, encoding="utf-8")
