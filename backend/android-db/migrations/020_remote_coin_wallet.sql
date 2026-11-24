@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS remote_play.coin_topup_orders (
   expires_at timestamptz NOT NULL DEFAULT (now()+interval '24 hours'),
   approved_by uuid,
   approved_at timestamptz,
+  reviewed_by uuid,
+  reviewed_at timestamptz,
   rejection_reason text,
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE(rental_account_id,idempotency_key)
@@ -362,7 +364,8 @@ BEGIN
     reference_type,reference_id,idempotency_key)
   VALUES(w.id,lot_id,'topup_credit',o.coin_amount,v_balance,'topup_order',o.id::text,'topup:'||o.id::text)
   ON CONFLICT(idempotency_key) DO NOTHING;
-  UPDATE remote_play.coin_topup_orders SET status='approved',approved_by=a.auth_user_id,approved_at=now()
+  UPDATE remote_play.coin_topup_orders SET status='approved',approved_by=a.auth_user_id,
+    approved_at=now(),reviewed_by=a.auth_user_id,reviewed_at=now()
     WHERE id=o.id;
   INSERT INTO remote_play.audit_events(org_id,actor_family,actor_id,event_name,target_id,payload)
   VALUES(a.org_id,'admin',a.auth_user_id::text,'coin_topup_approved',o.id::text,
@@ -394,8 +397,11 @@ BEGIN
   IF o.status<>'pending' THEN RAISE EXCEPTION 'COIN_TOPUP_ORDER_NOT_PENDING'; END IF;
   UPDATE remote_play.coin_topup_orders SET status='rejected',
     rejection_reason=left(coalesce(nullif(btrim(p_reason),''),'Rejected by Owner'),180),
-    approved_by=a.auth_user_id,approved_at=now()
+    reviewed_by=a.auth_user_id,reviewed_at=now()
   WHERE id=o.id;
+  INSERT INTO remote_play.audit_events(org_id,actor_family,actor_id,event_name,target_id,payload)
+  VALUES(a.org_id,'admin',a.auth_user_id::text,'coin_topup_rejected',o.id::text,
+    jsonb_build_object('rental_account_id',r.id,'reason',left(coalesce(nullif(btrim(p_reason),''),'Rejected by Owner'),180)));
   RETURN jsonb_build_object('ok',true,'order_id',o.id,'status','rejected');
 END;
 $function$;
