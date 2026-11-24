@@ -279,21 +279,21 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
 SET search_path TO 'remote_play','extensions','pg_catalog'
 AS $function$
 DECLARE v_hash text:=encode(extensions.digest(convert_to(p_relay_token,'UTF8'),'sha256'),'hex');
-  relay_id uuid; n integer;
+  v_relay_id uuid; n integer;
 BEGIN
   IF p_status NOT IN ('packet_sent','failed') THEN RAISE EXCEPTION 'INVALID_WOL_RELAY_ACK_STATUS'; END IF;
-  SELECT id INTO relay_id FROM remote_play.wol_relay_devices
+  SELECT id INTO v_relay_id FROM remote_play.wol_relay_devices
    WHERE token_hash=v_hash AND revoked_at IS NULL LIMIT 1;
-  IF relay_id IS NULL THEN RAISE EXCEPTION 'INVALID_WOL_RELAY_TOKEN'; END IF;
+  IF v_relay_id IS NULL THEN RAISE EXCEPTION 'INVALID_WOL_RELAY_TOKEN'; END IF;
   UPDATE remote_play.wol_relay_commands SET status=p_status,
     packet_sent_at=CASE WHEN p_status='packet_sent' THEN now() ELSE packet_sent_at END,
     result=coalesce(p_result,'{}'::jsonb)
-  WHERE id=p_command_id AND remote_play.wol_relay_commands.relay_id=relay_id AND status='delivered';
+  WHERE id=p_command_id AND remote_play.wol_relay_commands.v_relay_id=v_relay_id AND status='delivered';
   GET DIAGNOSTICS n=ROW_COUNT;
   IF n<>1 THEN RAISE EXCEPTION 'WOL_RELAY_ACK_REJECTED'; END IF;
   UPDATE remote_play.wol_relay_devices SET last_packet_at=CASE WHEN p_status='packet_sent' THEN now() ELSE last_packet_at END,
     last_error=CASE WHEN p_status='failed' THEN left(coalesce(p_result->>'message',p_result->>'error','WoL failed'),240) ELSE NULL END,
-    updated_at=now() WHERE id=relay_id;
+    updated_at=now() WHERE id=v_relay_id;
   RETURN jsonb_build_object('ok',true,'status',p_status);
 END
 $function$;
@@ -339,13 +339,13 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
 SET search_path TO 'remote_play','extensions','pg_catalog'
 AS $function$
 DECLARE v_hash text:=encode(extensions.digest(convert_to(p_relay_token,'UTF8'),'sha256'),'hex');
-  relay_id uuid; n integer;
+  v_relay_id uuid; n integer;
 BEGIN
-  SELECT id INTO relay_id FROM remote_play.wol_relay_devices
+  SELECT id INTO v_relay_id FROM remote_play.wol_relay_devices
    WHERE token_hash=v_hash AND revoked_at IS NULL LIMIT 1;
-  IF relay_id IS NULL THEN RAISE EXCEPTION 'INVALID_WOL_RELAY_TOKEN'; END IF;
+  IF v_relay_id IS NULL THEN RAISE EXCEPTION 'INVALID_WOL_RELAY_TOKEN'; END IF;
   UPDATE remote_play.wol_relay_probes SET status='online',responded_at=now()
-   WHERE id=p_probe_id AND remote_play.wol_relay_probes.relay_id=relay_id AND nonce=p_nonce
+   WHERE id=p_probe_id AND remote_play.wol_relay_probes.v_relay_id=v_relay_id AND nonce=p_nonce
      AND status='pending' AND expires_at>now();
   GET DIAGNOSTICS n=ROW_COUNT;
   IF n<>1 THEN RAISE EXCEPTION 'WOL_RELAY_PROBE_NOT_PENDING'; END IF;
@@ -358,7 +358,7 @@ BEGIN
     battery_health=left(coalesce(p_metrics->>'batteryHealth',battery_health),40),
     app_version=left(coalesce(p_metrics->>'appVersion',app_version),64),
     model=left(coalesce(p_metrics->>'model',model),100),updated_at=now()
-  WHERE id=relay_id AND token_hash=v_hash AND revoked_at IS NULL;
+  WHERE id=v_relay_id AND token_hash=v_hash AND revoked_at IS NULL;
   RETURN jsonb_build_object('ok',true,'status','online','responded_at',now());
 END
 $function$;
