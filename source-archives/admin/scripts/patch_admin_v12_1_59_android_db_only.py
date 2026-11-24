@@ -262,9 +262,12 @@ manifest_path.write_text(manifest, encoding="utf-8")
 for name in ("admin.html","index.html","admin-control.html"):
     page=(web/name).read_text(encoding="utf-8")
     lower=page.lower()
-    for forbidden in ("supabase.co","supabase.createclient","sb.schema(","sb.from(","ani-games-db-android-stage","127.0.0.1:8788","DB1_URL","DB2_URL","DB_TARGET"):
+    for forbidden in ("supabase.co","supabase.createclient","sb.schema(","sb.from(","ani-games-db-android-stage","127.0.0.1:8788","DB1_URL","DB2_URL"):
         if forbidden.lower() in lower:
             raise SystemExit("FORBIDDEN_ADMIN_BACKEND_REFERENCE:"+name+":"+forbidden)
+    if "DB_TARGET" in page:
+        refs=[f"{i+1}:{line.strip()[:220]}" for i,line in enumerate(page.splitlines()) if "DB_TARGET" in line]
+        raise SystemExit("LEGACY_DB_TARGET_REFERENCES:"+name+":"+" || ".join(refs[:30]))
     if "http://127.0.0.1:8787" not in page and "ONLINE_GATEWAY_URL" in page:
         raise SystemExit("ANDROID_DB_MAIN_PORT_DEFAULT_MISSING:"+name)
     scripts=re.findall(r'<script\b(?![^>]*\bsrc=)[^>]*>(.*?)</script>',page,re.I|re.S)
