@@ -1,293 +1,68 @@
-<!doctype html>
-<html lang="id">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#09091f">
-<title>Ani Games Ready Remote</title>
+<!doctype html><html lang="id"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"><meta name="theme-color" content="#09091f"><title>Ani Games Ready Remote</title>
 <style>
-:root{color-scheme:dark;--bg:#09091f;--panel:#151638;--line:#393579;--line2:#5547a0;--violet:#9146ff;--blue:#167fff;--text:#f8f6ff;--muted:#aaa8cd;--green:#42e89a;--yellow:#ffc54c;--red:#ff587c}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(45rem 25rem at 110% -5%,#352171 0,transparent 60%),radial-gradient(38rem 24rem at -15% 105%,#10275c 0,transparent 65%),var(--bg);color:var(--text);font:15px system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}
-.app{max-width:540px;min-height:100vh;min-height:100dvh;margin:auto;padding:20px 16px calc(24px + env(safe-area-inset-bottom));display:flex;flex-direction:column}
-.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}.brand{font-weight:950;letter-spacing:.3px;font-size:15px}.brand span{color:#7ecbff}.sub{font-size:9px;color:#aaa8d5;letter-spacing:2.4px;margin-top:2px}
-button{border:1px solid #51488f;background:#211c4b;color:white;border-radius:13px;padding:11px 14px;font:inherit;font-size:12px;font-weight:850;cursor:pointer}
-button:disabled{opacity:.48;cursor:not-allowed}.primary{border:0;background:linear-gradient(100deg,#953eff,#315dff,#159dff);box-shadow:0 8px 24px #6634d955}
-.out{background:#211a45;border-color:#51448d}.hidden{display:none!important}
-.login{margin:auto 0;text-align:center}.logo{width:92px;height:92px;border:1px solid #8d7aff;border-radius:27px;margin:0 auto 22px;display:grid;place-items:center;background:linear-gradient(145deg,#292064,#0b2b61);font-size:44px;box-shadow:0 0 42px #7646f455}
-h1{font-size:25px;line-height:1.15;margin:0;font-weight:950}h1 span{color:#83caff}.lead{color:var(--muted);margin:10px auto 23px;max-width:330px;line-height:1.5}
-.card{padding:19px;background:linear-gradient(145deg,#1b1948,#101a38);border:1px solid var(--line);border-radius:20px;text-align:left}
-.label{font-size:11px;font-weight:850;display:block;margin-bottom:8px;letter-spacing:.5px}
-.field{height:51px;width:100%;border-radius:13px;border:1px solid #655bc0;background:#090e28;color:white;padding:0 14px;font:inherit;font-size:16px;outline:none}
-.field:focus{border-color:#9a76ff;box-shadow:0 0 0 3px #8b55ff24}.card .primary{width:100%;margin-top:13px;height:48px}
-.hint{font-size:11px;color:#a9a7cb;text-align:center;line-height:1.45;margin:12px 0 0}
-.notice{font-size:11px;color:#d8d2ff;background:#211847;border:1px solid #51438f;border-radius:13px;padding:12px;margin:16px auto 0;max-width:430px;line-height:1.5;text-align:left}
-.hello{font-size:22px;font-weight:950;margin:3px 0 13px}.blue{color:#8bd2ff}
-.profile,.counts{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid #45408a;border-radius:16px;overflow:hidden;background:linear-gradient(110deg,#1c1951,#101d3c);margin-bottom:13px}
-.profile>div,.counts>div{text-align:center;padding:13px 5px;min-width:0}.profile>div+div,.counts>div+div{border-left:1px solid #474077}
-.cap{font-size:9px;color:#b5b1d9;font-weight:850;letter-spacing:.35px}.val{font-size:14px;font-weight:950;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.time{color:#71dfff}
-.lock{background:#30152d;border:1px solid #943d68;border-radius:14px;padding:12px 13px;margin:0 0 12px;color:#ffe2e9;font-size:12px;line-height:1.45}
-.lock small{display:block;color:#e7bcca;margin-top:3px;font-size:11px}
-.counts{background:#121633;margin:16px 0}.counts strong{font-size:21px;display:block}.counts span{font-size:9px;font-weight:950;letter-spacing:.5px}
-.green{color:var(--green)}.yellow{color:var(--yellow)}.red{color:var(--red)}
-.head{display:flex;justify-content:space-between;align-items:center;margin:4px 2px 10px}.head h2{font-size:16px;margin:0}
-.list{display:grid;gap:9px}.pc{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:10px;align-items:center;background:#141735;border:1px solid #35316f;border-radius:15px;padding:10px}
-.monitor{width:48px;height:44px;border:1px solid #715ed0;background:linear-gradient(135deg,#793aff,#09396b);border-radius:10px;display:grid;place-items:center;font-size:20px}
-.name{font-weight:950;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.meta{font-size:10px;color:#aaa9cc;margin-top:3px;line-height:1.4}
-.state{font-size:10px;font-weight:950;margin-top:4px;letter-spacing:.25px}.pc button{font-size:9px;padding:9px 10px;max-width:112px}
-.busy{border-color:#574d3a}.offline{opacity:.66}
-.empty{border:1px dashed #51488f;background:#141331;border-radius:15px;padding:18px;text-align:center;color:#aaa8cd;font-size:12px}
-.footer{text-align:center;color:#8382aa;font-size:10px;margin-top:auto;padding-top:22px;line-height:1.5}
-.toast{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:#211847;border:1px solid #7665cd;border-radius:12px;padding:12px 15px;font-size:12px;display:none;width:max-content;max-width:calc(100% - 24px);box-shadow:0 8px 25px #0008;z-index:10}
-.loading{opacity:.65;pointer-events:none}
-@media(max-width:360px){.app{padding-left:12px;padding-right:12px}.profile>div,.counts>div{padding-left:3px;padding-right:3px}.val{font-size:12px}.pc{grid-template-columns:42px minmax(0,1fr) auto;gap:8px}.monitor{width:42px;height:42px}.pc button{max-width:94px;padding:8px 7px}}
-</style>
-</head>
-<body>
-<div class="app">
-<header class="top">
-  <div class="brand">▣ ANI GAMES <span>READY</span><div class="sub">REMOTE PLAY</div></div>
-  <button id="logout" class="out hidden">Keluar ↗</button>
-</header>
-
-<section id="login" class="login">
-  <div class="logo">🎮</div>
-  <h1>ANI GAMES <span>READY</span></h1>
-  <p class="lead">Pilih PC gaming yang tersedia dan mulai bermain dari mana saja.</p>
-  <form id="form" class="card">
-    <label class="label" for="uid">USER ID RENTAL</label>
-    <input id="uid" class="field" maxlength="80" placeholder="Masukkan User ID" autocomplete="off" autocapitalize="characters" required>
-    <button id="loginButton" class="primary" type="submit">MASUK KE DASHBOARD</button>
-    <p class="hint">Gunakan User ID rental Ani Games Ready Anda.</p>
-  </form>
-  <div class="notice">Daftar PC dan saldo dibaca langsung dari server Ani Games Ready. Akun yang expired atau saldonya habis tetap dapat melihat status akun, tetapi tidak dapat memulai sesi.</div>
-</section>
-
+:root{color-scheme:dark;--bg:#09091f;--panel:#151638;--line:#393579;--text:#f8f6ff;--muted:#aaa8cd;--green:#42e89a;--yellow:#ffc54c;--red:#ff587c}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(40rem 24rem at 110% -5%,#352171 0,transparent 60%),radial-gradient(38rem 24rem at -15% 105%,#10275c 0,transparent 65%),var(--bg);color:var(--text);font:15px system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}
+.app{max-width:560px;min-height:100vh;min-height:100dvh;margin:auto;padding:16px 14px calc(24px + env(safe-area-inset-bottom));display:flex;flex-direction:column}
+.top,.between{display:flex;align-items:center;justify-content:space-between;gap:8px}.top{margin-bottom:16px}.brand{font-weight:950;letter-spacing:.3px;font-size:15px}.brand span{color:#7ecbff}.sub{font-size:9px;color:#aaa8d5;letter-spacing:2.4px;margin-top:2px}.preview{font-size:9px;font-weight:950;color:#ffe2a4;border:1px solid #84643c;background:#322515;border-radius:20px;padding:6px 9px}
+button,input{font:inherit}button{border:1px solid #51488f;background:#211c4b;color:white;border-radius:13px;padding:11px 13px;font-size:12px;font-weight:850;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}.primary{border:0;background:linear-gradient(100deg,#953eff,#315dff,#159dff);box-shadow:0 8px 24px #6634d955}.hidden{display:none!important}
+.login{margin:auto 0;text-align:center}.logo{width:88px;height:88px;border:1px solid #8d7aff;border-radius:26px;margin:0 auto 18px;display:grid;place-items:center;background:linear-gradient(145deg,#292064,#0b2b61);font-size:42px;box-shadow:0 0 42px #7646f455}
+h1{font-size:24px;line-height:1.15;margin:0;font-weight:950}h1 span{color:#83caff}.lead{color:var(--muted);margin:10px auto 20px;max-width:350px;line-height:1.5}
+.card{padding:16px;background:linear-gradient(145deg,#1b1948,#101a38);border:1px solid var(--line);border-radius:18px;text-align:left;margin-bottom:11px}
+.label{font-size:10px;font-weight:900;display:block;margin-bottom:7px;letter-spacing:.6px;color:#cac6f2}.field{height:49px;width:100%;border-radius:12px;border:1px solid #655bc0;background:#090e28;color:white;padding:0 13px;font:inherit;font-size:16px;outline:none}.field:focus{border-color:#9a76ff;box-shadow:0 0 0 3px #8b55ff24}.full{width:100%;margin-top:12px;height:47px}.hint{font-size:10px;color:var(--muted);text-align:center;line-height:1.5;margin:10px 0 0}
+.notice{font-size:10px;color:#ded8ff;background:#211847;border:1px solid #51438f;border-radius:13px;padding:11px;margin:12px auto 0;line-height:1.55;text-align:left}
+.hello{font-size:21px;font-weight:950;margin:3px 0 10px}.blue{color:#8bd2ff}.profile{display:grid;grid-template-columns:1fr 1fr;border:1px solid #45408a;border-radius:15px;overflow:hidden;background:linear-gradient(110deg,#1c1951,#101d3c);margin-bottom:11px}.profile>div{padding:11px 12px;min-width:0}.profile>div+div{border-left:1px solid #474077}
+.cap{font-size:9px;color:#b5b1d9;font-weight:850;letter-spacing:.35px}.val{font-size:13px;font-weight:950;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wallet{padding:16px;background:linear-gradient(120deg,#2a1760,#173d7a);border:1px solid #6550b8;border-radius:18px;margin-bottom:12px}.balance{font-size:30px;font-weight:1000;letter-spacing:-1px;margin-top:4px}.balance small{font-size:12px;color:#d0c6ff;letter-spacing:0}.wallet-note{font-size:10px;color:#d7d2ff;margin-top:5px}
+.lock{background:#30152d;border:1px solid #943d68;border-radius:13px;padding:11px 12px;margin:0 0 12px;color:#ffe2e9;font-size:11px;line-height:1.45}.lock small{display:block;color:#e7bcca;margin-top:3px;font-size:10px}
+.nav{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:3px 0 13px}.nav button{padding:10px 4px;font-size:10px;border-radius:11px}.nav button.active{background:linear-gradient(100deg,#793cff,#2559df);border-color:#9a76ff}
+.title{display:flex;justify-content:space-between;align-items:center;margin:4px 1px 9px}.title h2{font-size:15px;margin:0}.muted{color:var(--muted);font-size:10px}
+.pc-list,.table{display:grid;gap:8px}.pc{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:9px;align-items:center;background:#141735;border:1px solid #35316f;border-radius:14px;padding:10px}.monitor{width:42px;height:42px;border:1px solid #715ed0;background:linear-gradient(135deg,#793aff,#09396b);border-radius:10px;display:grid;place-items:center;font-size:19px}.name{font-weight:950;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.meta{font-size:9px;color:#aaa9cc;margin-top:3px;line-height:1.4}.state{font-size:9px;font-weight:950;margin-top:3px;letter-spacing:.25px}.green{color:var(--green)}.yellow{color:var(--yellow)}.red{color:var(--red)}.pc button{font-size:9px;padding:8px 9px;max-width:104px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.package{padding:12px;border:1px solid #45408a;border-radius:13px;background:#121633;text-align:left}.package b{font-size:14px;display:block}.package span{display:block;font-size:10px;color:#8cdbff;margin-top:4px;font-weight:850}.package.selected{border:1px solid #9b7aff;background:#2a1d61;box-shadow:0 0 0 2px #8c62ff24}
+.calc{background:#111637;border:1px solid #424184;border-radius:14px;padding:13px;margin-top:10px}.calc strong{color:#75e8bd;font-size:18px}
+.qris{display:block;width:min(260px,80%);margin:10px auto;background:#fff;border-radius:12px;padding:10px;cursor:pointer}.qris img{width:100%;display:block}.caption{text-align:center;color:var(--muted);font-size:10px}.rate,.history{padding:11px;border:1px solid #38356f;background:#131633;border-radius:12px}.rate{display:flex;justify-content:space-between;gap:8px;align-items:center}.rate b,.history b{font-size:11px}.rate span,.history small{display:block;font-size:9px;color:var(--muted);margin-top:4px}
+.footer{text-align:center;color:#8382aa;font-size:9px;margin-top:auto;padding-top:20px;line-height:1.5}.toast{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:#211847;border:1px solid #7665cd;border-radius:12px;padding:11px 14px;font-size:11px;display:none;width:max-content;max-width:calc(100% - 24px);box-shadow:0 8px 25px #0008;z-index:20}
+.modal{position:fixed;inset:0;background:#050513ed;display:grid;place-items:center;padding:20px;z-index:30}.modal img{width:min(88vw,430px);background:#fff;border-radius:14px;padding:12px}.modal button{position:absolute;top:22px;right:22px}
+@media(max-width:360px){.app{padding-left:11px;padding-right:11px}.balance{font-size:26px}.pc{grid-template-columns:38px minmax(0,1fr) auto;gap:7px}.monitor{width:38px;height:39px}.pc button{max-width:86px;padding:8px 6px}}
+</style></head><body><div class="app">
+<header class="top"><div class="brand">▣ ANI GAMES <span>READY</span><div class="sub">REMOTE PLAY • STARDESK</div></div><div class="preview">UI PREVIEW</div></header>
+<section id="login" class="login"><div class="logo">🎮</div><h1>ANI GAMES <span>READY</span></h1><p class="lead">Masuk dengan User ID rental untuk melihat saldo koin dan pilihan PC gaming.</p>
+<form id="loginForm" class="card"><label class="label" for="uid">USER ID RENTAL</label><input id="uid" class="field" maxlength="80" placeholder="Masukkan User ID" autocomplete="off" autocapitalize="characters" required><button class="primary full" type="submit">MASUK KE DASHBOARD</button><p class="hint">Akun rental lama yang expired tetap dapat masuk. Akses Remote nantinya mengikuti saldo koin.</p></form>
+<div class="notice"><b>Mode pratinjau:</b> tampilan dan interaksi dasar menggunakan data contoh. Belum mengakses Android DB dan belum membuat transaksi sungguhan.</div></section>
 <section id="dashboard" class="hidden">
-  <div class="hello">Halo, <span id="welcome" class="blue">player</span></div>
-  <div class="profile">
-    <div><div class="cap">USER ID</div><div id="pid" class="val">—</div></div>
-    <div><div class="cap">SISA WAKTU</div><div id="time" class="val time">—</div></div>
-    <div><div class="cap">EXPIRED</div><div id="exp" class="val">—</div></div>
-  </div>
-  <div id="lock" class="lock hidden"><b id="lockTitle">Akses rental tidak aktif</b><small id="reason"></small></div>
-  <div class="counts">
-    <div><strong id="ready" class="green">0</strong><span class="green">READY</span></div>
-    <div><strong id="active" class="yellow">0</strong><span class="yellow">ACTIVE</span></div>
-    <div><strong id="offline" class="red">0</strong><span class="red">OFFLINE</span></div>
-  </div>
-  <div class="head"><h2>Daftar PC</h2><button id="refresh">↻ Refresh</button></div>
-  <div id="pcs" class="list"><div class="empty">Memuat daftar PC…</div></div>
-  <div class="notice">StarDesk tetap menangani streaming remote. Integrasi host StarDesk untuk tombol Hubungkan sedang disiapkan; PC yang belum dipasangkan tidak akan membuka koneksi palsu.</div>
-  <div class="footer">ANI GAMES READY • POWERED BY STARDESK<br>Versi 0.1.0</div>
-</section>
-</div>
-<div id="toast" class="toast"></div>
-
+<div class="between"><div class="hello">Halo, <span id="welcome" class="blue">player</span></div><button id="logout">Keluar ↗</button></div>
+<div class="profile"><div><div class="cap">STATUS AKUN RENTAL LAMA</div><div class="val yellow">EXPIRED (CONTOH)</div></div><div><div class="cap">AKSES REMOTE</div><div class="val green">BERDASARKAN KOIN</div></div></div>
+<div class="wallet"><div class="cap">SALDO DOMPET KOIN • DATA CONTOH</div><div class="balance"><span id="balance">150</span> <small>koin</small></div><div class="wallet-note">Koin lama tidak diperpanjang saat top-up baru.</div></div>
+<div class="lock"><b>Akun rental lama expired</b><small>Expired tidak akan mengunci dompet Remote setelah integrasi Android DB selesai.</small></div>
+<div class="nav"><button data-tab="home" class="active">PC</button><button data-tab="topup">TOP-UP</button><button data-tab="rates">TARIF</button><button data-tab="history">RIWAYAT</button></div>
+<section id="tab-home"><div class="title"><h2>Pilih PC Gaming</h2><button id="refresh">↻ Refresh</button></div><p class="muted">Status berikut adalah data contoh, bukan status PC live.</p><div class="pc-list" id="pcList"></div><div class="notice">Tombol pilih PC hanya memberi pesan preview. Koneksi StarDesk belum diaktifkan.</div></section>
+<section id="tab-topup" class="hidden"><div class="title"><h2>Top-up Koin</h2><span class="muted">QRIS statis</span></div>
+<div class="card"><label class="label">PILIH NOMINAL PEMBAYARAN</label><div class="grid2" id="packages">
+<button type="button" class="package" data-amount="5000"><b>Rp5.000</b><span>37,5 koin</span></button><button type="button" class="package selected" data-amount="10000"><b>Rp10.000</b><span>75 koin</span></button><button type="button" class="package" data-amount="15000"><b>Rp15.000</b><span>112,5 koin</span></button><button type="button" class="package" data-amount="20000"><b>Rp20.000</b><span>150 koin</span></button></div>
+<div style="margin-top:13px"><label class="label" for="manualAmount">ATAU MASUKKAN NOMINAL SENDIRI</label><input id="manualAmount" type="number" min="1000" step="1000" class="field" placeholder="Contoh: 7000"></div>
+<div class="calc"><div class="between"><span class="muted">Koin diterima</span><strong id="coinResult">75 koin</strong></div><div class="between" style="margin-top:6px"><span class="muted">Expired koin baru</span><b id="expiryResult">3 hari</b></div><div class="between" style="margin-top:6px"><span class="muted">Saldo setelah top-up</span><b id="totalResult">225 koin</b></div><div class="muted" style="margin-top:8px">Kurs Rp8.000 = 60 koin. Expired lot lama tidak berubah.</div></div></div>
+<div class="card"><div class="between"><b>QRIS Ani Games Ready</b><span class="muted">Merchant</span></div><div class="qris" id="qrisZoom"><img alt="QRIS Ani Games Ready" src="qris_ani_games.png"></div><div class="caption">Ketuk QR untuk memperbesar. QRIS statis: masukkan nominal sendiri di aplikasi bank/e-wallet.</div><div class="between" style="margin-top:12px"><div><div class="muted">Nominal transfer</div><b id="payAmount">Rp10.000</b></div><button id="copyAmount">Salin nominal</button></div><button id="confirmWa" class="primary full">Konfirmasi via WhatsApp</button><p class="hint">Hanya uji pembukaan WhatsApp. Pesan bertanda PREVIEW; tidak membuat order atau menambahkan koin.</p></div></section>
+<section id="tab-rates" class="hidden"><div class="title"><h2>Tarif Remote PC</h2><span class="muted">Tarif disetujui</span></div><div class="table" id="rateList"></div><div class="notice">Pemakaian dihitung proporsional menurut durasi aktual, bukan dibulatkan per jam.</div></section>
+<section id="tab-history" class="hidden"><div class="title"><h2>Riwayat</h2><span class="muted">Data contoh</span></div><div class="table"><div class="history"><b>Top-up Rp20.000 • +150 koin</b><small>Contoh transaksi disetujui • 22 Nov 2026</small></div><div class="history"><b>Remote Play RTX 5060 • −12 koin</b><small>Contoh pemakaian 12 menit • 22 Nov 2026</small></div></div><div class="notice">Riwayat akan dibaca dari Android DB setelah API dompet koin dibuat.</div></section>
+<div class="footer">ANI GAMES READY • ANDROID DB EDITION<br>BUILD UI PREVIEW • DATA BUKAN DATA LIVE</div></section></div>
+<div id="toast" class="toast"></div><div id="modal" class="modal hidden"><button id="closeModal">Tutup ✕</button><img src="qris_ani_games.png" alt="QRIS Ani Games Ready"></div>
 <script>
-const API_BASE = "https://wzkjpycjizexxcxrfdvr.supabase.co/functions/v1/stardesk-client-api";
-const API_KEY = "sb_publishable_1Jsp3ZQDLwtoZ2hSPO83YA_7e1j723g";
-const $ = (id) => document.getElementById(id);
-let session = { token: localStorage.getItem("ani_client_token") || "", userId: localStorage.getItem("ani_user_id") || "" };
-let busy = false;
-
-function toast(message) {
-  const el = $("toast");
-  el.textContent = message;
-  el.style.display = "block";
-  clearTimeout(window.__toastTimer);
-  window.__toastTimer = setTimeout(() => { el.style.display = "none"; }, 2800);
-}
-window.showNativeMessage = toast;
-
-function clientId() {
-  try {
-    if (window.AniAndroid && window.AniAndroid.getClientId) return window.AniAndroid.getClientId();
-  } catch (_) {}
-  let value = localStorage.getItem("ani_client_id");
-  if (!value) {
-    value = "web-" + (window.crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
-    localStorage.setItem("ani_client_id", value);
-  }
-  return value;
-}
-function deviceName() {
-  try { if (window.AniAndroid && window.AniAndroid.getDeviceName) return window.AniAndroid.getDeviceName(); } catch (_) {}
-  return "Android client";
-}
-function appVersion() {
-  try { if (window.AniAndroid && window.AniAndroid.getAppVersion) return window.AniAndroid.getAppVersion(); } catch (_) {}
-  return "web-preview";
-}
-async function api(path, body) {
-  const response = await fetch(API_BASE + "/" + path, {
-    method: "POST",
-    headers: { "apikey": API_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify(body || {})
-  });
-  let data = {};
-  try { data = await response.json(); } catch (_) {}
-  if (!response.ok || data.ok !== true) {
-    const error = new Error(data.error || "REQUEST_FAILED");
-    error.status = response.status;
-    throw error;
-  }
-  return data;
-}
-function humanError(error) {
-  const messages = {
-    RENTAL_NOT_FOUND: "User ID rental tidak ditemukan.",
-    RENTAL_CODE_AMBIGUOUS: "User ID tidak unik. Hubungi admin untuk pemeriksaan.",
-    TOO_MANY_ATTEMPTS: "Terlalu banyak percobaan. Coba lagi beberapa saat.",
-    CLIENT_SESSION_INVALID: "Sesi login berakhir. Silakan masuk kembali.",
-    PC_LIST_UNAVAILABLE: "Daftar PC belum dapat dimuat.",
-    PC_STATUS_UNAVAILABLE: "Status PC belum dapat dimuat.",
-    ORGANIZATION_SUSPENDED: "Akses organisasi sedang dinonaktifkan.",
-    SERVICE_UNAVAILABLE: "Server sedang tidak tersedia.",
-    RATE_LIMIT_SERVICE_UNAVAILABLE: "Layanan login sedang sibuk."
-  };
-  if (error && error.message === "Failed to fetch") return "Tidak dapat terhubung ke server. Periksa koneksi internet.";
-  return messages[error && error.message] || "Terjadi kendala: " + (error && error.message ? error.message : "coba lagi");
-}
-function formatTime(seconds) {
-  seconds = Math.max(0, Math.floor(Number(seconds) || 0));
-  const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) return String(h).padStart(2,"0") + "j " + String(m).padStart(2,"0") + "m";
-  return String(m).padStart(2,"0") + " menit";
-}
-function formatDate(value) {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "—";
-  return new Intl.DateTimeFormat("id-ID",{day:"2-digit",month:"short",year:"numeric"}).format(date);
-}
-function updateRental(rental, userId) {
-  $("welcome").textContent = userId || "player";
-  $("pid").textContent = userId || "—";
-  $("time").textContent = formatTime(rental.remainingSeconds);
-  $("exp").textContent = formatDate(rental.expiryAt);
-  const locked = rental.canPlay !== true;
-  $("lock").classList.toggle("hidden", !locked);
-  if (locked) {
-    const state = rental.accessState || "expired";
-    const title = state === "time_empty" ? "Saldo waktu habis" : state === "disabled" ? "Akun rental dinonaktifkan" : "Masa aktif rental berakhir";
-    const reason = state === "time_empty" ? "Pilihan PC dikunci sampai saldo ditambahkan." : state === "disabled" ? "Akun ini sedang dinonaktifkan. Hubungi admin rental." : "Masa aktif sudah berakhir. Pilihan PC dikunci.";
-    $("lockTitle").textContent = title;
-    $("reason").textContent = reason;
-  }
-}
-function renderPcs(pcs, canPlay) {
-  const list = $("pcs");
-  list.replaceChildren();
-  if (!Array.isArray(pcs) || pcs.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "empty";
-    empty.textContent = "Belum ada PC terdaftar.";
-    list.appendChild(empty);
-    return;
-  }
-  for (const pc of pcs) {
-    const status = ["ready","active","offline"].includes(pc.status) ? pc.status : "offline";
-    const card = document.createElement("article");
-    card.className = "pc" + (status === "active" ? " busy" : status === "offline" ? " offline" : "");
-    const icon = document.createElement("div");
-    icon.className = "monitor";
-    icon.textContent = "🎮";
-    const info = document.createElement("div");
-    const name = document.createElement("div");
-    name.className = "name";
-    name.textContent = pc.name || "PC Gaming";
-    const state = document.createElement("div");
-    state.className = "state " + (status === "ready" ? "green" : status === "active" ? "yellow" : "red");
-    state.textContent = "● " + (status === "ready" ? "READY" : status === "active" ? "ACTIVE" : "OFFLINE");
-    const meta = document.createElement("div");
-    meta.className = "meta";
-    meta.textContent = status === "ready" ? "Online • Siap dipilih" : status === "active" ? "Sedang digunakan" : "PC tidak terhubung";
-    info.append(name,state,meta);
-    const button = document.createElement("button");
-    button.disabled = true;
-    button.textContent = status === "ready" ? (canPlay ? "Segera hadir" : "Terkunci") : status === "active" ? "Dipakai" : "Offline";
-    card.append(icon,info,button);
-    list.appendChild(card);
-  }
-}
-function showDashboard() {
-  $("login").classList.add("hidden");
-  $("dashboard").classList.remove("hidden");
-  $("logout").classList.remove("hidden");
-}
-function showLogin() {
-  $("dashboard").classList.add("hidden");
-  $("login").classList.remove("hidden");
-  $("logout").classList.add("hidden");
-}
-async function loadCatalog() {
-  if (!session.token || busy) return;
-  busy = true;
-  $("refresh").disabled = true;
-  try {
-    const data = await api("catalog", { clientToken: session.token });
-    updateRental(data.rental || {}, data.userId || session.userId);
-    $("ready").textContent = data.counts?.ready ?? 0;
-    $("active").textContent = data.counts?.active ?? 0;
-    $("offline").textContent = data.counts?.offline ?? 0;
-    renderPcs(data.pcs || [], data.rental?.canPlay === true);
-    showDashboard();
-  } catch (error) {
-    if (error.status === 401 || error.message === "CLIENT_SESSION_INVALID") {
-      session = { token: "", userId: "" };
-      localStorage.removeItem("ani_client_token");
-      localStorage.removeItem("ani_user_id");
-      showLogin();
-    }
-    toast(humanError(error));
-  } finally {
-    busy = false;
-    $("refresh").disabled = false;
-  }
-}
-$("form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (busy) return;
-  const userId = $("uid").value.trim().toUpperCase();
-  if (!userId) return;
-  busy = true;
-  $("loginButton").disabled = true;
-  $("loginButton").textContent = "MEMERIKSA AKUN…";
-  try {
-    const data = await api("login", {
-      userId,
-      clientId: clientId(),
-      deviceName: deviceName(),
-      appVersion: appVersion()
-    });
-    session.token = data.clientToken;
-    session.userId = data.userId || userId;
-    localStorage.setItem("ani_client_token", session.token);
-    localStorage.setItem("ani_user_id", session.userId);
-    busy = false;
-    showDashboard();
-    await loadCatalog();
-  } catch (error) {
-    toast(humanError(error));
-  } finally {
-    busy = false;
-    $("loginButton").disabled = false;
-    $("loginButton").textContent = "MASUK KE DASHBOARD";
-  }
-});
-$("refresh").addEventListener("click", loadCatalog);
-$("logout").addEventListener("click", async () => {
-  const token = session.token;
-  session = { token: "", userId: "" };
-  localStorage.removeItem("ani_client_token");
-  localStorage.removeItem("ani_user_id");
-  showLogin();
-  try { if (token) await api("logout", { clientToken: token }); } catch (_) {}
-});
-window.onAniAppResume = () => {
-  if (session.token) loadCatalog();
-};
-if (session.token) loadCatalog();
-</script>
-</body>
-</html>
+const $=id=>document.getElementById(id);let currentUser="",selectedAmount=10000,balance=150;
+const rates=[{gpu:"GTX 1050",rp:6000,coins:45},{gpu:"GTX 1660",rp:6000,coins:45},{gpu:"RTX 3060",rp:7000,coins:52.5},{gpu:"RTX 5060",rp:8000,coins:60}];
+function toast(s){const e=$("toast");e.textContent=s;e.style.display="block";clearTimeout(window.__toast);window.__toast=setTimeout(()=>e.style.display="none",2600)}
+function rupiah(n){return "Rp"+Math.round(Number(n)||0).toLocaleString("id-ID")}function dec(n){return Number(n||0).toLocaleString("id-ID",{maximumFractionDigits:3})}
+function coinFor(n){return n*60/8000}function expiryDays(n){if(n<300)return 3;if(n<600)return 7;if(n<900)return 10;if(n<1200)return 14;if(n<1500)return 17;if(n<1800)return 21;if(n<2100)return 24;if(n<2400)return 28;return 30}
+function currentAmount(){const v=$("manualAmount").value.trim();return v?Math.max(0,Math.floor(Number(v)||0)):selectedAmount}
+function updateCalc(){const n=currentAmount(),c=coinFor(n),t=balance+c;$("coinResult").textContent=dec(c)+" koin";$("expiryResult").textContent=expiryDays(t)+" hari";$("totalResult").textContent=dec(t)+" koin";$("payAmount").textContent=rupiah(n);$("confirmWa").disabled=n<1000;document.querySelectorAll(".package").forEach(b=>b.classList.toggle("selected",!$("manualAmount").value&&Number(b.dataset.amount)===selectedAmount))}
+function renderRates(){$("rateList").innerHTML=rates.map(r=>'<div class="rate"><div><b>'+r.gpu+'</b><span>'+rupiah(r.rp)+' / jam</span></div><div style="text-align:right"><b>'+dec(r.coins)+' koin/jam</b><span>'+dec(r.coins/60)+' koin/menit</span></div></div>').join("")}
+function renderPcs(){const pcs=[{gpu:"GTX 1050",status:"READY",kind:"green"},{gpu:"GTX 1660",status:"READY",kind:"green"},{gpu:"RTX 3060",status:"DIPAKAI",kind:"yellow"},{gpu:"RTX 5060",status:"OFFLINE",kind:"red"}];$("pcList").innerHTML=pcs.map(p=>{const r=rates.find(x=>x.gpu===p.gpu);return '<article class="pc"><div class="monitor">🎮</div><div><div class="name">PC '+p.gpu+'</div><div class="meta">'+rupiah(r.rp)+'/jam • '+dec(r.coins)+' koin/jam</div><div class="state '+p.kind+'">● '+p.status+'</div></div><button data-pc="'+p.gpu+'">Pilih PC</button></article>'}).join("");document.querySelectorAll("[data-pc]").forEach(b=>b.addEventListener("click",()=>toast("Preview: koneksi "+b.dataset.pc+" belum tersambung ke Android DB.")))}
+function tab(name){["home","topup","rates","history"].forEach(x=>$("tab-"+x).classList.toggle("hidden",x!==name));document.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===name))}
+$("loginForm").addEventListener("submit",e=>{e.preventDefault();currentUser=$("uid").value.trim().toUpperCase();if(!currentUser)return;$("welcome").textContent=currentUser;$("login").classList.add("hidden");$("dashboard").classList.remove("hidden");$("balance").textContent=dec(balance);renderPcs();renderRates();updateCalc();tab("home")});
+document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>tab(b.dataset.tab)));
+document.querySelectorAll(".package").forEach(b=>b.addEventListener("click",()=>{selectedAmount=Number(b.dataset.amount);$("manualAmount").value="";updateCalc()}));
+$("manualAmount").addEventListener("input",updateCalc);$("refresh").addEventListener("click",()=>{renderPcs();toast("Data contoh diperbarui. Belum membaca PC live.")});
+$("logout").addEventListener("click",()=>{$("dashboard").classList.add("hidden");$("login").classList.remove("hidden");$("uid").value="";currentUser=""});
+$("copyAmount").addEventListener("click",()=>{const n=String(currentAmount());if(window.AniAndroid&&AniAndroid.copyText)AniAndroid.copyText(n);else toast("Nominal: "+rupiah(n))});
+$("confirmWa").addEventListener("click",()=>{const n=currentAmount(),coins=coinFor(n),days=expiryDays(balance+coins);if(n<1000)return;const id="PREVIEW-"+String(Date.now()).slice(-8);const message="PRATINJAU UI ANI GAMES READY — JANGAN DIPROSES SEBAGAI TRANSAKSI\n\nID Rental: "+currentUser+"\nID Transaksi: "+id+"\nNominal transfer: "+rupiah(n)+"\nJumlah koin: "+dec(coins)+"\nExpired lot koin baru: "+days+" hari\nMetode: QRIS statis\n\nIni hanya uji APK. Belum ada order di Android DB dan saya tidak melakukan pembayaran.\n\nFormat transaksi sungguhan akan aktif setelah backend siap.";if(window.AniAndroid&&AniAndroid.openWhatsApp)AniAndroid.openWhatsApp(message);else toast("Fitur WhatsApp hanya tersedia dari APK Android.")});
+$("qrisZoom").addEventListener("click",()=>$("modal").classList.remove("hidden"));$("closeModal").addEventListener("click",()=>$("modal").classList.add("hidden"));$("modal").addEventListener("click",e=>{if(e.target===$("modal"))$("modal").classList.add("hidden")});
+</script></body></html>
