@@ -169,6 +169,9 @@ BEGIN
      OR NOT has_function_privilege('ani_api_runtime','api.admin_remote_coin_approve_topup(text,uuid)','EXECUTE') THEN
     RAISE EXCEPTION 'COIN_RPC_RUNTIME_GRANTS_MISSING';
   END IF;
+  IF has_function_privilege('ani_api_runtime','private.remote_coin_expire_wallet(uuid)','EXECUTE') THEN
+    RAISE EXCEPTION 'COIN_INTERNAL_EXPIRY_HELPER_LEAKED_TO_RUNTIME_ROLE';
+  END IF;
 END;
 $$;
 
