@@ -212,6 +212,12 @@ const RPC = {
   admin_remote_play_issue_host_enrollment: { auth: "admin", sql: "SELECT api.admin_remote_play_issue_host_enrollment($1::text,$2::uuid,$3::integer) AS result", args: ["p_device_id","p_valid_minutes"] },
   admin_remote_play_sessions: { auth: "admin", sql: "SELECT api.admin_remote_play_sessions($1::text,$2::integer) AS result", args: ["p_limit"] },
   admin_remote_play_dashboard: { auth: "admin", sql: "SELECT api.admin_remote_play_dashboard($1::text,$2::integer) AS result", args: ["p_limit"] },
+  wol_relay_create_enrollment: { auth: "admin", sql: "SELECT api.wol_relay_create_enrollment($1::text) AS result", args: [] },
+  wol_relay_status: { auth: "admin", sql: "SELECT api.wol_relay_status($1::text) AS result", args: [] },
+  wol_relay_enqueue: { auth: "admin", sql: "SELECT api.wol_relay_enqueue($1::text,$2::uuid) AS result", args: ["p_target_device_id"] },
+  wol_relay_command_status: { auth: "admin", sql: "SELECT api.wol_relay_command_status($1::text,$2::uuid) AS result", args: ["p_command_id"] },
+  wol_relay_probe_request: { auth: "admin", sql: "SELECT api.wol_relay_probe_request($1::text) AS result", args: [] },
+  wol_relay_probe_status: { auth: "admin", sql: "SELECT api.wol_relay_probe_status($1::text,$2::uuid) AS result", args: ["p_probe_id"] },
 
   remote_play_refresh: { sql: "SELECT api.remote_play_refresh($1::text) AS result", args: ["p_refresh_token"] },
   remote_play_logout: { auth: "remote_client", sql: "SELECT api.remote_play_logout($1::text) AS result", args: [] },
@@ -308,6 +314,51 @@ async function deviceRequest(req, res, path, body) {
   // Accept the same Bearer device token used by the Supabase Edge Function client;
   // body.token remains supported for legacy compatibility. Never log either value.
   const token = bearer(req) || str(body.token, 512);
+  if (path === "/device/wol/enroll") {
+    const code = str(body.code, 64).toUpperCase();
+    const installationId = str(body.installationId, 128);
+    if (!/^[A-F0-9]{12}$/.test(code) || installationId.length < 8) {
+      return send(res, 400, {ok:false,error:"INVALID_WOL_RELAY_ENROLLMENT"});
+    }
+    const rateKey = bucketHash("wol-relay-enroll", clientIp(req), code);
+    await callRateLimit(rateKey, 5);
+    const result = await scalar(
+      "SELECT api.wol_relay_register($1::text,$2::text,$3::text,$4::text,$5::text) AS result",
+      [code,str(body.relayName,100),installationId,str(body.appVersion,64),str(body.model,100)]
+    );
+    await clearRateLimit([rateKey]);
+    return send(res,200,result);
+  }
+  if (path === "/device/wol/heartbeat") {
+    if (!token) return send(res,401,{ok:false,error:"WOL_RELAY_AUTH_REQUIRED"});
+    return send(res,200,await scalar(
+      "SELECT api.wol_relay_heartbeat($1::text,$2::jsonb) AS result",
+      [token,body.metrics && typeof body.metrics === "object" ? body.metrics : {}]
+    ));
+  }
+  if (path === "/device/wol/poll") {
+    if (!token) return send(res,401,{ok:false,error:"WOL_RELAY_AUTH_REQUIRED"});
+    return send(res,200,await scalar("SELECT api.wol_relay_poll($1::text) AS result",[token]));
+  }
+  if (path === "/device/wol/ack") {
+    if (!token) return send(res,401,{ok:false,error:"WOL_RELAY_AUTH_REQUIRED"});
+    const commandId=str(body.commandId,64);
+    const status=str(body.status,32);
+    const result=body.result && typeof body.result === "object" ? body.result : {};
+    return send(res,200,await scalar(
+      "SELECT api.wol_relay_ack($1::text,$2::uuid,$3::text,$4::jsonb) AS result",
+      [token,commandId,status,result]
+    ));
+  }
+  if (path === "/device/wol/probe-ack") {
+    if (!token) return send(res,401,{ok:false,error:"WOL_RELAY_AUTH_REQUIRED"});
+    const probeId=str(body.probeId,64), nonce=str(body.nonce,64);
+    const metrics=body.metrics && typeof body.metrics === "object" ? body.metrics : {};
+    return send(res,200,await scalar(
+      "SELECT api.wol_relay_probe_ack($1::text,$2::uuid,$3::uuid,$4::jsonb) AS result",
+      [token,probeId,nonce,metrics]
+    ));
+  }
   if (path === "/device/enroll") {
     const code = str(body.code,80).toUpperCase();
     const clientId = str(body.clientId,128);
