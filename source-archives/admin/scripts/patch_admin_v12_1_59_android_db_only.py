@@ -321,6 +321,84 @@ billing_html = billing_html.replace("Billing tetap berjalan offline. Saat online
 billing_html = billing_html.replace("Hubungkan PC ke Cloud", "Hubungkan PC ke Android DB")
 billing_html = billing_html.replace("Cek Status Cloud", "Cek Status Android DB")
 billing_html = billing_html.replace("Cloud belum dipairing.", "Android DB belum dipairing.")
+
+billing_bridge = r"""
+// V11 Android DB bridge: expose the real timer state and execute Admin commands.
+window.v11GetActiveCode = () => currentActiveCode || null;
+window.v11GetUser = code => dbUsers[String(code || '').trim().toUpperCase()] || null;
+window.v11ApplyRemoteCommand = async (command, payload = {}) => {
+    const cmd = String(command || '').trim().toLowerCase();
+    try {
+        if (cmd === 'refresh') {
+            setTimeout(() => location.reload(), 1500);
+            return {ok:true, message:'Billing page refresh dijadwalkan'};
+        }
+        if (cmd === 'pause' || cmd === 'stop') {
+            const code = currentActiveCode || String(localStorage.getItem('billing_remote_paused_code') || '').trim().toUpperCase();
+            if (currentActiveCode) stopActiveSession();
+            if (cmd === 'stop' && !code) return {ok:false, error:'NO_ACTIVE_OR_PAUSED_SESSION'};
+            return {ok:true, command:cmd, rentalCode:code || null, remainingSeconds:code ? Number(dbUsers[code]?.remainingSeconds) || 0 : 0};
+        }
+        if (cmd === 'resume') {
+            const code = String(localStorage.getItem('billing_remote_paused_code') || '').trim().toUpperCase();
+            if (!code || !dbUsers[code]) return {ok:false, error:'NO_PAUSED_RENTAL_ON_PC'};
+            const input = document.getElementById('user-code-input');
+            if (!input) return {ok:false, error:'BILLING_LOGIN_INPUT_MISSING'};
+            input.value = code;
+            startSession();
+            if (currentActiveCode !== code) return {ok:false, error:'RESUME_REJECTED_BY_BILLING_RULES'};
+            localStorage.removeItem('billing_remote_paused_code');
+            return {ok:true, command:cmd, rentalCode:code};
+        }
+        if (cmd === 'logout') {
+            const code = currentActiveCode || String(localStorage.getItem('billing_remote_paused_code') || '').trim().toUpperCase();
+            if (currentActiveCode) pauseSession(false);
+            localStorage.removeItem('billing_remote_paused_code');
+            writeSystemLog('Logout Billing diperintahkan oleh Admin Android DB.');
+            return {ok:true, command:cmd, rentalCode:code || null, remainingSeconds:code ? Number(dbUsers[code]?.remainingSeconds) || 0 : 0};
+        }
+        if (cmd === 'restart_billing') {
+            if (!window.electronAPI?.restartBilling) return {ok:false, error:'ELECTRON_RESTART_UNAVAILABLE'};
+            persistActiveSession(); saveDB(); writeSystemLog('Restart Billing diperintahkan oleh Admin Android DB.');
+            setTimeout(() => { try { window.electronAPI.restartBilling(); } catch (_) {} }, 1500);
+            return {ok:true, message:'Restart Billing dijadwalkan'};
+        }
+        if (cmd === 'logoff' || cmd === 'restart_pc' || cmd === 'shutdown') {
+            const action = cmd === 'restart_pc' ? 'restart' : cmd;
+            if (!window.electronAPI?.powerAction) return {ok:false, error:'ELECTRON_POWER_ACTION_UNAVAILABLE'};
+            persistActiveSession(); saveDB(); writeSystemLog('Aksi Windows '+action+' diperintahkan oleh Admin Android DB.');
+            await Promise.resolve(window.electronAPI.powerAction(action));
+            return {ok:true, command:cmd};
+        }
+        return {ok:false, error:'UNSUPPORTED_REMOTE_COMMAND', command:cmd};
+    } catch (error) {
+        return {ok:false, error:String(error?.message || error).slice(0,180), command:cmd};
+    }
+};
+"""
+billing_scripts = re.findall(r'(<script\b(?![^>]*\bsrc=)[^>]*>)(.*?)(</script>)', billing_html, re.I | re.S)
+if len(billing_scripts) != 1:
+    raise SystemExit("BILLING_INLINE_SCRIPT_COUNT_INVALID:" + str(len(billing_scripts)))
+def inject_billing_bridge(match):
+    return match.group(1) + match.group(2) + "\n" + billing_bridge + "\n" + match.group(3)
+billing_html, bridge_count = re.subn(r'<script\b(?![^>]*\bsrc=)[^>]*>.*?</script>', inject_billing_bridge, billing_html, count=1, flags=re.I | re.S)
+if bridge_count != 1:
+    raise SystemExit("BILLING_REMOTE_COMMAND_BRIDGE_INJECTION_FAILED")
+Path("/tmp/billing-v1259.js").write_text(billing_scripts[0][1] + "\n" + billing_bridge, encoding="utf-8")
+
+delete_pattern = re.compile(r"(?ms)^        function deleteUser\(code\)\s*\{.*?^        \}")
+delete_replacement = """        function deleteUser(code) {
+            if (confirm('Apakah Anda yakin ingin menghapus user ' + code + '?')) {
+                delete dbUsers[code];
+                try { window.v11DeleteRental?.(code); } catch (_) {}
+            }
+            saveDB();
+            renderUserTable();
+        }"""
+billing_html, delete_count = delete_pattern.subn(lambda _: delete_replacement, billing_html, count=1)
+if delete_count != 1:
+    raise SystemExit("BILLING_DELETE_RENTAL_HOOK_ANCHOR_MISSING")
+
 billing_html_path.write_text(billing_html, encoding="utf-8")
 
 cloud_js = r"""(() => {
@@ -407,7 +485,7 @@ cloud_js = r"""(() => {
       status('ANDROID DB ONLINE • '+(d.commands?.length||0)+' perintah • '+new Date().toLocaleTimeString('id-ID'));
       setPcState('online','STATUS PC: AKTIF');
       for(const cmd of d.commands||[]){
-        let result;try{result=window.v11ApplyRemoteCommand?.(cmd.command,cmd.payload)||{ok:false,message:'Perintah tidak didukung di PC.'}}
+        let result;try{result=window.v11ApplyRemoteCommand?await window.v11ApplyRemoteCommand(cmd.command,cmd.payload):{ok:false,message:'Bridge perintah Admin belum tersedia di PC.'}}
         catch(e){result={ok:false,message:e?.message||'Command execution failed'}}
         try{await request('/device/ack',{token:c.token,commandId:cmd.id,status:result.ok?'completed':'failed',result})}catch(_){}
       }
@@ -448,9 +526,9 @@ cloud_js = r"""(() => {
       window[name]=function(...args){const before=window.v11GetActiveCode?.()||null,r=original.apply(this,args);
         try{const after=window.v11GetActiveCode?.()||null,ev=make(before,after);if(ev)enqueue(ev)}catch(_){}return r};
     };
-    wrap('startSession',(b,a)=>a?{eventType:'session_started',dataClass:'usage',category:window.v11GetUser?.(a)?.category||'reguler',code:a,payload:{source:'pc'}}:null);
-    wrap('startTenMinuteTest',()=>({eventType:'free_test_started',dataClass:'usage',category:'free_test',code:'__TEST10__',durationSeconds:600,payload:{source:'pc'}}));
-    wrap('pauseSession',(b)=>b?{eventType:'session_ended',dataClass:'usage',code:b,payload:{source:'pc'}}:null);
+    wrap('startSession',(b,a)=>{if(a)localStorage.removeItem('billing_remote_paused_code');return a?{eventType:'session_started',dataClass:'usage',category:window.v11GetUser?.(a)?.category||'reguler',code:a,payload:{source:'pc'}}:null});
+    wrap('startTenMinuteTest',(b,a)=>a==='__TEST10__'?{eventType:'free_test_started',dataClass:'usage',category:'free_test',code:'__TEST10__',durationSeconds:600,payload:{source:'pc'}}:null);
+    wrap('pauseSession',(b)=>{const u=window.v11GetUser?.(b);if(b&&b!=='__TEST10__'&&(Number(u?.remainingSeconds)||0)>0)localStorage.setItem('billing_remote_paused_code',b);else localStorage.removeItem('billing_remote_paused_code');return b?{eventType:'session_ended',dataClass:'usage',code:b,payload:{source:'pc'}}:null});
     wrap('saveUserAdmin',()=>({eventType:'billing_database_changed',dataClass:'transaction',payload:{source:'pc-admin'}}));
     window.v11SyncRental=enqueueRentalSnapshot;
     window.v11DeleteRental=code=>{const value=String(code||'').toUpperCase();if(value)enqueue({eventType:'rental_account_delete',dataClass:'configuration',code:value,payload:{source:'pc'}})};
@@ -479,6 +557,8 @@ for forbidden in ("supabase.co","supabase.createclient","sb.schema(","sb.from(",
         raise SystemExit("FORBIDDEN_ANDROID_DB_ONLY_CLOUD_JS_REFERENCE:"+forbidden)
 if "https://"+ "x" in cloud or "/device/sync" not in cloud or "/device/heartbeat" not in cloud or "/device/enroll" not in cloud or "/device/ack" not in cloud:
     raise SystemExit("ANDROID_DB_DEVICE_API_CONTRACT_MISSING")
+if "v11GetActiveCode" not in billing_html or "v11ApplyRemoteCommand" not in billing_html:
+    raise SystemExit("BILLING_REMOTE_COMMAND_BRIDGE_MISSING")
 if 'id="v11-api-base"' not in billing_html or "v11SaveAndroidDbApi" not in billing_html:
     raise SystemExit("ANDROID_DB_API_CONFIGURATION_UI_MISSING")
 
