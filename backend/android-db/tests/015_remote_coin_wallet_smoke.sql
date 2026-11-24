@@ -136,7 +136,8 @@ BEGIN
     RAISE EXCEPTION 'COIN_EXPIRED_LOT_REMAINS_SPENDABLE';
   END IF;
   IF NOT EXISTS(SELECT 1 FROM remote_play.coin_ledger
-      WHERE reference_id=order_id::text AND event_type='lot_expired') THEN
+      WHERE lot_id=(SELECT id FROM remote_play.coin_lots WHERE source_order_id=order_id)
+        AND event_type='lot_expired') THEN
     RAISE EXCEPTION 'COIN_EXPIRED_LOT_LEDGER_EVENT_MISSING';
   END IF;
 
