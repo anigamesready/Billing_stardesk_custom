@@ -184,6 +184,9 @@ for name in ("admin.html","index.html","admin-control.html"):
     page = re.sub(r'<script\b[^>]*src=["\']https://cdn\.jsdelivr\.net/npm/@supabase/supabase-js@2[^>]*></script>', '', page, flags=re.I)
     page = page.replace(STAGE_GATEWAY, LOCAL_API)
     page = page.replace("https://" + STAGE_RELAY, "https://legacy-stage-relay-disabled.invalid")
+    # Remove hostnames even when an older patch stored them without a scheme.
+    page = page.replace("ani-games-db-android-stage-gateway.anigamesready.workers.dev", "127.0.0.1:8787")
+    page = page.replace("ani-games-db-android-stage-ws-relay.anigamesready.workers.dev", "legacy-stage-relay-disabled.invalid")
     page = page.replace("Alamat Gateway DB Android", "Alamat API Android DB")
     page = page.replace("ALAMAT GATEWAY DB ANDROID", "ALAMAT API ANDROID DB")
     # The V12.1.58 gateway repair replaced the original API routing guard.
