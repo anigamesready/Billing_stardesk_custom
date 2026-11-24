@@ -5,8 +5,6 @@ on:
   push:
     branches:
       - feature/remote-androiddb-live-coin-20261125
-      - feature/remote-androiddb-live-coin-20261125
-      - feature/remote-androiddb-live-coin-20261125
     paths:
       - "backend/android-db/migrations/**"
       - "backend/android-db/server/**"
@@ -14,7 +12,8 @@ on:
       - "backend/android-db/tests/012_remote_play_admin_controls_smoke.sql"
       - "backend/android-db/tests/013_remote_play_server_watchdog_smoke.sql"
       - "backend/android-db/tests/014_remote_play_stream_billing_clock_smoke.sql"
-          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/tests/015_remote_coin_wallet_smoke.sql
+      - "backend/android-db/tests/015_remote_coin_wallet_smoke.sql"
+      - ".github/workflows/test-androiddb-remote-play.yml"
   workflow_dispatch:
 
 permissions:
@@ -75,7 +74,6 @@ jobs:
             backend/android-db/migrations/018_remote_play_server_watchdog.sql \
             backend/android-db/migrations/019_remote_play_session_connected.sql \
             backend/android-db/migrations/020_remote_coin_wallet.sql; do
-            backend/android-db/migrations/020_remote_coin_wallet.sql;
               echo "Applying $file"
               psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f "$file"
           done
@@ -131,6 +129,13 @@ jobs:
 
         run: |
           set -euo pipefail
+
+      - name: Test coin wallet lots, top-ups, expiry, rates and StarDesk mapping without touching rental time
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/tests/015_remote_coin_wallet_smoke.sql
 
       - name: Test coin wallet lots, top-ups, expiry, rates and StarDesk mapping without touching rental time
         env:
