@@ -212,6 +212,16 @@ const RPC = {
   admin_remote_play_issue_host_enrollment: { auth: "admin", sql: "SELECT api.admin_remote_play_issue_host_enrollment($1::text,$2::uuid,$3::integer) AS result", args: ["p_device_id","p_valid_minutes"] },
   admin_remote_play_sessions: { auth: "admin", sql: "SELECT api.admin_remote_play_sessions($1::text,$2::integer) AS result", args: ["p_limit"] },
   admin_remote_play_dashboard: { auth: "admin", sql: "SELECT api.admin_remote_play_dashboard($1::text,$2::integer) AS result", args: ["p_limit"] },
+  admin_remote_coin_topups: { auth: "admin", sql: "SELECT api.admin_remote_coin_topups($1::text,$2::integer) AS result", args: ["p_limit"] },
+  admin_remote_coin_approve_topup: { auth: "admin", sql: "SELECT api.admin_remote_coin_approve_topup($1::text,$2::uuid) AS result", args: ["p_order_id"] },
+  admin_remote_coin_reject_topup: { auth: "admin", sql: "SELECT api.admin_remote_coin_reject_topup($1::text,$2::uuid,$3::text) AS result", args: ["p_order_id","p_reason"] },
+  admin_remote_coin_set_device_rate: { auth: "admin", sql: "SELECT api.admin_remote_coin_set_device_rate($1::text,$2::uuid,$3::text) AS result", args: ["p_device_id","p_gpu_class"] },
+  admin_remote_coin_link_stardesk_device: { auth: "admin", sql: "SELECT api.admin_remote_coin_link_stardesk_device($1::text,$2::uuid,$3::text,$4::boolean) AS result", args: ["p_device_id","p_stardesk_device_id","p_enabled"] },
+
+  remote_coin_wallet: { auth: "remote_client", sql: "SELECT api.remote_coin_wallet($1::text) AS result", args: [] },
+  remote_coin_dashboard: { auth: "remote_client", sql: "SELECT api.remote_coin_dashboard($1::text) AS result", args: [] },
+  remote_coin_history: { auth: "remote_client", sql: "SELECT api.remote_coin_history($1::text,$2::integer) AS result", args: ["p_limit"] },
+  remote_coin_create_topup: { auth: "remote_client", sql: "SELECT api.remote_coin_create_topup($1::text,$2::bigint,$3::text) AS result", args: ["p_amount_rupiah","p_idempotency_key"] },
 
   remote_play_refresh: { sql: "SELECT api.remote_play_refresh($1::text) AS result", args: ["p_refresh_token"] },
   remote_play_logout: { auth: "remote_client", sql: "SELECT api.remote_play_logout($1::text) AS result", args: [] },
