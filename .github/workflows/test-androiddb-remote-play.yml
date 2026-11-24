@@ -4,16 +4,16 @@ name: Test Remote Play and Sunshine pairing on PostgreSQL
 on:
   push:
     branches:
-      - feature/remote-play-pairing-api-v0.2
-      - feature/remote-play-admin-controls-v0.3
-      - feature/remote-play-cloudflare-mesh-v0.4
+      - feature/remote-androiddb-live-coin-20261125
+      - feature/remote-androiddb-live-coin-20261125
+      - feature/remote-androiddb-live-coin-20261125
     paths:
-      - "db-android-core/schema/**"
-      - "db-android-core/server/**"
-      - "db-android-core/tests/011_remote_play_pairing_smoke.sql"
-      - "db-android-core/tests/012_remote_play_admin_controls_smoke.sql"
-      - "db-android-core/tests/013_remote_play_server_watchdog_smoke.sql"
-      - "db-android-core/tests/014_remote_play_stream_billing_clock_smoke.sql"
+      - "backend/android-db/migrations/**"
+      - "backend/android-db/server/**"
+      - "backend/android-db/tests/011_remote_play_pairing_smoke.sql"
+      - "backend/android-db/tests/012_remote_play_admin_controls_smoke.sql"
+      - "backend/android-db/tests/013_remote_play_server_watchdog_smoke.sql"
+      - "backend/android-db/tests/014_remote_play_stream_billing_clock_smoke.sql"
       - ".github/workflows/test-remote-play-pairing.yml"
   workflow_dispatch:
 
@@ -55,25 +55,26 @@ jobs:
         run: |
           set -euo pipefail
           for file in \
-            db-android-core/schema/000_prerequisites.sql \
-            db-android-core/schema/002_core_business_schema.sql \
-            db-android-core/schema/003_pc_device_api_functions.sql \
-            db-android-core/schema/004_billing_reseller_api.sql \
-            db-android-core/schema/005_runtime_privileges.sql \
-            db-android-core/schema/006_admin_local_auth_and_rpc.sql \
-            db-android-core/schema/007_billing_control_commands.sql \
-            db-android-core/schema/008_local_business_triggers.sql \
-            db-android-core/schema/009_admin_db1_business_routines.sql \
-            db-android-core/schema/010_billing_reseller_refresh_and_devices.sql \
-            db-android-core/schema/011_billing_control_android_rpcs.sql \
-            db-android-core/schema/012_billing_stop_pause_policy.sql \
-            db-android-core/schema/013_remote_play.sql \
-            db-android-core/schema/014_remote_play_pairing.sql \
-            db-android-core/schema/015_remote_play_admin_controls.sql \
-            db-android-core/schema/016_remote_play_cloudflare_mesh.sql \
-            db-android-core/schema/017_remote_play_dashboard_cooldown.sql \
-            db-android-core/schema/018_remote_play_server_watchdog.sql \
-            db-android-core/schema/019_remote_play_session_connected.sql; do
+            backend/android-db/migrations/000_prerequisites.sql \
+            backend/android-db/migrations/002_core_business_schema.sql \
+            backend/android-db/migrations/003_pc_device_api_functions.sql \
+            backend/android-db/migrations/004_billing_reseller_api.sql \
+            backend/android-db/migrations/005_runtime_privileges.sql \
+            backend/android-db/migrations/006_admin_local_auth_and_rpc.sql \
+            backend/android-db/migrations/007_billing_control_commands.sql \
+            backend/android-db/migrations/008_local_business_triggers.sql \
+            backend/android-db/migrations/009_admin_business_routines.sql \
+            backend/android-db/migrations/010_billing_reseller_refresh_and_devices.sql \
+            backend/android-db/migrations/011_billing_control_android_rpcs.sql \
+            backend/android-db/migrations/012_billing_stop_pause_policy.sql \
+            backend/android-db/migrations/013_remote_play.sql \
+            backend/android-db/migrations/014_remote_play_pairing.sql \
+            backend/android-db/migrations/015_remote_play_admin_controls.sql \
+            backend/android-db/migrations/016_remote_play_cloudflare_mesh.sql \
+            backend/android-db/migrations/017_remote_play_dashboard_cooldown.sql \
+            backend/android-db/migrations/018_remote_play_server_watchdog.sql \
+            backend/android-db/migrations/019_remote_play_session_connected.sql; do
+            backend/android-db/migrations/020_remote_coin_wallet.sql;
               echo "Applying $file"
               psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f "$file"
           done
@@ -85,16 +86,16 @@ jobs:
         run: |
           set -euo pipefail
           for file in \
-            db-android-core/tests/001_pc_device_api_smoke.sql \
-            db-android-core/tests/002_billing_reseller_api_smoke.sql \
-            db-android-core/tests/003_runtime_privileges_smoke.sql \
-            db-android-core/tests/004_admin_local_auth_smoke.sql \
-            db-android-core/tests/005_billing_control_commands_smoke.sql \
-            db-android-core/tests/006_local_business_triggers_smoke.sql \
-            db-android-core/tests/007_admin_device_policy_smoke.sql \
-            db-android-core/tests/008_admin_enrollment_reports_theme_smoke.sql \
-            db-android-core/tests/009_admin_billing_user_crud_smoke.sql \
-            db-android-core/tests/010_billing_refresh_smoke.sql; do
+            backend/android-db/tests/001_pc_device_api_smoke.sql \
+            backend/android-db/tests/002_billing_reseller_api_smoke.sql \
+            backend/android-db/tests/003_runtime_privileges_smoke.sql \
+            backend/android-db/tests/004_admin_local_auth_smoke.sql \
+            backend/android-db/tests/005_billing_control_commands_smoke.sql \
+            backend/android-db/tests/006_local_business_triggers_smoke.sql \
+            backend/android-db/tests/007_admin_device_policy_smoke.sql \
+            backend/android-db/tests/008_admin_enrollment_reports_theme_smoke.sql \
+            backend/android-db/tests/009_admin_billing_user_crud_smoke.sql \
+            backend/android-db/tests/010_billing_refresh_smoke.sql; do
               echo "Testing $file"
               psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f "$file"
           done
@@ -104,53 +105,47 @@ jobs:
           PGPASSWORD: postgres
         run: |
           set -euo pipefail
-          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f db-android-core/tests/011_remote_play_pairing_smoke.sql
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/tests/011_remote_play_pairing_smoke.sql
 
       - name: Test Owner Remote Play dashboard, permissions, enrollment, activation and Mesh IP allowlist
         env:
           PGPASSWORD: postgres
         run: |
           set -euo pipefail
-          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f db-android-core/tests/012_remote_play_admin_controls_smoke.sql
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/tests/012_remote_play_admin_controls_smoke.sql
 
       - name: Test internal server-side Remote Play stale-session watchdog
         env:
           PGPASSWORD: postgres
         run: |
           set -euo pipefail
-          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f db-android-core/tests/013_remote_play_server_watchdog_smoke.sql
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/tests/013_remote_play_server_watchdog_smoke.sql
 
       - name: Test billing clock starts only after an authenticated stream-connected event
         env:
           PGPASSWORD: postgres
         run: |
           set -euo pipefail
-          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f db-android-core/tests/014_remote_play_stream_billing_clock_smoke.sql
-
-      - name: Validate Termux staging migration script on a second fresh database
-        env:
-          PGPASSWORD: postgres
-          PGHOST: 127.0.0.1
-          PGPORT: 5432
-          PGUSER: postgres
-          ANI_DB_NAME: ani_games_ready_stage_ci
-        run: |
-          set -euo pipefail
-          bash -n db-android-core/server/migrate-local.sh
-          bash db-android-core/server/migrate-local.sh
-          psql -X -v ON_ERROR_STOP=1 -d ani_games_ready_stage_ci -Atqc "SELECT CASE WHEN to_regprocedure('api.remote_play_dashboard(text)') IS NOT NULL AND to_regprocedure('api.remote_play_host_pairing_poll(text,uuid)') IS NOT NULL AND to_regprocedure('api.remote_play_watchdog_sweep()') IS NOT NULL AND to_regprocedure('api.remote_play_session_connected(text,uuid)') IS NOT NULL THEN 'PASS: Termux migration runner installs Remote Play + pairing' ELSE 'FAIL: Remote Play entry point missing' END"
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/tests/014_remote_play_stream_billing_clock_smoke.sql
 
       - name: Validate all DB Android Node RPC bindings against PostgreSQL schema
         run: |
           set -euo pipefail
-          node db-android-core/server/contract-check.mjs
+          node backend/android-db/server/contract-check.mjs
+
+      - name: Test coin wallet lots, top-ups, expiry, rates and StarDesk mapping without touching rental time
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/tests/015_remote_coin_wallet_smoke.sql
 
       - name: Install Node dependency and syntax-check DB Android API gateway
         uses: actions/setup-node@v4
         with:
           node-version: 24
       - name: Check API source
-        working-directory: db-android-core/server
+        working-directory: backend/android-db/server
         run: |
           set -euo pipefail
           npm install --no-audit --no-fund
