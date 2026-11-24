@@ -1,54 +1,60 @@
-name: Build Ani Games Ready StarDesk Client
-
+name: Build Ani Games Ready Remote Android DB Preview
 on:
   push:
     branches:
-      - stardesk-client-v1
+      - stardesk-androiddb-preview-v2
     paths:
       - "android-client/**"
       - ".github/workflows/build-stardesk-client.yml"
   workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
   build-debug-apk:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
-
-      - name: Set up Gradle 8.9
-        uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
-
       - name: Configure Android SDK
         run: |
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
-          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
-
+      - name: Validate UI controls and source boundary
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          h=Path("android-client/app/src/main/assets/index.html").read_text()
+          for token in ["loginForm","logout","refresh","confirmWa","copyAmount","manualAmount","qrisZoom","closeModal","data-tab","qris_ani_games.png","PREVIEW"]:
+              assert token in h, "missing control or preview state: "+token
+          assert "supabase.co" not in h.lower()
+          assert "functions/v1/stardesk-client-api" not in h
+          scripts=re.findall(r"<script>(.*?)</script>",h,re.S)
+          assert len(scripts)==1
+          Path("/tmp/remote-preview.js").write_text(scripts[0])
+          PY
+          node --check /tmp/remote-preview.js
+          grep -q "openWhatsApp" android-client/app/src/main/java/com/anigamesready/stardeskclient/MainActivity.java
+          grep -q "copyText" android-client/app/src/main/java/com/anigamesready/stardeskclient/MainActivity.java
+          test -s android-client/app/src/main/assets/qris_ani_games.png
       - name: Build debug APK
         working-directory: android-client
         run: gradle --no-daemon clean assembleDebug
-
-      - name: Upload installable APK
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: Ani-Games-Ready-Remote-debug
+          name: Ani-Games-Ready-Remote-AndroidDB-Preview-v0.2.0
           path: android-client/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
