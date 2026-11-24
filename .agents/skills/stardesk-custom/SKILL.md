@@ -16,6 +16,8 @@ description: Project-specific instructions for all development, auditing, builds
 
 ## 2. Mandatory workflow before editing
 
+- **Before every StarDesk task, open and read this complete `SKILL.md` from the current repository `main` branch.** Do not rely only on memory, an old local copy, or a prior conversation summary. Re-read it at the start of every task because these instructions and baselines can change.
+
 1. Inspect the whole relevant project structure and current working flow before changing anything.
 2. Identify dependencies, entry points, data flow, API contracts, database schema, permissions, and possible command/function conflicts.
 3. Read existing implementation and tests before proposing changes.
@@ -72,6 +74,9 @@ description: Project-specific instructions for all development, auditing, builds
 - Check Admin menu content for obsolete dual-DB settings and remove only the abandoned concepts; retain useful working admin features.
 - Verify network/database unavailable, timeout, invalid credentials, empty data, expired account, zero balance, unavailable PC, and retry states.
 - Do not claim a function is tested unless it was actually exercised or verified from source/test output.
+- **Release-quality gate (mandatory):** an APK is not releasable just because it builds or opens. Require a clean install/upgrade test on a real Android device, complete click-through of every visible action, login success/failure, real Android DB/API read-write checks, loading/error/empty/offline cases, balance/expiry access blocking, PC selection/status refresh, StarDesk launch handoff, and a real remote session where the required host is available. Check app ID, versionCode/versionName, signing certificate, permissions, exported components, network security, and that no abandoned dual-DB UI/settings remain. Record device/Android version and evidence for each test.
+- Release only when all required checks pass. A `SAFE-TEST`, `Preview`, or otherwise unverified APK may be used as an audit baseline but must not be labeled production-ready. If any essential test cannot be run, keep the build in test status and clearly disclose the blocker instead of issuing it as a release.
+- The goal is to prevent regressions and avoid routine rollback/recovery from old APK data. Preserve old artifacts for traceability only; never use them to mask a failed new release or silently restore stale application/database data.
 
 ## 8. Database and data integrity
 
@@ -95,14 +100,18 @@ description: Project-specific instructions for all development, auditing, builds
 
 ## 10. Repository state observed on 2026-11-24
 
-Default branch `main`; latest observed commit when this skill was created: `5c2a4e14dbbad696ddd30e348b48c149a8b8f36a` (2026-11-24).
+Default branch `main`; observed current head at the 2026-11-24 task: `577a3c6112f437ebc8c413a784858d9e1748adad`. The baseline APK upload commit is `5c2a4e14dbbad696ddd30e348b48c149a8b8f36a` (2026-11-24).
 Root contained:
 - `StarDesk_1.6.1.apk`
 - `AniGames-Admin-Online-V12.1.58-SAFE-TEST.apk`
 - `Ani-Games-Ready-Remote-AndroidDB-Preview-v0.2.0.apk`
 - `README.md`
 
-These names are observations, not permanent version pins. Always re-check the live repository. At that observed state, the root listing did not expose editable application source; therefore request or add the source project to this repository before attempting source-level changes, detailed code audits, or reproducible builds.
+**Current audit baselines selected by the user on 2026-11-24:**
+- Admin reference: `AniGames-Admin-Online-V12.1.58-SAFE-TEST.apk` (uploaded in commit `5c2a4e14dbbad696ddd30e348b48c149a8b8f36a`). This is the new Admin comparison/base artifact; its `SAFE-TEST` label means it is not automatically an approved production release.
+- Remote reference: `Ani-Games-Ready-Remote-AndroidDB-Preview-v0.2.0.apk` (uploaded in the same commit). This is the current Remote preview artifact, not a production release until it passes the release-quality gate.
+
+These names are observations, not permanent version pins. Always re-check the live repository and commit history. At this observed state, the root contains APK artifacts but no editable Android/Gradle source project or reproducible build workflow. An APK can support package/resource-level inspection, but it cannot replace the source for full dependency, logic, API, DB, or source-level audit. Add the editable source project to this same repository before attempting source-level fixes or claiming a reproducible new build.
 
 ## 11. Communication style and delivery
 
