@@ -58,7 +58,7 @@ function saveLocalApiUrl(){
 """
 
 auth = r"""
-let session=null,ctx=null,orgs=[],currentOrg=null,devicesCache=[],selectedDeviceId=null,selectedDevice=null;
+// Reuse the single shared Admin state declared by the original page.
 function secureGet(key){
  try{const v=window.AniAdminNative?.getSecureValue(key);if(v)return v}catch(_){}
  try{return sessionStorage.getItem(key)||''}catch(_){return ''}
