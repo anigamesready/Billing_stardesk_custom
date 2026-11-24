@@ -185,9 +185,21 @@ for name in ("admin.html","index.html","admin-control.html"):
     page = page.replace("Alamat Gateway DB Android", "Alamat API Android DB")
     page = page.replace("ALAMAT GATEWAY DB ANDROID", "ALAMAT API ANDROID DB")
     # The V12.1.58 gateway repair replaced the original API routing guard.
-    api_fn = re.compile(r"(?ms)^function localApiBase\(\)\s*\{.*?^\}")
+    local_api_base_fn = """function localApiBase(){
+ let saved='';
+ try{saved=String(localStorage.getItem(LOCAL_API_KEY)||'').trim()}catch(_){}
+ const target=saved||ONLINE_GATEWAY_URL;
+ let u;
+ try{u=new URL(target)}catch(_){throw new Error('ALAMAT_API_ANDROID_DB_TIDAK_VALID')}
+ const host=String(u.hostname||'').toLowerCase();
+ const loopback=['127.0.0.1','localhost','::1'].includes(host);
+ if(!['http:','https:'].includes(u.protocol)||(!loopback&&u.protocol!=='https:'))
+   throw new Error('API_DI_LUAR_PERANGKAT_WAJIB_HTTPS');
+ return u.href.replace(/\\/+$/,'');
+}"""
+    api_fn = re.compile(r"(?ms)^function localApiBase\\(\\)\\s*\\{.*?^\\}")
     if api_fn.search(page):
-        page, n = api_fn.subn(lambda _: api_config.split("function localApiBase",1)[1].split("\nfunction saveLocalApiUrl",1)[0] and api_config[api_config.index("function localApiBase"):api_config.index("\nfunction saveLocalApiUrl")] , page, count=1)
+        page, n = api_fn.subn(lambda _: local_api_base_fn, page, count=1)
         if n != 1:
             raise SystemExit("LOCAL_API_BASE_REPAIR_FAILED:" + name)
     # Keep the endpoint input useful and give localhost the main Android DB port.
