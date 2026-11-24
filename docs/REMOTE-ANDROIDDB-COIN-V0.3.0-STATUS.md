@@ -16,8 +16,8 @@ Stable `main` is intentionally unchanged.
 
 ## Build and test evidence
 
-- Android APK build: GitHub Actions workflow `Build Ani Games Ready Remote Android DB Coin Preview`; verify the latest successful run before distributing.
-- PostgreSQL regression: workflow `Test Remote Play and Sunshine pairing on PostgreSQL`; it creates a fresh disposable PostgreSQL 16 database, applies migrations 000 and 002–020 (the catalog snapshot 001 is excluded), then runs tests 001–015.
+- Android APK build: GitHub Actions run `45470090281` passed at source commit `09f2b3d7bc7eb41bd9c38f0e63e56a554ce87d95`. Package `com.anigamesready.stardeskclient`, versionCode `3`, versionName `0.3.0-androiddb-coin-preview`. APK SHA-256: `cae25f6e02967dbacecf6d66537ef9a186e0afe492d236c8ccd6c0066993ccb8`.
+- PostgreSQL regression: GitHub Actions run `45470216342` passed at source commit `e0abf8620afa0c91a727b6343d5c4631342baf0e`. It creates a fresh disposable PostgreSQL 16 database, applies migrations 000 and 002–020 (the catalog snapshot 001 is excluded), then runs tests 001–015.
 - Test 015 verifies wallet creation, QRIS order idempotency, Owner approval/rejection, coin-lot expiry and ledger entries, rate configuration, StarDesk ID mapping, runtime table privileges, and that the old rental account's time balance/status remain unchanged.
 - These tests are disposable CI only. They do not prove a live device install, live HTTPS tunnel, live QRIS payment, or StarDesk PC streaming operation.
 
@@ -52,4 +52,4 @@ The API's `/rest/v1/rpc/*` and `/auth/v1/*` paths are local compatibility routes
 
 ## StarDesk Desktop installer
 
-User-supplied `StarDesk-1.6.0-13j6BjxC.exe` was identified as a 1.6.0 Windows installer, but its contents/source have not been extracted or audited. No claim is made that Desktop 1.6.0 is already integrated.
+User-supplied `StarDesk-1.6.0-13j6BjxC.exe` is a 122 MB Nullsoft/NSIS Windows installer, SHA-256 `902512568bac4bd8aec788c97f5ff831ec97a086e67d1bf85c20ab5fe5a2673f`. The installer payload/source has not been extracted or audited in this environment. No claim is made that Desktop 1.6.0 is already integrated.
