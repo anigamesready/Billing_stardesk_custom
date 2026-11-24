@@ -24,8 +24,7 @@ jobs:
           set -euo pipefail
           mkdir -p scripts tests
           cp source-archives/admin/scripts/*.py scripts/
-          base64 --decode source-archives/admin/scripts/patch_admin_v12_1_43_monthly_report_active_edit.py.gz.b64 > /tmp/admin-report-patch.gz
-          gzip -dc /tmp/admin-report-patch.gz > scripts/patch_admin_v12_1_43_monthly_report_active_edit.py
+          base64 --decode source-archives/admin/scripts/patch_admin_v12_1_43_monthly_report_active_edit.py.gz.b64 > scripts/patch_admin_v12_1_43_monthly_report_active_edit.py.gz
           base64 --decode source-archives/admin/AniGames-Admin-V12.1.4-ANDROID-PASSWORD-RESET-PATCH-v3.zip.b64 > AniGames-Admin-V12.1.4-ANDROID-PASSWORD-RESET-PATCH-v3.zip
           cp source-archives/admin/reference/admin-v12-1-58-login-gateway-repair.test.mjs tests/admin-v12-1-58-login-gateway-repair.test.mjs
           test -s AniGames-Admin-V12.1.4-ANDROID-PASSWORD-RESET-PATCH-v3.zip
