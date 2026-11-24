@@ -264,6 +264,8 @@ $("form").addEventListener("submit", async (event) => {
     session.userId = data.userId || userId;
     localStorage.setItem("ani_client_token", session.token);
     localStorage.setItem("ani_user_id", session.userId);
+    busy = false;
+    showDashboard();
     await loadCatalog();
   } catch (error) {
     toast(humanError(error));
