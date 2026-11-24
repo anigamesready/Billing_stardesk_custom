@@ -175,6 +175,8 @@ async function boot(){
 }
 """
 
+auth += "\nasync function startLocalAdmin(){setAdminAuthEnabled(true);await boot()}\n"
+
 for name in ("admin.html","index.html","admin-control.html"):
     path = web / name
     page = path.read_text(encoding="utf-8")
@@ -222,17 +224,10 @@ for name in ("admin.html","index.html","admin-control.html"):
         page = page.replace("SB_FUNCTION_URL+'/iot/status'", "localApiBase()+'/iot/status'")
         page = page.replace("SB_FUNCTION_URL+'/iot/power'", "localApiBase()+'/iot/power'")
         page = page.replace("apikey:SB_KEY,", "")
-        # Startup has been renamed by older patch revisions; normalize either spelling.
-        start_pattern = re.compile(r"(?ms)^(?:async )?function (?:startLocalAdmin|startDualDbAdmin)\\(\\)\\s*\\{.*?^\\}")
-        page, n = start_pattern.subn("async function startLocalAdmin(){setAdminAuthEnabled(true);await boot()}", page, count=1)
-        if n == 0:
-            call = re.search(r"(?m)^\\s*(?:startDualDbAdmin|startLocalAdmin)\\(\\);", page)
-            if not call:
-                raise SystemExit("ADMIN_STARTUP_ENTRYPOINT_NOT_FOUND")
-            page = page[:call.start()] + "async function startLocalAdmin(){setAdminAuthEnabled(true);await boot()}\\n" + page[call.start():]
-        elif n != 1:
-            raise SystemExit("ADMIN_STARTUP_FUNCTION_NOT_UNIQUE")
-        page = re.sub(r"\\bstartDualDbAdmin\\(\\);", "startLocalAdmin();", page)
+        # Redirect the old boot caller to the new Android DB adapter.
+        page, n = re.subn(r"startDualDbAdmin\(\);", "startLocalAdmin();", page, count=1)
+        if n == 0 and "startLocalAdmin();" not in page:
+            raise SystemExit("ADMIN_STARTUP_ENTRYPOINT_NOT_FOUND")
         # Remove the retired dual-DB menu/panel nodes if present.
         patterns = [
             r'<(?:a|button)\b[^>]*(?:data-tab|onclick)[^>]*databaseTools[^>]*>.*?</(?:a|button)>',
