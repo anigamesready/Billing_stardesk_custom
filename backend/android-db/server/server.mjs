@@ -466,7 +466,11 @@ async function blynkFetch(url, timeoutMs = 8000) {
 }
 async function requireOwnerAdmin(token) {
   if (!token) { const e = new Error("AUTH_REQUIRED"); e.status = 401; throw e; }
-  return await scalar("SELECT to_jsonb(private.remote_play_require_admin($1::text)) AS result", [token]);
+  // This owner-only RPC validates the same opaque Android DB Admin session used by the app.
+  await scalar("SELECT api.wol_relay_status($1::text) AS result", [token]);
+  const context = await scalar("SELECT api.admin_context($1::text) AS result", [token]);
+  if (!Array.isArray(context?.orgs) || context.orgs.length === 0) throw new Error("ADMIN_ORG_ACCESS_DENIED");
+  return context;
 }
 async function blynkWrite(value) {
   const url = new URL("https://blynk.cloud/external/api/update");
@@ -476,23 +480,26 @@ async function blynkWrite(value) {
   const body = (await response.text()).trim();
   return { ok: response.ok && !/error|invalid token|wrong pin|no datastream|not found/i.test(body), status: response.status, body };
 }
-async function validateBlynkDevice(token, orgId, deviceId) {
+async function validateBlynkDevice(token, context, deviceId) {
   if (!deviceId) throw new Error("device_id_required");
-  const rows = await scalar(
-    "SELECT COALESCE(jsonb_agg(to_jsonb(x)), '[]'::jsonb) AS result FROM api.admin_devices($1::text,$2::uuid) x",
-    [token, orgId]
-  );
-  const devices = Array.isArray(rows) ? rows : [];
-  const accessible = devices.filter(row => !(row?.metadata && Object.hasOwn(row.metadata, "pairingDuplicateArchivedAt")));
-  if (!accessible.some(row => String(row.id) === String(deviceId))) throw new Error("DEVICE_NOT_ACCESSIBLE");
-  const mapped = accessible.filter(row => String(row?.metadata?.blynkPowerTarget).toLowerCase() === "true");
+  const accessible = [];
+  for (const org of context.orgs) {
+    const rows = await scalar(
+      "SELECT COALESCE(jsonb_agg(to_jsonb(x)), '[]'::jsonb) AS result FROM api.admin_devices($1::text,$2::uuid) x",
+      [token, org.id]
+    );
+    if (Array.isArray(rows)) accessible.push(...rows);
+  }
+  const visible = accessible.filter(row => !(row?.metadata && Object.hasOwn(row.metadata, "pairingDuplicateArchivedAt")));
+  if (!visible.some(row => String(row.id) === String(deviceId))) throw new Error("DEVICE_NOT_ACCESSIBLE");
+  const mapped = visible.filter(row => String(row?.metadata?.blynkPowerTarget).toLowerCase() === "true");
   if (mapped.length > 1) throw new Error("BLYNK_DEVICE_MAPPING_CONFLICT");
   if (mapped.length === 1 && String(mapped[0].id) !== String(deviceId)) throw new Error("BLYNK_DEVICE_MAPPING_MISMATCH");
-  if (mapped.length === 0 && accessible.length !== 1) throw new Error("BLYNK_DEVICE_MAPPING_REQUIRED");
+  if (mapped.length === 0 && visible.length !== 1) throw new Error("BLYNK_DEVICE_MAPPING_REQUIRED");
 }
 async function iotRequest(req, res, path, body = {}) {
   const token = bearer(req);
-  const admin = await requireOwnerAdmin(token);
+  const context = await requireOwnerAdmin(token);
   if (!BLYNK_AUTH_TOKEN) return send(res, 503, { ok:false, error:"BLYNK_AUTH_TOKEN_NOT_CONFIGURED" });
   const pin = validatedBlynkPin();
   const statusUrl = new URL("https://blynk.cloud/external/api/isHardwareConnected");
@@ -506,7 +513,7 @@ async function iotRequest(req, res, path, body = {}) {
   if (path === "/iot/status") return send(res, 200, { ok:true, online, pin });
   if (path !== "/iot/power") return send(res, 404, { ok:false, error:"IOT_ROUTE_NOT_FOUND" });
   if (!online) return send(res, 503, { ok:false, error:"BLYNK_DEVICE_OFFLINE" });
-  await validateBlynkDevice(token, admin.org_id, str(body.deviceId, 128));
+  await validateBlynkDevice(token, context, str(body.deviceId, 128));
   const high = await blynkWrite("1");
   if (!high.ok) {
     try { await blynkWrite("0"); } catch (_) {}
