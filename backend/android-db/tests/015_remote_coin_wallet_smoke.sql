@@ -46,7 +46,7 @@ BEGIN
   PERFORM api.admin_remote_play_set_rental_permission(owner_token,rental_id,true);
 
   rate_result:=api.admin_remote_coin_set_device_rate(owner_token,device_id,'RTX 5060');
-  IF rate_result->>'hourly_rupiah'<>'8000' OR rate_result->>'hourly_coins'<>'60' THEN
+  IF rate_result->>'hourly_rupiah'<>'8000' OR (rate_result->>'hourly_coins')::numeric<>60 THEN
     RAISE EXCEPTION 'COIN_RATE_CONFIGURATION_WRONG';
   END IF;
   link_result:=api.admin_remote_coin_link_stardesk_device(owner_token,device_id,'SD-CI-DEVICE-5060',true);
@@ -148,7 +148,7 @@ BEGIN
          AND h->>'available'='true'
          AND h->>'rate_configured'='true'
          AND h->>'gpu_class'='RTX 5060'
-         AND h->>'hourly_coins'='60'
+         AND (h->>'hourly_coins')::numeric=60
          AND h->>'stardesk_linked'='true'
          AND h->>'stardesk_device_id'='SD-CI-DEVICE-5060') THEN
     RAISE EXCEPTION 'COIN_DASHBOARD_OR_STAR_DESK_MAPPING_INVALID';
