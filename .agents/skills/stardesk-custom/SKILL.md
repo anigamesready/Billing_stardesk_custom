@@ -7,11 +7,11 @@ description: Project-specific instructions for all development, auditing, builds
 
 ## 1. Repository authority and source-of-truth
 
-- The ONLY authorized repository and source location for this project is https://github.com/anigamesready/Billing_stardesk_custom
-- Repository: `anigamesready/Billing_stardesk_custom`; default branch: `main`.
+- The authoritative work repository and the only place where StarDesk custom changes, branches, builds, release artifacts, and documentation may be written is https://github.com/anigamesready/Billing_stardesk_custom.
+- Repository: anigamesready/Billing_stardesk_custom; default branch: main.
 - Before every task, inspect the latest repository state, default branch, recent commits, and relevant files.
-- Use only files from this repository for StarDesk custom work. Never borrow, merge, or substitute source, APKs, configuration, database definitions, or assets from another Ani Games Ready repository or unrelated project.
-- If the required source file is not present in this repository, do not silently use another repository. Explain what is missing and request/add the correct source to this repository.
+- Other Ani Games Ready repositories may be opened and read only as historical/reference sources when the user explicitly allows it, to recover prior requirements, API contracts, schemas, assets lineage, or feature behavior. Do not edit those repositories, build from their source, or take their APKs/releases as delivery artifacts. Any source needed for actual StarDesk custom implementation must be added or ported into this repository first, with provenance documented.
+- Never silently replace the selected StarDesk baseline with an artifact or source from another project. If the matching editable source is unavailable, report the limitation rather than claiming a source-level fix.
 - A binary APK is a build artifact, not a substitute for the original editable project source. Do not claim a full source audit or make source-level fixes from an APK alone.
 
 ## 2. Mandatory workflow before editing
@@ -111,7 +111,7 @@ Root contained:
 - Admin reference: `AniGames-Admin-Online-V12.1.58-SAFE-TEST.apk` (uploaded in commit `5c2a4e14dbbad696ddd30e348b48c149a8b8f36a`). This is the new Admin comparison/base artifact; its `SAFE-TEST` label means it is not automatically an approved production release.
 - Remote reference: `Ani-Games-Ready-Remote-AndroidDB-Preview-v0.2.0.apk` (uploaded in the same commit). This is the current Remote preview artifact, not a production release until it passes the release-quality gate.
 
-These names are observations, not permanent version pins. Always re-check the live repository and commit history. At this observed state, the root contains APK artifacts but no editable Android/Gradle source project or reproducible build workflow. An APK can support package/resource-level inspection, but it cannot replace the source for full dependency, logic, API, DB, or source-level audit. Add the editable source project to this same repository before attempting source-level fixes or claiming a reproducible new build.
+These names are observations, not permanent version pins. Always re-check the live repository and commit history. At the observed state on 2026-11-24, main contains the baseline APKs and skill/docs but no editable Android project. Editable Remote Android source and its CI build workflow exist on stardesk-androiddb-preview-v2 (v0.2.0 preview) and an earlier UI branch stardesk-client-v1. These branches belong to this same repository and may be used as project source after comparing their history and current state. No matching editable source for Admin v12.1.58 has yet been identified inside this repository. An APK supports static package/resource inspection but cannot replace editable source for reliable functional changes or reproducible builds.
 
 ## 11. Communication style and delivery
 
@@ -127,3 +127,12 @@ These names are observations, not permanent version pins. Always re-check the li
 - Admin `12.1.58` is the current user-selected audit baseline, but is **not production-approved**: the manifest has `debuggable=true`; legacy DB1/DB2 markup and JavaScript remain packaged (partly CSS-hidden); stage gateway/relay endpoints need production verification; runtime tests have not been completed.
 - Remote `0.2.0-preview` is not production-ready: its bundled UI explicitly identifies itself as demo/sample data and says it is not connected to Android DB or real transactions; live PC/device status and actual StarDesk handoff have not been verified; the manifest has `debuggable=true`.
 - Until complete editable source is present in this repository and release tests pass, do not modify/repack these APKs and do not publish either as a production release. Preserve these exact APKs only as the selected audit references.
+
+
+## 13. Updated repository-use permission and build direction (2026-11-24)
+
+- The user explicitly permits reading neighboring Ani Games Ready repositories as historical/reference material. This permission is read-only and does not change the work/release repository.
+- All StarDesk custom changes and release APKs must be created from source maintained in anigamesready/Billing_stardesk_custom; do not publish artifacts built in a neighboring repository.
+- Admin must use AniGames-Admin-Online-V12.1.58-SAFE-TEST.apk from the main branch as its current baseline. The intention is additive feature work on that version; do not replace its identity/UI/functionality wholesale with an older Admin build. Obtain the matching editable source or a verifiable, safely patchable project representation before making functional Admin changes.
+- Remote may use the editable source in the stardesk-androiddb-preview-v2 branch as the latest in-repository starting point, after checking commits, workflow and dependencies. The existing preview APK is not a production release.
+- Before any release, keep the release-quality gate in Section 7 mandatory. A compiled APK without live API/DB checks and device click-through is only a test build, never production-ready.
