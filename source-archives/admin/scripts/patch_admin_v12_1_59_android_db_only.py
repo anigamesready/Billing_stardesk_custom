@@ -240,6 +240,11 @@ for name in ("admin.html","index.html","admin-control.html"):
         page = page.replace("Database & Sync", "Android DB")
         page = page.replace("Supabase Direct", "Android DB")
         page = page.replace("Supabase Auth", "Admin Android DB")
+        # Legacy alert text used DB_TARGET only to label the former DB1/DB2 route.
+        # It is presentation-only and now reports the sole Android DB.
+        page = page.replace("DB_TARGET==='backup'?'DB2':'DB1'", "'Android DB'")
+        page = page.replace("String(DB_TARGET||'primary')", "'Android DB'")
+        page = page.replace("DB_TARGET||'primary'", "'android_db'")
     path.write_text(page, encoding="utf-8")
 
 # The APK identity remains Admin v12.1.58-derived, but uses a new package id so
