@@ -127,6 +127,9 @@ BEGIN
 END;
 $function$;
 
+REVOKE ALL ON FUNCTION private.remote_coin_expire_wallet(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION private.remote_coin_expire_wallet(uuid) FROM ani_api_runtime;
+
 CREATE OR REPLACE FUNCTION api.remote_coin_wallet(p_session_token text)
 RETURNS jsonb
 LANGUAGE plpgsql
