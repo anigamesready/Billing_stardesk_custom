@@ -119,3 +119,11 @@ These names are observations, not permanent version pins. Always re-check the li
 - Be transparent about what was inspected, changed, built, and tested.
 - Do not send a build as final merely because compilation succeeded; report functional/regression coverage separately.
 - Avoid repeated trial-and-error edits. Audit dependencies and the complete flow first, then implement and verify carefully.
+
+
+## 12. Static audit baseline recorded on 2026-11-24
+
+- Static audit report: `AUDIT-ADMIN-V12.1.58-REMOTE-V0.2.0-2026-11-24.md`.
+- Admin `12.1.58` is the current user-selected audit baseline, but is **not production-approved**: the manifest has `debuggable=true`; legacy DB1/DB2 markup and JavaScript remain packaged (partly CSS-hidden); stage gateway/relay endpoints need production verification; runtime tests have not been completed.
+- Remote `0.2.0-preview` is not production-ready: its bundled UI explicitly identifies itself as demo/sample data and says it is not connected to Android DB or real transactions; live PC/device status and actual StarDesk handoff have not been verified; the manifest has `debuggable=true`.
+- Until complete editable source is present in this repository and release tests pass, do not modify/repack these APKs and do not publish either as a production release. Preserve these exact APKs only as the selected audit references.
