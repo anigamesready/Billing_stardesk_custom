@@ -183,6 +183,7 @@ public class MainActivity extends Activity {
                 connection.setRequestMethod("POST");
                 connection.setConnectTimeout(10000);
                 connection.setReadTimeout(15000);
+                connection.setInstanceFollowRedirects(false);
                 connection.setDoOutput(true);
                 connection.setRequestProperty("Content-Type","application/json; charset=utf-8");
                 connection.setRequestProperty("Accept","application/json");
