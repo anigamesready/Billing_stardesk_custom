@@ -172,4 +172,4 @@ BEGIN
 END;
 $$;
 
-SELECT 'PASS: Android DB coin wallet, QRIS top-up idempotency, Owner approval/rejection, FIFO lots, expiry, GPU rates, StarDesk mapping and legacy rental isolation' AS result;
+SELECT 'PASS: Android DB coin wallet, QRIS top-up idempotency, Owner approval/rejection, coin-lot expiry, GPU rates, StarDesk mapping and legacy rental isolation' AS result;
