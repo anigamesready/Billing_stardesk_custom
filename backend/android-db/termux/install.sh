@@ -28,6 +28,20 @@ psql_admin(){ psql -X -h "$PREFIX/tmp" -p "$DB_PORT" -U "$PG_ADMIN_USER" -v ON_E
 [[ "$DB_PORT" =~ ^[0-9]{1,5}$ ]] || die "Port database tidak valid."
 [ -r /dev/tty ] || die "Jalankan dari terminal interaktif Termux."
 
+# Fail closed before pkg install if a PostgreSQL server or data directory is
+# present but does not match a recognized PGDATA layout.
+if [ ! -f "$PGDATA/PG_VERSION" ]; then
+  if [ -d "$PGDATA" ] && find "$PGDATA" -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then
+    die "Direktori PostgreSQL non-kosong tanpa PG_VERSION: $PGDATA. Tidak ada paket atau data yang diubah."
+  fi
+  if [ -d "$HOME/.postgres" ] && [ "$PGDATA" != "$HOME/.postgres" ] && find "$HOME/.postgres" -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then
+    die "Direktori ~/.postgres non-kosong tetapi tidak memiliki konfigurasi PGDATA yang dikenal. Tidak ada paket atau data yang diubah."
+  fi
+  if command -v pg_isready >/dev/null 2>&1 && pg_isready -h "$PREFIX/tmp" -p "$DB_PORT" >/dev/null 2>&1; then
+    die "PostgreSQL aktif pada socket lokal tetapi PGDATA tidak dikenali. Tidak ada paket atau data yang diubah."
+  fi
+fi
+
 log "Memeriksa versi PostgreSQL sebelum memasang/memperbarui paket..."
 EXISTING_PG_CLUSTER=0
 if [ -f "$PGDATA/PG_VERSION" ]; then
