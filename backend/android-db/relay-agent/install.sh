@@ -4,7 +4,7 @@ set -Eeuo pipefail
 PREFIX="$(printenv PREFIX || printf '/data/data/com.termux/files/usr')"
 HOME="$(printenv HOME || printf '/data/data/com.termux/files/home')"
 REF="$(printenv ANI_RELAY_REF || true)"
-API_URL="$(printenv ANI_LOCAL_API_URL || printf 'http://127.0.0.1:8788')"
+API_URL="${ANI_LOCAL_API_URL:-}"
 BASE="https://raw.githubusercontent.com/anigamesready/Billing_stardesk_custom"
 
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
@@ -15,11 +15,25 @@ log() { printf '[Ani Relay Agent] %s\n' "$*"; }
 command -v node >/dev/null 2>&1 || die "Node.js belum terpasang."
 command -v npm >/dev/null 2>&1 || die "npm belum terpasang."
 command -v curl >/dev/null 2>&1 || die "curl belum tersedia."
-command -v openssl >/dev/null 2>&1 || die "openssl belum tersedia."
 command -v sv >/dev/null 2>&1 || die "termux-services/runit belum tersedia."
 
 NODE_MAJOR="$(node -p 'Number(process.versions.node.split(".")[0])')"
 [ "$NODE_MAJOR" -ge 20 ] || die "Node.js 20+ diperlukan; versi sekarang $(node --version)."
+
+CONFIG_DIR="$HOME/.config/ani-games-relay-agent"
+ENV_FILE="$CONFIG_DIR/agent.env"
+SERVICE_DIR="$PREFIX/var/service/ani-games-relay-agent"
+AGENT_DIR="$HOME/ani-games-ready-relay-agent-$REF"
+SVLOGGER="$PREFIX/share/termux-services/svlogger"
+
+[ ! -e "$SERVICE_DIR" ] || die "Service ani-games-relay-agent sudah ada. Tidak ada file service yang ditimpa."
+[ ! -e "$AGENT_DIR" ] || die "Folder versi Agent sudah ada: $AGENT_DIR. Tidak ada file yang ditimpa."
+[ -x "$SVLOGGER" ] || die "svlogger tidak ditemukan. Pastikan paket termux-services terpasang."
+
+if [ -z "$API_URL" ] && [ -f "$ENV_FILE" ]; then
+  API_URL="$(sed -n 's/^ANI_LOCAL_API_URL=//p' "$ENV_FILE" | tail -n 1)"
+fi
+API_URL="${API_URL:-http://127.0.0.1:8788}"
 case "$API_URL" in
   http://127.0.0.1:*|http://localhost:*|http://[::1]:*) ;;
   *) die "API harus memakai URL HTTP loopback, bukan alamat publik." ;;
@@ -27,43 +41,64 @@ esac
 curl --fail --silent --show-error --connect-timeout 3 --max-time 8 "$API_URL/health" >/dev/null \
   || die "API lokal belum merespons di $API_URL/health. API lama dan database tidak diubah."
 
-AGENT_DIR="$HOME/ani-games-ready-relay-agent"
-CONFIG_DIR="$HOME/.config/ani-games-relay-agent"
-ENV_FILE="$CONFIG_DIR/agent.env"
-SERVICE_DIR="$PREFIX/var/service/ani-games-relay-agent"
-STAGE_DIR="$HOME/.ani-games-relay-agent-service-staging"
-
-[ ! -e "$SERVICE_DIR" ] || die "Service ani-games-relay-agent sudah ada. Tidak ada file service yang ditimpa."
-[ ! -e "$STAGE_DIR" ] || die "Folder staging sudah ada; periksa manual sebelum menghapusnya."
-mkdir -p "$AGENT_DIR" "$CONFIG_DIR"
+mkdir -p "$CONFIG_DIR"
 chmod 700 "$CONFIG_DIR"
 
-for file in agent.mjs protocol.mjs package.json; do
-  curl --fail --silent --show-error --location "$BASE/$REF/backend/android-db/relay-agent/$file" -o "$AGENT_DIR/$file"
-  [ -s "$AGENT_DIR/$file" ] || die "Download $file gagal atau kosong."
+TMP_AGENT="$(mktemp -d "$HOME/.ani-games-relay-agent-install.XXXXXX")"
+TMP_SERVICE=""
+cleanup() {
+  [ -z "$TMP_AGENT" ] || [ ! -d "$TMP_AGENT" ] || rm -rf -- "$TMP_AGENT"
+  [ -z "$TMP_SERVICE" ] || [ ! -d "$TMP_SERVICE" ] || rm -rf -- "$TMP_SERVICE"
+}
+trap cleanup EXIT
+
+for file in agent.mjs protocol.mjs package.json protocol.test.mjs; do
+  curl --fail --silent --show-error --location "$BASE/$REF/backend/android-db/relay-agent/$file" -o "$TMP_AGENT/$file"
+  [ -s "$TMP_AGENT/$file" ] || die "Download $file gagal atau kosong."
 done
-cd "$AGENT_DIR"
+
+cd "$TMP_AGENT"
 npm install --omit=dev --no-audit --no-fund
 npm run check
 npm test
 
-if [ ! -f "$ENV_FILE" ]; then
-  SECRET="$(openssl rand -hex 32)"
-  cat > "$ENV_FILE" <<EOF
-RELAY_SHARED_SECRET=$SECRET
-RELAY_WS_URL=wss://ani-games-db-android-stage-ws-relay.anigamesready.workers.dev/agent/connect
-ANI_LOCAL_API_URL=$API_URL
-EOF
-  chmod 600 "$ENV_FILE"
+# Keep the existing secret. If no local configuration exists, ask for the exact
+# already-configured Worker secret without echoing it. Never generate/rotate one.
+if [ -f "$ENV_FILE" ]; then
+  SECRET_COUNT="$(grep -c '^RELAY_SHARED_SECRET=' "$ENV_FILE" || true)"
+  [ "$SECRET_COUNT" = "1" ] || die "agent.env ada tetapi harus berisi tepat satu RELAY_SHARED_SECRET. File lama dipertahankan."
+  SECRET="$(sed -n 's/^RELAY_SHARED_SECRET=//p' "$ENV_FILE")"
 else
-  chmod 600 "$ENV_FILE"
-  SECRET="$(sed -n 's/^RELAY_SHARED_SECRET=//p' "$ENV_FILE" | tail -n 1)"
-  SECRET_LEN="$(printf '%s' "$SECRET" | wc -c | tr -d ' ')"
-  [ "$SECRET_LEN" -ge 32 ] || die "agent.env sudah ada tetapi RELAY_SHARED_SECRET tidak valid; file lama dipertahankan."
+  [ -r /dev/tty ] || die "Tidak ada agent.env dan sesi bukan terminal interaktif. Jalankan installer langsung dari Termux."
+  printf '\nSecret lama yang SAMA dengan nilai pada Relay Worker dan Gateway Worker diperlukan.\n' >/dev/tty
+  printf 'Masukkan nilai secret lama (input disembunyikan): ' >/dev/tty
+  IFS= read -r -s SECRET </dev/tty || die "Gagal membaca secret dari terminal."
+  printf '\n' >/dev/tty
 fi
 
-mkdir -p "$STAGE_DIR/log"
-cat > "$STAGE_DIR/run" <<EOF
+[ "${#SECRET}" -ge 32 ] || die "Secret kosong/terlalu pendek. Tidak ada secret baru yang dibuat."
+[[ "$SECRET" =~ ^[A-Za-z0-9._~+/=-]{32,512}$ ]] || die "Format secret tidak didukung. Gunakan nilai secret lama yang aman untuk file env (32-512 karakter)."
+
+if [ ! -f "$ENV_FILE" ]; then
+  ENV_TMP="$CONFIG_DIR/.agent.env.$$"
+  ( umask 077; printf 'RELAY_SHARED_SECRET=%s\nANI_LOCAL_API_URL=%s\nRELAY_WS_URL=wss://ani-games-db-android-stage-ws-relay.anigamesready.workers.dev/agent/connect\n' "$SECRET" "$API_URL" > "$ENV_TMP" )
+  chmod 600 "$ENV_TMP"
+  if [ -e "$ENV_FILE" ]; then
+    rm -f -- "$ENV_TMP"
+    die "agent.env muncul saat proses berjalan. Tidak ada file konfigurasi yang ditimpa."
+  fi
+  mv "$ENV_TMP" "$ENV_FILE"
+else
+  chmod 600 "$ENV_FILE"
+fi
+unset SECRET
+
+mv "$TMP_AGENT" "$AGENT_DIR"
+TMP_AGENT=""
+
+TMP_SERVICE="$(mktemp -d "$PREFIX/var/service/.ani-games-relay-agent-stage.XXXXXX")"
+mkdir -p "$TMP_SERVICE/log"
+cat > "$TMP_SERVICE/run" <<EOF
 #!$PREFIX/bin/sh
 set -eu
 cd "$AGENT_DIR"
@@ -72,21 +107,23 @@ set -a
 set +a
 exec "$PREFIX/bin/node" "$AGENT_DIR/agent.mjs"
 EOF
-cat > "$STAGE_DIR/log/run" <<EOF
+cat > "$TMP_SERVICE/log/run" <<EOF
 #!$PREFIX/bin/sh
-exec "$PREFIX/share/termux-services/svlogger"
+exec "$SVLOGGER"
 EOF
-chmod 700 "$STAGE_DIR/run" "$STAGE_DIR/log/run"
-touch "$STAGE_DIR/down"
-mv "$STAGE_DIR" "$SERVICE_DIR"
+chmod 700 "$TMP_SERVICE/run" "$TMP_SERVICE/log/run"
+touch "$TMP_SERVICE/down"
+mv "$TMP_SERVICE" "$SERVICE_DIR"
+TMP_SERVICE=""
 
-log "Agent files installed. Service intentionally remains STOPPED."
-log "Existing API and PostgreSQL were not changed."
-log "Private configuration: $ENV_FILE"
-log "Run this command in Termux to display the secret privately (never send it in chat):"
-printf "  sed -n 's/^RELAY_SHARED_SECRET=//p' '%s'\n" "$ENV_FILE"
-log "Save the SAME value as Secret RELAY_SHARED_SECRET on the Relay Worker AND EDGE_PROXY_SECRET on the Gateway Worker."
-log "After saving the Worker secret, start the agent with:"
-printf "  rm -f '%s/down' && sv up ani-games-relay-agent\n" "$SERVICE_DIR"
+log "Agent files installed and syntax/protocol tests passed."
+log "Service prepared in STOPPED state; it has NOT been started."
+log "Existing local agent.env was preserved; no new secret was generated."
+log "Cloudflare Worker secrets were not changed."
+log "Existing API and PostgreSQL were not stopped, restarted, migrated, or reconfigured."
+log "Start only after verifying the existing secret values match on both Workers:"
+printf '  rm -f "%s/down" && sv up ani-games-relay-agent\n' "$SERVICE_DIR"
+log "Check service:"
+printf '  sv status ani-games-relay-agent\n'
 log "Agent log:"
-printf "  tail -n 50 '%s/var/log/sv/ani-games-relay-agent/current'\n" "$PREFIX"
+printf '  tail -n 50 "%s/var/log/sv/ani-games-relay-agent/current"\n' "$PREFIX"
