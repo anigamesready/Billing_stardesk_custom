@@ -71,7 +71,6 @@ jobs:
               "androiddb_v0_admin_link_stardesk_device",
               "androiddb_v0_admin_set_host_permission",
               "androiddb_v0_admin_issue_host_enrollment",
-              "androiddb_v0_remote_dashboard",
               "androiddb_v0_admin_approve_topup",
               "androiddb_v0_admin_reject_topup",
               "walletRental",
