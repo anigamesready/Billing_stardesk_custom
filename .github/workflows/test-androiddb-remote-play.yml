@@ -6,6 +6,7 @@ on:
     branches:
       - feature/androiddb-termux-coin-x100-20261125
       - feature/admin-androiddb-coin-api-20261125
+      - feature/stardesk-agent-integration-audit-20261125
     paths:
       - "backend/android-db/migrations/**"
       - "backend/android-db/server/**"
@@ -51,6 +52,9 @@ jobs:
     steps:
       - name: Checkout isolated DB Android Remote Play branch
         uses: actions/checkout@v4
+
+      - name: Validate Termux installer shell syntax
+        run: bash -n backend/android-db/termux/install.sh
 
       - name: Install PostgreSQL client
         run: |
