@@ -605,7 +605,7 @@ async function main() {
   server.headersTimeout = 15000;
   server.keepAliveTimeout = 5000;
   server.listen(PORT,HOST,() => {
-    process.stdout.write(JSON.stringify({level:"info",app:"Ani Games Ready Local Server",api:"online",host:HOST,port:PORT,relay:"separate"})+"\n");
+    process.stdout.write(JSON.stringify({level:"info",app:"Ani Games Ready Local Server",api:"online",host:HOST,port:PORT,relay:"android-db"})+"\n");
   });
 
   // Internal-only watchdog; deliberately absent from the public REST RPC allowlist.
