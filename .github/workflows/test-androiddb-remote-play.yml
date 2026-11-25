@@ -7,6 +7,7 @@ on:
       - feature/androiddb-termux-coin-x100-20261125
       - feature/admin-androiddb-coin-api-20261125
       - feature/admin-androiddb-v0-isolated-20261125
+      - feature/admin-androiddb-v0-full-db-20261126
     paths:
       - "backend/android-db/migrations/**"
       - "backend/android-db/server/**"
