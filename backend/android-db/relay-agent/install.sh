@@ -96,6 +96,7 @@ unset SECRET
 mv "$TMP_AGENT" "$AGENT_DIR"
 TMP_AGENT=""
 
+mkdir -p "$PREFIX/var/service"
 TMP_SERVICE="$(mktemp -d "$PREFIX/var/service/.ani-games-relay-agent-stage.XXXXXX")"
 mkdir -p "$TMP_SERVICE/log"
 cat > "$TMP_SERVICE/run" <<EOF
