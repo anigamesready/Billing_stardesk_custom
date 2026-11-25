@@ -1,11 +1,11 @@
-# Ani Games Ready Remote — Android DB v0 Coin Preview 0.6.0
+# Ani Games Ready Remote — Android DB v0 Coin Preview 0.6.1
 
 This source is the isolated Remote Android DB v0 client for the Ani Games Ready Coin domain.
 
 ## Build identity
 - Application ID: `com.anigamesready.stardeskclient`
-- Version: `0.6.0-androiddb-v0-coin`
-- Version code: `6`
+- Version: `0.6.1-androiddb-v0-coin`
+- Version code: `7`
 - Remote source: `android-client/`
 - Repository: `anigamesready/Billing_stardesk_custom`
 
@@ -22,6 +22,9 @@ All new Coin account and wallet operations use the separate `androiddb_v0_*` API
 - QRIS static top-up order: `androiddb_v0_remote_coin_create_topup`
 
 Access and refresh tokens are stored using AES-GCM backed by Android Keystore. The app keeps no raw token in WebView localStorage.
+
+## Gateway DNS/TLS compatibility
+The native HTTPS bridge pins TCP to the tested Cloudflare edge IPv4 addresses `104.18.13.15` and `104.18.12.15` for the fixed Gateway hostname. The HTTPS URL, Host header, SNI and Android's default certificate trust/hostname verification continue to use `ani-games-db-android-stage-gateway.anigamesready.workers.dev`. No trust-all certificate callback or cleartext fallback is used.
 
 ## Coin rules
 - Rp8.000 = 60 Coin.
