@@ -16,10 +16,12 @@ The installer checks that it is running inside Termux, installs PostgreSQL + Nod
 - Existing `server/.env` is preserved; it is never overwritten by the archive.
 - The standard Termux PostgreSQL data directory is inspected before `initdb`. A non-empty unrecognized directory or a running server outside runit causes a safe stop. The installer does not initialize over it.
 - When an existing PostgreSQL cluster is found, the installer compares its `PG_VERSION` with the installed server major version before package installation. It does not request a PostgreSQL package upgrade over an existing cluster. A version mismatch stops the installer; `pg_upgrade` is never run automatically.
-- A new empty database receives the ordered migrations `000`, `002`–`022`. The historical catalog snapshot `001` is never replayed.
+- A new empty database receives the ordered migrations `000`, `002`–`024`. The historical catalog snapshot `001` is never replayed.
 - An existing core-only Android DB is accepted only when the required rental, device, session, audit, admin and token contracts match. If the `remote_play` schema is completely absent, the installer first makes a full database and role backup, verifies it, requires the exact `APPLY` confirmation, then applies additive migrations `013`–`019` in order before coin/WoL. It never replays core migrations `000`–`012`. If `remote_play` already exists but key `013`–`019` contracts are incomplete, the installer stops rather than guessing how to repair a partial schema.
 - When the existing DB needs coin/WoL addon migrations, it first creates a custom-format `pg_dump`, backs up cluster roles, verifies the dump with `pg_restore --list`, records SHA-256 checksums, and then asks for the exact confirmation word `APPLY`.
 - Migration `022` uses a locked scale registry. Version-1 coin balances, lots, orders, ledger quantities, and PC rates are multiplied by 100 once. Reruns at scale 100 do not multiply again. Rupiah values, rental seconds, and rental status are not scaled.
+- Migration `023` adds the two Owner-only Admin Coin read APIs used by Admin v12.1.61. Migration `024` fixes the server-side Coin start gate so disabled/deleted/inactive/expired accounts and accounts with a missing/past expiry are denied even when the wallet contains coins.
+- The installer checks the presence of both Admin Coin read RPCs and the expiry-guard function comment/version. Existing upgrades keep the same verified backup + explicit `APPLY` confirmation before applying the additive migrations.
 - No `DROP`, `TRUNCATE`, or destructive replacement of core rental/device tables is part of the installer.
 
 The API login role inherits only `ani_api_runtime`; the Node process does not connect as PostgreSQL superuser. Generated credentials are stored in `server/.env` with mode 600. The API binds to loopback (127.0.0.1) only; use a separately reviewed HTTPS tunnel for remote access.
@@ -47,6 +49,6 @@ To target a non-default database on a fresh PostgreSQL cluster, set `ANI_DB_NAME
 
 ## Existing database upgrade
 
-An existing core-only Android DB (migrations `000`–`012`) can be upgraded when its rental, device, session, audit, Admin and runtime-role signatures match. The installer first creates and validates a full database dump plus cluster-role backup, then requires the exact `APPLY` confirmation. Only after approval does it apply additive migrations `013`–`022` in order; core migrations `000`–`012` are never replayed. If `remote_play` exists but required functions/tables are incomplete, or addon tables are partially installed, the installer stops for manual audit rather than guessing.
+An existing core-only Android DB (migrations `000`–`012`) can be upgraded when its rental, device, session, audit, Admin and runtime-role signatures match. The installer first creates and validates a full database dump plus cluster-role backup, then requires the exact `APPLY` confirmation. Only after approval does it apply additive migrations `013`–`024` in order; core migrations `000`–`012` are never replayed. If `remote_play` exists but required functions/tables are incomplete, or addon tables are partially installed, the installer stops for manual audit rather than guessing.
 
 Backups are stored under `~/ani-games-ready-backups/`. Keep these files private; they contain business data and PostgreSQL role metadata.
