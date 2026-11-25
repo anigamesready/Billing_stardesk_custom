@@ -31,7 +31,8 @@ jobs:
           test -s AniGames-Admin-V12.1.4-ANDROID-PASSWORD-RESET-PATCH-v3.zip
           test -s scripts/patch_admin_v12_1_59_android_db_only.py
           test -s scripts/patch_admin_v12_1_61_coin_management.py
-          python3 -m py_compile scripts/patch_admin_v12_1_59_android_db_only.py scripts/patch_admin_v12_1_61_coin_management.py
+          test -s scripts/patch_admin_v12_1_62_remote_play_role_fix.py
+          python3 -m py_compile scripts/patch_admin_v12_1_59_android_db_only.py scripts/patch_admin_v12_1_61_coin_management.py scripts/patch_admin_v12_1_62_remote_play_role_fix.py
 
       - name: Extract Android source bundle
         run: |
@@ -570,6 +571,8 @@ jobs:
           python3 -m py_compile "$GITHUB_WORKSPACE/scripts/patch_admin_v12_1_59_android_db_only.py"
           python3 "$GITHUB_WORKSPACE/scripts/patch_admin_v12_1_61_coin_management.py" "$ADMIN_PROJECT_DIR"
           python3 -m py_compile "$GITHUB_WORKSPACE/scripts/patch_admin_v12_1_61_coin_management.py"
+          python3 "$GITHUB_WORKSPACE/scripts/patch_admin_v12_1_62_remote_play_role_fix.py" "$ADMIN_PROJECT_DIR"
+          python3 -m py_compile "$GITHUB_WORKSPACE/scripts/patch_admin_v12_1_62_remote_play_role_fix.py"
           python3 - <<'PY'
           import os, re
           from pathlib import Path
@@ -609,6 +612,12 @@ jobs:
           if 'android:label="AniGames Admin V12.1.61 Android DB Coin"' not in manifest:
               raise SystemExit("V12.1.61 app label mismatch")
           admin=(web/"admin.html").read_text(encoding="utf-8")
+          admin_role_fix=(web/"admin.html").read_text(encoding="utf-8")
+          role_guard="function isRemotePlayOwner(){return typeof isWakeRelayOwner==='function'&&isWakeRelayOwner();}"
+          if role_guard not in admin_role_fix:
+              raise SystemExit("Remote Play Admin does not use the canonical Master/Owner role resolver")
+          if "toLowerCase()==='owner'" in admin_role_fix:
+              raise SystemExit("Narrow owner-only alias guard remains in Admin Remote Play UI")
           for marker in ("coinManagement", "admin_remote_coin_overview", "admin_remote_coin_wallet", "admin_remote_coin_approve_topup", "admin_remote_coin_reject_topup", "admin_remote_coin_set_device_rate", "admin_remote_coin_link_stardesk_device"):
               if marker not in admin: raise SystemExit("Admin Coin feature missing: "+marker)
           for stale in ("globalDbTarget", "requestGlobalDbSwitch", "DB1", "DB2", "databaseTools", "dualDbReadinessPanel", "startDualDbAdmin", "Supabase DB", "Supabase Secret"):
@@ -642,14 +651,14 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build and verify Admin V12.1.61 Android DB Coin Candidate
+      - name: Build and verify Admin V12.1.62 Remote Play Role Fix Candidate
         shell: bash
         run: |
           set -euo pipefail
           gradle --no-daemon --stacktrace -p "$ANDROID_PROJECT_DIR" assembleDebug
           APK="$ANDROID_PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
-          APK_OUT="$GITHUB_WORKSPACE/output/AniGames-Admin-V12.1.61-ANDROID-DB-COIN-CANDIDATE.apk"
+          APK_OUT="$GITHUB_WORKSPACE/output/AniGames-Admin-V12.1.62-REMOTE-PLAY-ROLE-FIX-CANDIDATE.apk"
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
           test -n "$AAPT" && test -n "$APKSIGNER"
@@ -657,18 +666,18 @@ jobs:
           cp "$APK" "$APK_OUT"
           test -s "$APK_OUT"
           "$AAPT" dump badging "$APK_OUT" | tee "$GITHUB_WORKSPACE/output/apk-badging.txt"
-          grep -q "package: name='com.anigames.billingadmin.v161online' versionCode='88' versionName='12.1.61-ANDROIDDB-COIN'" "$GITHUB_WORKSPACE/output/apk-badging.txt"
-          grep -q "application-label:'AniGames Admin V12.1.61 Android DB Coin'" "$GITHUB_WORKSPACE/output/apk-badging.txt"
+          grep -q "package: name='com.anigames.billingadmin.v161online' versionCode='89' versionName='12.1.62-REMOTE-PLAY-ROLE-FIX'" "$GITHUB_WORKSPACE/output/apk-badging.txt"
+          grep -q "application-label:'AniGames Admin V12.1.62 Remote Play'" "$GITHUB_WORKSPACE/output/apk-badging.txt"
           "$APKSIGNER" verify --verbose "$APK_OUT"
           "$APKSIGNER" verify --print-certs "$APK_OUT"
           sha256sum "$APK_OUT" | tee "$GITHUB_WORKSPACE/output/SHA256SUMS.txt"
           unzip -t "$APK_OUT"
           ls -lh "$APK_OUT"
 
-      - name: Upload final Admin Online APK
+      - name: Upload Admin V12.1.62 Remote Play Role Fix Candidate
         uses: actions/upload-artifact@v4
         with:
-          name: AniGames-Admin-v12.1.61-ANDROID-DB-COIN-CANDIDATE
+          name: AniGames-Admin-v12.1.62-REMOTE-PLAY-ROLE-FIX-CANDIDATE
           path: output/*
           if-no-files-found: error
           retention-days: 30
