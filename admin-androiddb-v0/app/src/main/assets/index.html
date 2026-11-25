@@ -21,8 +21,8 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
 .stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.stat{background:#09182b;border:1px solid #223b57;border-radius:14px;padding:12px}.stat .k{color:var(--muted);font-size:12px}.stat .v{font-size:23px;font-weight:850;margin-top:5px;font-variant-numeric:tabular-nums}
 .pill{display:inline-flex;padding:5px 8px;border-radius:999px;background:#1c3048;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.35px}.good{background:#103b35;color:#70edbd}.bad{background:#3c2030;color:#ff9db0}.warn{background:#493722;color:#ffd18b}
 .msg{padding:11px;border-radius:12px;background:#0a1728;border-left:3px solid var(--cyan);color:#dcecff;font-size:13px;line-height:1.5;overflow-wrap:anywhere}.msg.error{border-left-color:var(--red);color:#ffb3c1}
-.section{display:none}.section.active{display:block}.tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;position:sticky;top:0;z-index:4;padding:8px 0;background:#07101fe8;backdrop-filter:blur(12px)}
-.tabs button{padding:9px 4px;border-radius:11px;font-size:11px;background:#102039;color:var(--muted)}.tabs button.active{background:linear-gradient(120deg,#17688b,#5940ba);color:white;border-color:transparent}
+.section{display:none}.section.active{display:block}.tabs{display:flex;gap:6px;position:sticky;top:0;z-index:4;padding:8px 0;background:#07101fe8;backdrop-filter:blur(12px);overflow-x:auto;scrollbar-width:thin}.tabs button{flex:0 0 auto;min-width:78px}
+.tabs button{padding:9px 10px;border-radius:11px;font-size:11px;background:#102039;color:var(--muted);white-space:nowrap}.tabs button.active{background:linear-gradient(120deg,#17688b,#5940ba);color:white;border-color:transparent}
 .list{display:grid;gap:9px}.item{background:#0b192b;border:1px solid #263f5b;border-radius:14px;padding:13px;min-width:0}.item-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}.item-title{font-weight:750;overflow-wrap:anywhere}.item-meta{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5}.item-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
 .empty{padding:15px;text-align:center;color:var(--muted);font-size:12px}.hidden{display:none!important}
 .login-wrap{max-width:500px;margin:6vh auto}.login-title{font-size:25px;font-weight:850;line-height:1.2}.login-title b{color:var(--cyan)}
@@ -34,7 +34,7 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
 </head>
 <body>
 <section id="loginScreen" class="login-wrap">
-  <div class="top"><div><div class="brand">ANI GAMES <span>ADMIN</span></div><div class="sub">ANDROID DB v0 • COIN ONLY</div></div><div class="version">v0.1.0</div></div>
+  <div class="top"><div><div class="brand">ANI GAMES <span>ADMIN</span></div><div class="sub">ANDROID DB • ADMIN OWNER</div></div><div class="version">v0.2.0</div></div>
   <div class="card">
     <div class="login-title">Admin <b>Android DB v0</b></div>
     <p class="hint">Panel terpisah untuk rental Coin, top-up, wallet, PC Host, dan pemetaan StarDesk. Login memakai akun Owner Android DB yang sudah ada.</p>
@@ -49,14 +49,20 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
 <main id="appScreen" class="hidden">
   <header class="top">
     <div><div class="brand">ANI GAMES <span>ADMIN DB v0</span></div><div class="sub" id="who">Owner • Android DB</div></div>
-    <div class="row"><div class="version">v0.1.0</div><button class="small" onclick="logout()">Keluar</button></div>
+    <div class="row"><select id="orgSelect" aria-label="Pilih organisasi" style="width:150px;padding:8px;font-size:11px" onchange="changeOrg()"></select><div class="version">v0.2.0</div><button class="small" onclick="logout()">Keluar</button></div>
   </header>
-  <div id="globalMessage" class="msg">Menunggu data dari Android DB v0.</div>
+  <div id="globalMessage" class="msg">Menunggu data dari Android DB.</div>
   <nav class="tabs">
     <button class="active" data-tab="dashboard" onclick="showTab('dashboard')">Ringkasan</button>
+    <button data-tab="legacy" onclick="showTab('legacy')">Rental Lama</button>
+    <button data-tab="devices" onclick="showTab('devices')">PC & Kontrol</button>
+    <button data-tab="reports" onclick="showTab('reports')">Laporan</button>
+    <button data-tab="settings" onclick="showTab('settings')">Pengaturan</button>
+    <button data-tab="users" onclick="showTab('users')">Akun</button>
+    <button data-tab="remote" onclick="showTab('remote')">Remote / WoL</button>
     <button data-tab="rentals" onclick="showTab('rentals')">Rental Coin</button>
     <button data-tab="hosts" onclick="showTab('hosts')">PC Host</button>
-    <button data-tab="payments" onclick="showTab('payments')">Top-up / Wallet</button>
+    <button data-tab="payments" onclick="showTab('payments')">Top-up</button>
   </nav>
 
   <section id="dashboard" class="section active">
@@ -66,6 +72,15 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
       <div class="stat"><div class="k">Top-up menunggu</div><div id="statPending" class="v">—</div></div>
       <div class="stat"><div class="k">Wallet</div><div id="statWallets" class="v">—</div></div>
       <div class="stat"><div class="k">PC Host Agent siap</div><div id="statHosts" class="v">—</div></div>
+    </div>
+    <div class="card"><h3>Ringkasan DB utama</h3>
+      <div class="stat-grid">
+        <div class="stat"><div class="k">Rental timer lama</div><div id="coreRentalCount" class="v">—</div></div>
+        <div class="stat"><div class="k">PC terdaftar</div><div id="coreDeviceCount" class="v">—</div></div>
+        <div class="stat"><div class="k">Sesi aktif</div><div id="coreSessionCount" class="v">—</div></div>
+        <div class="stat"><div class="k">Alert terbaru</div><div id="coreAlertCount" class="v">—</div></div>
+      </div>
+      <div id="coreSystemStatus" class="hint" style="margin-top:10px">Membaca data Core Admin…</div>
     </div>
     <div class="card"><h3>Status sistem</h3><div id="systemStatus" class="hint">Membaca status dari gateway dan Android DB.</div></div>
     <div class="card"><h3>Pemisahan data</h3><p class="hint">Data member dan Coin disimpan pada schema androiddb_v0. Akun Owner hanya dipakai untuk autentikasi dan batas tenant. Sistem ini tidak memanggil tabel rental timer lama.</p></div>
@@ -104,7 +119,124 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
       <div id="walletResult" class="list" style="margin-top:12px"><div class="empty">Pilih akun untuk membaca lot dan ledger.</div></div>
     </div>
   </section>
-  <div class="bottom-note">Admin Android DB v0 • Tidak mengubah sistem rental lama</div>
+  <section id="legacy" class="section">
+    <div class="card">
+      <h2>Rental timer utama</h2>
+      <p class="hint">Data dari public.rental_accounts dan fungsi Admin inti. Tetap terpisah dari rental Coin di schema androiddb_v0.</p>
+      <div class="form-grid">
+        <div><label>ID Rental</label><input id="legacyNewCode" maxlength="120" placeholder="MEMBER001"></div>
+        <div><label>Kategori</label><select id="legacyNewCategory"><option>reguler</option><option>mingguan</option><option>bulanan</option><option>hemat</option><option>sultan</option><option>mega hemat</option></select></div>
+        <div><label>Durasi menit</label><input id="legacyNewMinutes" type="number" min="1" max="525600" value="60"></div>
+        <div><label>Nama member</label><input id="legacyNewLabel" maxlength="120" placeholder="Nama penyewa"></div>
+        <div><label>Expiry akun (opsional)</label><input id="legacyNewExpiry" type="datetime-local"></div>
+        <div class="wide"><button class="primary" style="width:100%" onclick="createLegacyRental()">+ Buat Rental Timer</button></div>
+      </div>
+    </div>
+    <div class="card"><div class="row" style="justify-content:space-between"><h2>Daftar rental timer</h2><button class="small" onclick="loadLegacyRentals()">Refresh</button></div><div id="legacyRentalList" class="list"><div class="empty">Belum dimuat.</div></div></div>
+  </section>
+
+  <section id="devices" class="section">
+    <div class="card"><div class="row" style="justify-content:space-between"><h2>Inventaris PC & kontrol Windows</h2><button class="small primary" onclick="loadDevices()">Refresh</button></div>
+      <p class="hint">Kontrol diteruskan melalui command queue resmi DB. Perintah restart, logoff, stop, dan shutdown memerlukan konfirmasi.</p>
+      <div id="deviceList" class="list"><div class="empty">Belum dimuat.</div></div>
+    </div>
+    <div class="card"><h3>Status perintah</h3><div class="row"><input id="commandStatusId" placeholder="Command ID" class="grow"><button class="primary" onclick="checkCommandStatus()">Cek</button></div><pre id="commandStatusResult" class="msg" style="white-space:pre-wrap;overflow-wrap:anywhere">Belum ada command yang dipilih.</pre></div>
+  </section>
+
+  <section id="reports" class="section">
+    <div class="card">
+      <h2>Laporan Admin DB</h2>
+      <div class="form-grid">
+        <div><label>Dari</label><input id="reportFrom" type="date"></div>
+        <div><label>Sampai</label><input id="reportTo" type="date"></div>
+      </div>
+      <div class="actions" style="margin-top:10px">
+        <button onclick="runReport('compact')">Ringkasan</button>
+        <button onclick="runReport('monthly')">Bulanan</button>
+        <button onclick="runReport('detail')">Detail sesi (50)</button>
+        <button onclick="runReport('breakdown')">Breakdown rental</button>
+        <button onclick="runReport('activity')">Aktivitas Admin</button>
+      </div>
+      <pre id="reportOutput" class="msg" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px">Pilih rentang tanggal, lalu jalankan laporan.</pre>
+    </div>
+  </section>
+
+  <section id="settings" class="section">
+    <div class="card">
+      <div class="row" style="justify-content:space-between"><h2>Kebijakan Billing</h2><button class="small" onclick="loadSettings()">Refresh</button></div>
+      <div class="item"><div class="item-head"><b>Free Test 10 menit</b><span id="freeTestState" class="pill">—</span></div><div class="actions"><button class="small primary" onclick="setPolicy('free',true)">Aktifkan</button><button class="small danger" onclick="setPolicy('free',false)">Nonaktifkan</button></div></div>
+      <div class="item"><div class="item-head"><b>Kebijakan Stop / Pause Billing</b><span id="stopPauseState" class="pill">—</span></div><div class="actions"><button class="small primary" onclick="setPolicy('stop',true)">Aktifkan</button><button class="small danger" onclick="setPolicy('stop',false)">Nonaktifkan</button></div></div>
+      <div id="policyDetails" class="hint" style="margin-top:8px">Membaca kebijakan dari database.</div>
+    </div>
+    <div class="card">
+      <h2>Tampilan / Theme organisasi</h2>
+      <div class="form-grid">
+        <div><label>Nama theme</label><input id="themeName" value="Ani Games Ready"></div>
+        <div><label>Judul brand</label><input id="themeTitle" value="ANI GAMES READY"></div>
+        <div><label>Subtitle</label><input id="themeSubtitle" value="PC RENTAL"></div>
+        <div><label>Warna utama</label><input id="themePrimary" value="#17688b"></div>
+        <div><label>Warna kedua</label><input id="themeSecondary" value="#5940ba"></div>
+        <div><label>Warna card</label><input id="themeCard" value="#11223a"></div>
+        <div><label>Media URL (opsional)</label><input id="themeMedia" placeholder="https://..."></div>
+        <div><label>Wallpaper URL (opsional)</label><input id="themeWallpaper" placeholder="https://..."></div>
+        <div><label>Logo URL (opsional)</label><input id="themeLogo" placeholder="https://..."></div>
+        <div class="wide"><button class="primary" style="width:100%" onclick="saveOrgTheme()">Simpan Theme</button></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Ganti Password Owner</h2>
+      <div class="form-grid"><div><label>Password sekarang</label><input id="pwCurrent" type="password"></div><div><label>Password baru (min. 12 karakter)</label><input id="pwNew" type="password" minlength="12"></div><div class="wide"><button class="primary" style="width:100%" onclick="changeOwnerPassword()">Ganti Password</button></div></div>
+    </div>
+  </section>
+
+  <section id="users" class="section">
+    <div class="card">
+      <h2>Pengguna Admin / Reseller</h2>
+      <p class="hint">Pengelolaan akun Billing dan reseller menggunakan tabel autentikasi inti. Password tidak pernah ditampilkan kembali.</p>
+      <div class="form-grid">
+        <div><label>Username</label><input id="userName" maxlength="120"></div>
+        <div><label>Password awal</label><input id="userPassword" type="password" maxlength="200"></div>
+        <div><label>Nama tampilan</label><input id="userDisplay" maxlength="120"></div>
+        <div><label>Role</label><select id="userRole"><option value="RESELLER_ADMIN">RESELLER_ADMIN</option><option value="SUPER_ADMIN">SUPER_ADMIN</option></select></div>
+        <div><label>Status</label><select id="userStatus"><option value="active">active</option><option value="disabled">disabled</option></select></div>
+        <div class="wide"><button class="primary" style="width:100%" onclick="saveBillingUser()">+ Buat Akun</button></div>
+      </div>
+      <div id="billingUserList" class="list" style="margin-top:12px"><div class="empty">Belum dimuat.</div></div>
+    </div>
+    <div class="card">
+      <h2>Buat reseller</h2>
+      <div class="form-grid"><div><label>Nama reseller</label><input id="resellerName"></div><div><label>Slug</label><input id="resellerSlug"></div><div class="wide"><button class="primary" style="width:100%" onclick="createReseller()">Buat Reseller</button></div></div>
+    </div>
+  </section>
+
+  <section id="remote" class="section">
+    <div class="card">
+      <div class="row" style="justify-content:space-between"><h2>Remote Play / Host Control</h2><button class="small" onclick="loadRemoteAdmin()">Refresh</button></div>
+      <div id="remoteAdminSummary" class="list"><div class="empty">Belum dimuat.</div></div>
+      <pre id="remoteAdminRaw" class="msg" style="white-space:pre-wrap;overflow-wrap:anywhere">Data Remote belum dimuat.</pre>
+    </div>
+    <div class="card">
+      <h2>Izin Remote Rental Lama</h2>
+      <div class="form-grid"><div><label>Rental Account ID</label><input id="remoteRentalId"></div><div><label>Device ID</label><input id="remoteDeviceId"></div>
+        <div class="actions wide"><button onclick="setRemoteRentalPermission(true)">Izinkan rental</button><button class="danger" onclick="setRemoteRentalPermission(false)">Cabut rental</button><button onclick="issueRemoteClient()">Kode Client</button><button onclick="setRemoteHostPermission(true)">Izinkan Host</button><button class="danger" onclick="setRemoteHostPermission(false)">Cabut Host</button><button onclick="issueRemoteHost()">Kode Host</button></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between"><h2>WoL Relay / Probe</h2><button class="small" onclick="loadWolStatus()">Refresh</button></div>
+      <pre id="wolStatus" class="msg" style="white-space:pre-wrap;overflow-wrap:anywhere">Status relay belum dimuat.</pre>
+      <div class="actions"><button onclick="createWolEnrollment()">Buat enrollment relay</button><button onclick="requestWolProbe()">Probe relay</button></div>
+      <div class="form-grid" style="margin-top:10px"><div class="wide"><label>Target PC Device ID</label><input id="wolTargetDevice" placeholder="UUID perangkat"></div><div class="wide"><button class="primary" style="width:100%" onclick="sendWolCommand()">Kirim WoL</button></div></div>
+      <div id="wolCommandResult" class="hint"></div>
+    </div>
+    <div class="card">
+      <h2>Blynk IoT</h2>
+      <p class="hint">Pulse momentary saja. Status Blynk online tidak berarti PC sudah menyala.</p>
+      <div class="row"><span id="blynkState" class="pill">Belum diperiksa</span><button class="small" onclick="checkBlynk()">Cek koneksi</button></div>
+      <div class="form-grid" style="margin-top:10px"><div class="wide"><label>Target PC Device ID</label><input id="blynkTargetDevice" placeholder="UUID perangkat"></div><div class="wide"><button class="primary" style="width:100%" onclick="pulseBlynk()">Kirim Pulse 1x</button></div></div>
+    </div>
+  </section>
+
+  <div class="bottom-note">Admin Android DB v0.2 • Satu database Android • Rental timer dan AniCoin tetap terpisah</div>
 </main>
 
 <div id="oneTimeModal" class="modal hidden">
@@ -140,7 +272,7 @@ function val(value){return String(value===null||value===undefined?"":value);}
 function esc(value){return val(value).replace(/[&<>"']/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch];});}
 function num(value){const n=Number(value);return Number.isFinite(n)?n:0;}
 function money(value){return "Rp "+new Intl.NumberFormat("id-ID",{maximumFractionDigits:0}).format(num(value));}
-function coin(value){return new Intl.NumberFormat("id-ID",{maximumFractionDigits:6}).format(num(value))+" coin";}
+function coin(value){return new Intl.NumberFormat("id-ID",{maximumFractionDigits:6}).format(num(value))+" AniCoin";}
 function date(value){if(!value)return "—";const d=new Date(value);return Number.isNaN(d.getTime())?"—":d.toLocaleString("id-ID");}
 function setMessage(id,value,bad){const target=el(id);if(!target)return;target.textContent=val(value);target.classList.toggle("error",!!bad);}
 function globalMessage(value,bad){setMessage("globalMessage",value,bad);}
@@ -171,10 +303,12 @@ async function finishLogin(user){
   adminContext=await api("admin_context");
   if(!adminContext||!Array.isArray(adminContext.orgs)||!adminContext.orgs.length)throw new Error("ADMIN_ORG_ACCESS_DENIED");
   if(!isOwner(adminContext))throw new Error("OWNER_ONLY — Admin Android DB v0 hanya untuk Owner.");
+  fillOrganizations();
   el("who").textContent="Owner • "+val(user&&user.email||"Android DB");
   el("loginScreen").classList.add("hidden");el("appScreen").classList.remove("hidden");
-  globalMessage("Login Owner berhasil. Membaca domain Coin v0.");
+  globalMessage("Login Owner berhasil. Menghubungkan seluruh modul Admin Android DB.");
   await loadDashboard();
+  try{await loadCoreOverview();}catch(e){globalMessage("DB utama gagal dimuat: "+e.message,true);}
 }
 async function logout(){
   try{await callApi("__admin_logout",{},accessToken);}catch(ignored){}
@@ -186,7 +320,8 @@ function showTab(id){
   document.querySelectorAll(".section").forEach(function(x){x.classList.remove("active");});
   document.querySelectorAll(".tabs button").forEach(function(x){x.classList.toggle("active",x.dataset.tab===id);});
   el(id).classList.add("active");
-  loadDashboard().catch(function(error){globalMessage(error.message,true);});
+  const jobs={dashboard:loadDashboard,legacy:loadLegacyRentals,devices:loadDevices,reports:function(){},settings:loadSettings,users:loadBillingUsers,remote:function(){return Promise.all([loadRemoteAdmin(),loadWolStatus(),checkBlynk()]);},rentals:loadDashboard,hosts:loadDashboard,payments:loadDashboard};
+  const fn=jobs[id]||loadDashboard;Promise.resolve().then(fn).catch(e=>globalMessage("Gagal memuat modul: "+e.message,true));
 }
 async function loadDashboard(){
   globalMessage("Membaca rental Coin, top-up, dan PC Host dari Android DB…");
@@ -289,6 +424,274 @@ async function loadWallet(){
     const lots=Array.isArray(r.lots)?r.lots:[],ledger=Array.isArray(r.ledger)?r.ledger:[];
     el("walletResult").innerHTML='<div class="stat-grid"><div class="stat"><div class="k">Rental</div><div class="v" style="font-size:17px">'+esc(r.rental_account.code)+'</div></div><div class="stat"><div class="k">Saldo aktif</div><div class="v">'+coin(r.wallet.balance)+'</div></div></div><div class="hint">Saldo berasal dari lot yang belum kedaluwarsa.</div><h3>Lot Coin</h3>'+(lots.map(function(x){return '<div class="item"><div class="item-title">'+coin(x.remaining_coins)+' dari '+coin(x.original_coins)+'</div><div class="item-meta">Dibuat '+date(x.created_at)+' • Lot berakhir '+date(x.expires_at)+'</div></div>';}).join("")||'<div class="empty">Belum ada lot.</div>')+'<h3>Ledger</h3>'+(ledger.map(function(x){return '<div class="item"><div class="item-head"><b>'+esc(x.event_type)+'</b><b>'+coin(x.amount_coins)+'</b></div><div class="item-meta">'+date(x.created_at)+' • Saldo setelah '+coin(x.balance_after)+'<br>'+esc(x.reference_type)+' / '+esc(x.reference_id)+'</div></div>';}).join("")||'<div class="empty">Belum ada transaksi.</div>');
   }catch(error){el("walletResult").innerHTML='<div class="msg error">'+esc(error.message||error)+'</div>';}
+}
+
+let coreOverview={rentals:[],devices:[],sessions:[],alerts:[]};
+let currentOrgId="";
+function orgId(){return val(el("orgSelect")&&el("orgSelect").value||currentOrgId||adminContext&&adminContext.orgs&&adminContext.orgs[0]&&adminContext.orgs[0].id);}
+function orgArgs(){const id=orgId();if(!id)throw new Error("ADMIN_ORG_NOT_SELECTED");return {p_org_id:id};}
+function asArray(value){if(Array.isArray(value))return value;if(value&&Array.isArray(value.data))return value.data;return [];}
+function pretty(value){return JSON.stringify(value===undefined?null:value,null,2);}
+function showJson(id,value){const target=el(id);if(target)target.textContent=pretty(value);}
+function isoFromInput(id){const v=val(el(id).value);if(!v)return null;const d=new Date(v);if(Number.isNaN(d.getTime()))throw new Error("FORMAT_TANGGAL_INVALID");return d.toISOString();}
+function toLocalInput(value){if(!value)return "";const d=new Date(value);if(Number.isNaN(d.getTime()))return "";return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);}
+function changeOrg(){currentOrgId=orgId();loadCoreOverview().catch(e=>globalMessage("Gagal ganti organisasi: "+e.message,true));}
+function fillOrganizations(){
+  const select=el("orgSelect"),rows=Array.isArray(adminContext&&adminContext.orgs)?adminContext.orgs:[];
+  if(!select)return;
+  select.innerHTML=rows.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name||x.slug||x.id)+'</option>').join("");
+  if(!rows.length)throw new Error("ADMIN_ORG_ACCESS_DENIED");
+  currentOrgId=rows[0].id;select.value=currentOrgId;
+}
+async function loadCoreOverview(){
+  const id=orgId();if(!id)return;
+  const since=new Date(Date.now()-86400000).toISOString();
+  const results=await Promise.all([
+    api("admin_rental_accounts_global",{p_org_id:id}),
+    api("admin_devices",{p_org_id:id}),
+    api("admin_active_sessions",{p_org_id:id}),
+    api("admin_recent_alerts",{p_org_id:id,p_since:since})
+  ]);
+  coreOverview={rentals:asArray(results[0]),devices:asArray(results[1]),sessions:asArray(results[2]),alerts:asArray(results[3])};
+  el("coreRentalCount").textContent=coreOverview.rentals.length;
+  el("coreDeviceCount").textContent=coreOverview.devices.length;
+  el("coreSessionCount").textContent=coreOverview.sessions.length;
+  el("coreAlertCount").textContent=coreOverview.alerts.length;
+  el("coreSystemStatus").textContent="Core DB tersambung • "+coreOverview.rentals.length+" rental lama • "+coreOverview.devices.length+" PC • "+coreOverview.sessions.length+" sesi aktif • "+coreOverview.alerts.length+" alert 24 jam terakhir.";
+  return coreOverview;
+}
+async function loadLegacyRentals(){
+  try{
+    const rows=asArray(await api("admin_rental_accounts_global",orgArgs()));
+    renderLegacyRentals(rows);globalMessage("Rental timer lama berhasil dibaca dari DB.");
+  }catch(e){el("legacyRentalList").innerHTML='<div class="msg error">'+esc(e.message)+'</div>';globalMessage("Gagal membaca rental lama: "+e.message,true);}
+}
+function renderLegacyRentals(rows){
+  el("legacyRentalList").innerHTML=rows.map(r=>{
+    const id=esc(r.id),minutes=Math.max(0,Math.floor(num(r.remaining_seconds)/60)),status=val(r.status);
+    const cats=["reguler","mingguan","bulanan","hemat","sultan","mega hemat"];
+    return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(r.code)+'</div><div class="item-meta">'+esc(r.client_label||"Tanpa nama")+' • Sisa '+minutes+' menit</div></div><span class="pill '+(status==="active"?"good":status==="expired"?"warn":"bad")+'">'+esc(status.toUpperCase())+'</span></div><div class="form-grid" style="margin-top:10px"><div><label>ID Rental</label><input id="lr_code_'+id+'" value="'+esc(r.code)+'"></div><div><label>Kategori</label><select id="lr_cat_'+id+'">'+cats.map(c=>'<option value="'+c+'" '+(r.category===c?"selected":"")+'>'+c+'</option>').join("")+'</select></div><div><label>Durasi menit</label><input id="lr_min_'+id+'" type="number" min="0" value="'+minutes+'"></div><div><label>Nama member</label><input id="lr_label_'+id+'" value="'+esc(r.client_label||"")+'"></div><div><label>Status</label><select id="lr_status_'+id+'"><option value="active" '+(status==="active"?"selected":"")+'>active</option><option value="disabled" '+(status==="disabled"?"selected":"")+'>disabled</option><option value="expired" '+(status==="expired"?"selected":"")+'>expired</option></select></div><div><label>Expiry akun</label><input id="lr_exp_'+id+'" type="datetime-local" value="'+toLocalInput(r.expiry_at)+'"></div></div><div class="item-actions"><button class="small primary" onclick="saveLegacyRental(\''+id+'\')">Simpan</button><button class="small" onclick="disableLegacyRental(\''+id+'\')">Nonaktifkan</button><button class="small danger" onclick="deleteLegacyRental(\''+id+'\')">Hapus</button></div></div>';
+  }).join("")||'<div class="empty">Belum ada rental timer lama.</div>';
+}
+async function createLegacyRental(){
+  try{
+    const args=orgArgs();args.p_code=val(el("legacyNewCode").value).trim();args.p_category=el("legacyNewCategory").value;
+    args.p_minutes=num(el("legacyNewMinutes").value);args.p_client_label=val(el("legacyNewLabel").value).trim();args.p_expiry_at=isoFromInput("legacyNewExpiry");
+    if(!args.p_code||args.p_minutes<1)throw new Error("ID Rental dan durasi minimal 1 menit wajib diisi.");
+    const r=await api("admin_create_rental_global",args);showCode("Rental timer dibuat",r.code||args.p_code,pretty(r));
+    el("legacyNewCode").value="";el("legacyNewLabel").value="";await loadLegacyRentals();await loadCoreOverview();
+  }catch(e){globalMessage("Gagal membuat rental lama: "+e.message,true);}
+}
+async function saveLegacyRental(id){
+  try{
+    const args=orgArgs();args.p_rental_id=id;args.p_code=val(el("lr_code_"+id).value).trim();args.p_category=el("lr_cat_"+id).value;
+    args.p_minutes=num(el("lr_min_"+id).value);args.p_client_label=val(el("lr_label_"+id).value).trim();args.p_expiry_at=isoFromInput("lr_exp_"+id);args.p_status=el("lr_status_"+id).value;
+    await api("admin_update_rental_global",args);globalMessage("Rental lama berhasil diperbarui.");await loadLegacyRentals();await loadCoreOverview();
+  }catch(e){globalMessage("Gagal menyimpan rental: "+e.message,true);}
+}
+async function disableLegacyRental(id){
+  if(!confirm("Nonaktifkan rental ini? DB akan menolak jika sesi timer masih aktif."))return;
+  try{const a=orgArgs();a.p_rental_id=id;await api("admin_disable_rental_global",a);await loadLegacyRentals();await loadCoreOverview();globalMessage("Rental dinonaktifkan.");}
+  catch(e){globalMessage("Gagal menonaktifkan rental: "+e.message,true);}
+}
+async function deleteLegacyRental(id){
+  if(!confirm("Hapus permanen rental ini? DB akan memeriksa sesi aktif dan relasi terkait."))return;
+  try{const a=orgArgs();a.p_rental_id=id;await api("admin_delete_rental_global",a);await loadLegacyRentals();await loadCoreOverview();globalMessage("Rental dihapus.");}
+  catch(e){globalMessage("Gagal menghapus rental: "+e.message,true);}
+}
+async function loadDevices(){
+  try{
+    const a=orgArgs();const [devices,sessions]=await Promise.all([api("admin_devices",a),api("admin_active_sessions",a)]);
+    renderDevices(asArray(devices),asArray(sessions));globalMessage("Inventaris PC dan sesi aktif berhasil dimuat.");
+  }catch(e){el("deviceList").innerHTML='<div class="msg error">'+esc(e.message)+'</div>';globalMessage("Gagal membaca PC: "+e.message,true);}
+}
+function renderDevices(rows,sessions){
+  const activeByDevice=new Map();sessions.forEach(s=>activeByDevice.set(s.device_id,s));
+  const commands=["refresh","restart_billing","pause","resume","stop","logoff","restart_pc","shutdown"];
+  el("deviceList").innerHTML=rows.map(d=>{
+    const id=esc(d.id),session=activeByDevice.get(d.id),online=d.status==="online";
+    return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(d.device_name||d.client_id)+'</div><div class="item-meta">'+esc(d.client_id)+' • '+esc(d.power_state||"power unknown")+'</div></div><span class="pill '+(online?"good":"bad")+'">'+esc(val(d.status).toUpperCase())+'</span></div><div class="item-meta">Heartbeat: '+date(d.last_heartbeat_at||d.last_seen_at)+' • Sesi: '+(session?esc(session.code||session.rental_code||session.status):"Tidak ada sesi aktif")+'</div><div class="form-grid" style="margin-top:9px"><div><label>Nama PC</label><input id="devname_'+id+'" value="'+esc(d.device_name||"")+'"></div><div><label>Perintah</label><select id="devcmd_'+id+'">'+commands.map(c=>'<option value="'+c+'">'+c.replaceAll("_"," ")+'</option>').join("")+'</select></div></div><div class="item-actions"><button class="small" onclick="renameDevice(\''+id+'\')">Ubah nama</button><button class="small primary" onclick="sendDeviceCommand(\''+id+'\')">Kirim perintah</button><button class="small" onclick="showDeviceState(\''+id+'\')">Detail PC</button><button class="small" onclick="showDeviceSessions(\''+id+'\')">Sesi PC</button><button class="small" onclick="createRecoveryCode(\''+id+'\')">Kode recovery</button><button class="small" onclick="startDeviceTrial(\''+id+'\')">Free test</button><button class="small danger" onclick="disconnectDevice(\''+id+'\')">Putuskan</button></div></div>';
+  }).join("")||'<div class="empty">Belum ada PC terdaftar di organisasi ini.</div>';
+}
+async function renameDevice(id){
+  try{const a=orgArgs();a.p_device_id=id;a.p_device_name=val(el("devname_"+id).value).trim();if(!a.p_device_name)throw new Error("Nama PC wajib diisi.");await api("admin_rename_device",a);await loadDevices();globalMessage("Nama PC diperbarui.");}
+  catch(e){globalMessage("Gagal ubah nama: "+e.message,true);}
+}
+async function disconnectDevice(id){
+  if(!confirm("Putuskan koneksi perangkat ini?"))return;
+  try{const a=orgArgs();a.p_device_id=id;await api("admin_disconnect_device",a);await loadDevices();globalMessage("Perintah putuskan perangkat dikirim.");}
+  catch(e){globalMessage("Gagal putuskan PC: "+e.message,true);}
+}
+async function sendDeviceCommand(id){
+  const command=el("devcmd_"+id).value;
+  const dangerous=["shutdown","restart_pc","logoff","stop"];
+  if(dangerous.includes(command)&&!confirm("Kirim perintah "+command+" ke PC ini?"))return;
+  try{
+    const a=orgArgs();a.p_device_id=id;a.p_command=command;a.p_payload={source:"admin_android_v0",requested_at:new Date().toISOString()};
+    const r=await api("admin_command",a);const cid=r.command_id||r.id||"";
+    if(cid){el("commandStatusId").value=cid;showJson("commandStatusResult",r);}
+    globalMessage("Command "+command+" dikirim. Status: "+(r.status||"queued"));
+  }catch(e){globalMessage("Command gagal: "+e.message,true);}
+}
+async function checkCommandStatus(){
+  try{const a=orgArgs();a.p_command_id=val(el("commandStatusId").value).trim();if(!a.p_command_id)throw new Error("Command ID wajib diisi.");showJson("commandStatusResult",await api("admin_command_status",a));}
+  catch(e){showJson("commandStatusResult",{ok:false,error:e.message});}
+}
+async function showDeviceState(id){
+  try{const a=orgArgs();a.p_device_id=id;showJson("commandStatusResult",await api("admin_device_state",a));}
+  catch(e){showJson("commandStatusResult",{ok:false,error:e.message});}
+}
+async function showDeviceSessions(id){
+  try{const a=orgArgs();a.p_device_id=id;showJson("commandStatusResult",asArray(await api("admin_selected_sessions",a)));}
+  catch(e){showJson("commandStatusResult",{ok:false,error:e.message});}
+}
+async function createRecoveryCode(id){
+  try{const r=await api("create_device_recovery_enrollment",{p_device_id:id,p_minutes:30});showCode("Kode recovery perangkat",r.code||r.enrollment_code||r.recovery_code,pretty(r));}
+  catch(e){globalMessage("Gagal membuat recovery: "+e.message,true);}
+}
+async function startDeviceTrial(id){
+  if(!confirm("Mulai Free Test 10 menit pada PC ini?"))return;
+  try{const a=orgArgs();a.p_device_id=id;showJson("commandStatusResult",await api("admin_start_trial",a));globalMessage("Permintaan Free Test dikirim.");}
+  catch(e){globalMessage("Free Test gagal: "+e.message,true);}
+}
+function reportRange(){
+  const from=val(el("reportFrom").value),to=val(el("reportTo").value);
+  if(!from||!to)throw new Error("Tanggal Dari dan Sampai wajib diisi.");
+  const start=new Date(from+"T00:00:00+07:00"),end=new Date(to+"T23:59:59.999+07:00");
+  if(!(end>start))throw new Error("Rentang tanggal tidak valid.");
+  const a=orgArgs();a.p_from=start.toISOString();a.p_to=end.toISOString();return a;
+}
+async function runReport(type){
+  try{
+    const a=reportRange();let result;
+    if(type==="compact")result=await api("report_summary_compact",a);
+    else if(type==="monthly")result=await api("report_monthly_rental_summary",a);
+    else if(type==="detail"){a.p_limit=50;a.p_before_started_at=null;a.p_before_session_id=null;result=await api("report_detailed_usage_page",a);}
+    else if(type==="breakdown")result=await api("report_rental_period_breakdown",a);
+    else if(type==="activity"){a.p_limit=100;result=await api("admin_activity",a);}
+    else throw new Error("REPORT_TYPE_INVALID");
+    showJson("reportOutput",result);globalMessage("Laporan berhasil dibaca dari DB.");
+  }catch(e){showJson("reportOutput",{ok:false,error:e.message});globalMessage("Laporan gagal: "+e.message,true);}
+}
+async function loadSettings(){
+  try{
+    const [free,stop]=await Promise.all([api("admin_get_free_test_policy"),api("admin_get_billing_stop_pause_policy")]);
+    el("freeTestState").textContent=val(free.enabled===true?"AKTIF":"NONAKTIF");el("freeTestState").className="pill "+(free.enabled===true?"good":"warn");
+    el("stopPauseState").textContent=val(stop.enabled===true?"AKTIF":"NONAKTIF");el("stopPauseState").className="pill "+(stop.enabled===true?"good":"warn");
+    showJson("policyDetails",{free_test:free,stop_pause:stop});
+  }catch(e){showJson("policyDetails",{ok:false,error:e.message});}
+}
+async function setPolicy(type,enabled){
+  const label=type==="free"?"Free Test 10 menit":"Stop / Pause Billing";
+  if(!confirm((enabled?"Aktifkan ":"Nonaktifkan ")+label+"?"))return;
+  try{const r=await api(type==="free"?"admin_set_free_test_policy":"admin_set_billing_stop_pause_policy",{p_enabled:enabled});showJson("policyDetails",r);await loadSettings();globalMessage(label+" diperbarui.");}
+  catch(e){globalMessage("Gagal mengubah kebijakan: "+e.message,true);}
+}
+async function saveOrgTheme(){
+  try{
+    const a=orgArgs();a.p_name=val(el("themeName").value);a.p_brand_title=val(el("themeTitle").value);a.p_brand_subtitle=val(el("themeSubtitle").value);
+    a.p_primary_color=val(el("themePrimary").value);a.p_secondary_color=val(el("themeSecondary").value);a.p_card_color=val(el("themeCard").value);
+    a.p_media_url=val(el("themeMedia").value)||null;a.p_wallpaper_url=val(el("themeWallpaper").value)||null;a.p_logo_url=val(el("themeLogo").value)||null;
+    showJson("policyDetails",await api("save_theme",a));globalMessage("Theme organisasi berhasil disimpan.");
+  }catch(e){globalMessage("Gagal menyimpan theme: "+e.message,true);}
+}
+async function changeOwnerPassword(){
+  const current=val(el("pwCurrent").value),next=val(el("pwNew").value);
+  if(!current||next.length<12){globalMessage("Password baru minimal 12 karakter.",true);return;}
+  if(!confirm("Ganti password Owner? Sesi Admin lain akan dicabut."))return;
+  try{const r=await api("admin_change_password",{p_current_password:current,p_new_password:next});el("pwCurrent").value="";el("pwNew").value="";globalMessage("Password berhasil diganti. Simpan password baru dengan aman.");showJson("policyDetails",r);}
+  catch(e){globalMessage("Gagal mengganti password: "+e.message,true);}
+}
+async function loadBillingUsers(){
+  try{
+    const rows=asArray(await api("dashboard_billing_users"));
+    el("billingUserList").innerHTML=rows.map(u=>{
+      const id=esc(u.id||u.user_id),status=val(u.status||"active");
+      return '<div class="item"><div class="item-head"><div><b>'+esc(u.username||u.email||id)+'</b><div class="item-meta">'+esc(u.display_name||"")+' • '+esc(u.role||"")+'</div></div><span class="pill '+(status==="active"?"good":"bad")+'">'+esc(status.toUpperCase())+'</span></div><div class="item-actions"><button class="small" onclick="updateBillingUser(\''+id+'\',\''+esc(u.username||"")+'\',\''+esc(u.role||"RESELLER_ADMIN")+'\',\''+esc(u.org_id||orgId())+'\',\''+status+'\')">Ubah status</button><button class="small danger" onclick="deleteBillingUser(\''+id+'\',\''+esc(u.username||"")+'\')">Hapus</button></div></div>';
+    }).join("")||'<div class="empty">Belum ada akun Billing/Reseller.</div>';
+  }catch(e){el("billingUserList").innerHTML='<div class="msg error">'+esc(e.message)+'</div>';}
+}
+async function saveBillingUser(){
+  try{
+    const a={p_action:"create",p_username:val(el("userName").value).trim(),p_password:val(el("userPassword").value),p_status:el("userStatus").value,p_role:el("userRole").value,p_org_id:orgId(),p_display_name:val(el("userDisplay").value).trim(),p_user_id:null};
+    if(a.p_username.length<3||a.p_password.length<8)throw new Error("Username minimal 3 karakter, password minimal 8 karakter.");
+    const r=await api("dashboard_billing_user",a);showJson("reportOutput",r);el("userName").value="";el("userPassword").value="";el("userDisplay").value="";await loadBillingUsers();globalMessage("Akun Admin/Reseller berhasil dibuat.");
+  }catch(e){globalMessage("Gagal membuat akun: "+e.message,true);}
+}
+async function updateBillingUser(id,username,role,org,status){
+  const next=prompt("Status baru: active atau disabled",status);if(next===null)return;
+  if(!["active","disabled"].includes(next))return globalMessage("Status tidak valid.",true);
+  try{const r=await api("dashboard_billing_user",{p_action:"update",p_username:username,p_password:null,p_status:next,p_role:role,p_org_id:org,p_display_name:null,p_user_id:id});showJson("reportOutput",r);await loadBillingUsers();globalMessage("Akun diperbarui.");}
+  catch(e){globalMessage("Gagal mengubah akun: "+e.message,true);}
+}
+async function deleteBillingUser(id,username){
+  if(!confirm("Hapus akun "+username+"?"))return;
+  try{const r=await api("dashboard_billing_user",{p_action:"delete",p_username:username,p_password:null,p_status:"disabled",p_role:"RESELLER_ADMIN",p_org_id:orgId(),p_display_name:null,p_user_id:id});showJson("reportOutput",r);await loadBillingUsers();globalMessage("Akun dihapus.");}
+  catch(e){globalMessage("Gagal menghapus akun: "+e.message,true);}
+}
+async function createReseller(){
+  const name=val(el("resellerName").value).trim(),slug=val(el("resellerSlug").value).trim();
+  if(!name||!slug)return globalMessage("Nama dan slug reseller wajib diisi.",true);
+  try{const r=await api("create_reseller",{p_name:name,p_slug:slug});showJson("reportOutput",r);el("resellerName").value="";el("resellerSlug").value="";globalMessage("Reseller berhasil dibuat.");}
+  catch(e){globalMessage("Gagal membuat reseller: "+e.message,true);}
+}
+async function loadRemoteAdmin(){
+  try{
+    const [dashboard,sessions]=await Promise.all([api("admin_remote_play_dashboard",{p_limit:100}),api("admin_remote_play_sessions",{p_limit:100})]);
+    const hosts=asArray(dashboard.hosts),rentals=asArray(dashboard.rentals);
+    el("remoteAdminSummary").innerHTML='<div class="stat-grid"><div class="stat"><div class="k">Host remote</div><div class="v">'+hosts.length+'</div></div><div class="stat"><div class="k">Rental remote</div><div class="v">'+rentals.length+'</div></div><div class="stat"><div class="k">Sesi</div><div class="v">'+asArray(sessions.sessions).length+'</div></div></div>';
+    showJson("remoteAdminRaw",{dashboard:dashboard,sessions:sessions});
+  }catch(e){el("remoteAdminSummary").innerHTML='<div class="msg error">'+esc(e.message)+'</div>';showJson("remoteAdminRaw",{ok:false,error:e.message});}
+}
+async function setRemoteRentalPermission(enabled){
+  const id=val(el("remoteRentalId").value).trim();if(!id)return globalMessage("Rental Account ID wajib diisi.",true);
+  if(!confirm((enabled?"Izinkan":"Cabut izin")+" Remote pada rental ini?"))return;
+  try{showCode("Status izin Remote",pretty(await api("admin_remote_play_set_rental_permission",{p_rental_account_id:id,p_enabled:enabled})),"");await loadRemoteAdmin();}
+  catch(e){globalMessage("Gagal ubah izin rental Remote: "+e.message,true);}
+}
+async function setRemoteHostPermission(enabled){
+  const id=val(el("remoteDeviceId").value).trim();if(!id)return globalMessage("Device ID wajib diisi.",true);
+  if(!confirm((enabled?"Izinkan":"Cabut izin")+" PC Host untuk Remote?"))return;
+  try{showJson("remoteAdminRaw",await api("admin_remote_play_set_host_permission",{p_device_id:id,p_enabled:enabled}));await loadRemoteAdmin();}
+  catch(e){globalMessage("Gagal ubah izin Host: "+e.message,true);}
+}
+async function issueRemoteClient(){
+  const id=val(el("remoteRentalId").value).trim();if(!id)return globalMessage("Rental Account ID wajib diisi.",true);
+  try{const r=await api("admin_remote_play_issue_client_credential",{p_rental_account_id:id});showCode("Kode aktivasi client",r.activation_code||r.activationCode||pretty(r),pretty(r));}
+  catch(e){globalMessage("Gagal buat kode client: "+e.message,true);}
+}
+async function issueRemoteHost(){
+  const id=val(el("remoteDeviceId").value).trim();if(!id)return globalMessage("Device ID wajib diisi.",true);
+  try{const r=await api("admin_remote_play_issue_host_enrollment",{p_device_id:id,p_valid_minutes:15});showCode("Kode enrollment Host",r.enrollment_code||r.enrollmentCode||pretty(r),pretty(r));}
+  catch(e){globalMessage("Gagal buat kode Host: "+e.message,true);}
+}
+async function loadWolStatus(){
+  try{showJson("wolStatus",await api("wol_relay_status"));}
+  catch(e){showJson("wolStatus",{ok:false,error:e.message});}
+}
+async function createWolEnrollment(){
+  try{const r=await api("wol_relay_create_enrollment");showCode("Kode enrollment WoL relay",r.code||r.enrollment_code||pretty(r),pretty(r));await loadWolStatus();}
+  catch(e){globalMessage("Gagal membuat enrollment WoL: "+e.message,true);}
+}
+async function requestWolProbe(){
+  try{const r=await api("wol_relay_probe_request");showJson("wolStatus",r);globalMessage("Probe relay diminta.");}
+  catch(e){globalMessage("Gagal meminta probe: "+e.message,true);}
+}
+async function sendWolCommand(){
+  const id=val(el("wolTargetDevice").value).trim();if(!id)return globalMessage("Target PC Device ID wajib diisi.",true);
+  if(!confirm("Kirim Wake-on-LAN ke target ini?"))return;
+  try{const r=await api("wol_relay_enqueue",{p_target_device_id:id});showJson("wolStatus",r);globalMessage("Perintah WoL dikirim ke relay.");}
+  catch(e){globalMessage("WoL gagal: "+e.message,true);}
+}
+async function checkBlynk(){
+  try{const r=await callApi("__iot_status",{},accessToken);el("blynkState").textContent=r.online?"BLYNK ONLINE":"BLYNK OFFLINE";el("blynkState").className="pill "+(r.online?"good":"warn");}
+  catch(e){el("blynkState").textContent="ERROR";el("blynkState").className="pill bad";globalMessage("Blynk status gagal: "+e.message,true);}
+}
+async function pulseBlynk(){
+  const id=val(el("blynkTargetDevice").value).trim();if(!id)return globalMessage("Target PC Device ID wajib diisi.",true);
+  if(!confirm("Kirim pulse Blynk 1x ke target PC?"))return;
+  try{const r=await callApi("__iot_power",{deviceId:id},accessToken);showJson("wolStatus",r);globalMessage("Pulse dikirim. Status PC tetap harus diverifikasi terpisah.");}
+  catch(e){globalMessage("Pulse Blynk gagal: "+e.message,true);}
 }
 function showCode(title,code,note){el("oneTimeTitle").textContent=title;el("oneTimeCode").textContent=code;el("oneTimeNote").textContent=note;el("oneTimeModal").classList.remove("hidden");}
 function copyCode(){AniAdminV0.copyText(el("oneTimeCode").textContent);}
