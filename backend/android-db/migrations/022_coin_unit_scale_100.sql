@@ -116,7 +116,7 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'DEVICE_NOT_FOUND'; END IF;
   CASE v_class
     WHEN 'GTX 1050' THEN v_class:='GTX 1050';v_rupiah:=6000;v_coins:=4500;
-    WHEN 'GTX 1660' THEN v_class:='GTX 1660';v_rupiah:=6000;v_coins:=45;
+    WHEN 'GTX 1660' THEN v_class:='GTX 1660';v_rupiah:=6000;v_coins:=4500;
     WHEN 'RTX 3060' THEN v_class:='RTX 3060';v_rupiah:=7000;v_coins:=5250;
     WHEN 'RTX 5060' THEN v_class:='RTX 5060';v_rupiah:=8000;v_coins:=6000;
     ELSE RAISE EXCEPTION 'COIN_GPU_CLASS_NOT_APPROVED';
