@@ -53,14 +53,10 @@ def remove_div_with_class(source: str, class_name: str) -> str:
 
 # Remove the actual obsolete database switch node, not merely hide it with CSS.
 page = remove_div_with_class(page, "db-switch")
-page = re.sub(
-    r"/\*\s*DB Android branch: legacy Supabase DB1/DB2 route UI is intentionally unavailable\.\s*\*/\s*"
-    r"\.db-switch,#databaseTools,\.nav \[data-tab=["']databaseTools["']\],"
-    r"button\[onclick\*=["']databaseTools["']\],#recovery\s*\{display:none!important\}",
-    "",
-    page,
-    flags=re.I
-)
+legacy_hide_rule = '/* DB Android branch: legacy Supabase DB1/DB2 route UI is intentionally unavailable. */ .db-switch,#databaseTools,.nav [data-tab="databaseTools"],button[onclick*="databaseTools"],#recovery{display:none!important}'
+if legacy_hide_rule not in page:
+    raise SystemExit("EXPECTED_LEGACY_DB_HIDE_RULE_NOT_FOUND")
+page = page.replace(legacy_hide_rule, "", 1)
 # Remove only obsolete styles for the retired DB tools. The password-recovery
 # panel is deliberately retained and made visible by its own state classes.
 page = re.sub(r"[^{}]*\.db-switch[^{}]*\{[^{}]*\}", "", page, flags=re.I)
