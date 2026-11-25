@@ -42,8 +42,10 @@ Blynk auth token is requested as an optional hidden prompt on first install. On 
 
 `termux-services` supervises enabled processes when Termux's service daemon is running. The installer creates `~/.termux/boot/99-ani-games-ready-services`; to start services automatically after Android reboots, separately install the Termux:Boot companion app from the same trusted Termux distribution, open it once, and allow background execution/battery use. Android vendor battery-management policies can still stop background apps; this is not a hardware-level always-on guarantee.
 
-To target a non-default database on a fresh PostgreSQL cluster, set `ANI_DB_NAME` before running the installer. On an existing cluster without `.env`, automatic discovery is allowed only when exactly one database matches the Android rental + device + Remote Play signature; otherwise the installer stops and requires an explicit review.\n\n## Existing database limitation
+To target a non-default database on a fresh PostgreSQL cluster, set `ANI_DB_NAME` before running the installer. On an existing cluster without `.env`, automatic discovery is allowed only when exactly one database matches the Android rental + device + core Admin signature; multiple or missing matches stop the installer without creating another business database.
 
-An existing core DB that has not yet received Remote Play schema `013`–`019` is intentionally not upgraded automatically. The installer stops before any schema write so that the exact live schema can be audited and backed up first. It does not apply the full clean-install migration chain to an existing business database.
+## Existing database upgrade
+
+An existing core-only Android DB (migrations `000`–`012`) can be upgraded when its rental, device, session, audit, Admin and runtime-role signatures match. The installer first creates and validates a full database dump plus cluster-role backup, then requires the exact `APPLY` confirmation. Only after approval does it apply additive migrations `013`–`022` in order; core migrations `000`–`012` are never replayed. If `remote_play` exists but required functions/tables are incomplete, or addon tables are partially installed, the installer stops for manual audit rather than guessing.
 
 Backups are stored under `~/ani-games-ready-backups/`. Keep these files private; they contain business data and PostgreSQL role metadata.
