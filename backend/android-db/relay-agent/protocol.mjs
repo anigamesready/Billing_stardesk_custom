@@ -59,5 +59,7 @@ export function validateEnvelope(input) {
     const value = sourceHeaders[name];
     if (typeof value === "string" && value.length <= 4096) headers[name] = value;
   }
-  return { id: input.id, method: input.method, path: url.pathname + url.search, headers, body: Buffer.from(encoded, "base64") };
+  const body = Buffer.from(encoded, "base64");
+  if (body.length > MAX_REQUEST_BYTES || (input.method === "GET" && body.length > 0)) return null;
+  return { id: input.id, method: input.method, path: url.pathname + url.search, headers, body };
 }
