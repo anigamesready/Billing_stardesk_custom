@@ -15,6 +15,7 @@ DECLARE
   a public.admin_accounts%ROWTYPE;
   v_orders jsonb;
   v_devices jsonb;
+  v_rentals jsonb;
   v_summary jsonb;
   row_limit integer := greatest(1,least(200,coalesce(p_limit,100)));
 BEGIN
@@ -54,6 +55,14 @@ BEGIN
     WHERE d.org_id=a.org_id
   ) x;
 
+  SELECT coalesce(jsonb_agg(jsonb_build_object(
+      'id',r.id,'code',r.code,'client_label',r.client_label,
+      'category',r.category,'status',r.status,'expiry_at',r.expiry_at
+    ) ORDER BY r.code),'[]'::jsonb)
+  INTO v_rentals
+  FROM public.rental_accounts r
+  WHERE r.org_id=a.org_id AND upper(r.code)<>'__TEST10__';
+
   SELECT jsonb_build_object(
     'pending_orders',count(*) FILTER (WHERE o.status='pending'),
     'pending_amount_rupiah',coalesce(sum(o.amount_rupiah) FILTER (WHERE o.status='pending'),0),
@@ -73,6 +82,7 @@ BEGIN
     'summary',v_summary,
     'orders',v_orders,
     'devices',v_devices,
+    'rentals',v_rentals,
     'coin_unit_scale',coalesce((SELECT coin_scale FROM remote_play.coin_unit_config WHERE singleton IS TRUE),1),
     'server_time',now()
   );
