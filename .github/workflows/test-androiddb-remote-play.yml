@@ -6,6 +6,7 @@ on:
     branches:
       - feature/androiddb-termux-coin-x100-20261125
       - feature/admin-androiddb-coin-api-20261125
+      - feature/admin-androiddb-v0-isolated-20261125
     paths:
       - "backend/android-db/migrations/**"
       - "backend/android-db/server/**"
@@ -21,6 +22,8 @@ on:
       - "backend/android-db/migrations/022_coin_unit_scale_100.sql"
       - "backend/android-db/migrations/023_admin_coin_management_read_api.sql"
       - "backend/android-db/tests/018_admin_coin_management_read_api_smoke.sql"
+      - "backend/android-db/migrations/025_admin_androiddb_v0_coin_domain.sql"
+      - "backend/android-db/tests/019_admin_androiddb_v0_coin_isolation_smoke.sql"
       - ".github/workflows/test-androiddb-remote-play.yml"
   workflow_dispatch:
 
@@ -126,6 +129,7 @@ jobs:
           done
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/tests/017_coin_scale_smoke.sql
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/migrations/023_admin_coin_management_read_api.sql
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/migrations/025_admin_androiddb_v0_coin_domain.sql
 
       - name: Test Remote Play login and Sunshine pairing contracts/privileges
         env:
@@ -162,6 +166,13 @@ jobs:
           set -euo pipefail
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/tests/015_remote_coin_wallet_smoke.sql
 
+
+      - name: Test Admin Android DB v0 isolated Coin domain and legacy rental protection
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/tests/019_admin_androiddb_v0_coin_isolation_smoke.sql
 
       - name: Test Admin Coin overview and per-rental wallet detail APIs
         env:
@@ -226,13 +237,15 @@ jobs:
           done
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_core_upgrade_test -v ON_ERROR_STOP=1 -f backend/android-db/tests/017_coin_scale_smoke.sql
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_core_upgrade_test -v ON_ERROR_STOP=1 -f backend/android-db/migrations/023_admin_coin_management_read_api.sql
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_core_upgrade_test -v ON_ERROR_STOP=1 -f backend/android-db/migrations/025_admin_androiddb_v0_coin_domain.sql
           for file in \
             backend/android-db/tests/011_remote_play_pairing_smoke.sql \
             backend/android-db/tests/012_remote_play_admin_controls_smoke.sql \
             backend/android-db/tests/013_remote_play_server_watchdog_smoke.sql \
             backend/android-db/tests/014_remote_play_stream_billing_clock_smoke.sql \
             backend/android-db/tests/015_remote_coin_wallet_smoke.sql \
-            backend/android-db/tests/018_admin_coin_management_read_api_smoke.sql; do
+            backend/android-db/tests/018_admin_coin_management_read_api_smoke.sql \
+            backend/android-db/tests/019_admin_androiddb_v0_coin_isolation_smoke.sql; do
               echo "Testing upgraded addon: $file"
               psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_core_upgrade_test -v ON_ERROR_STOP=1 -f "$file"
           done
