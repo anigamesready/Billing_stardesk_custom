@@ -144,7 +144,7 @@ jobs:
               assert forbidden.lower() not in html.lower(), "forbidden backend or manual database path in v0 UI: " + forbidden
           assert "AniAdminV0.apiRequest" in html, "native Android DB HTTPS bridge missing"
           assert "https://ani-games-db-android-stage-gateway.anigamesready.workers.dev" not in html, "gateway URL must stay hidden inside native bridge"
-          assert "OWNER_ONLY" in html and 'role||\"\").toLowerCase()==="owner"' in html, "Owner-only UI guard missing"
+          assert "OWNER_ONLY" in html and 'ctx.role||"").toLowerCase()==="owner"' in html, "Owner-only UI guard missing"
           scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
           assert len(scripts) == 1, "expected one inline UI script"
           Path("/tmp/admin-androiddb-v0.js").write_text(scripts[0], encoding="utf-8")
@@ -152,14 +152,14 @@ jobs:
           server = Path("backend/android-db/server/server.mjs").read_text(encoding="utf-8")
           rpc_start = server.index("const RPC = {")
           rpc_end = server.index("\n};", rpc_start)
-          rpc_names = set(re.findall(r"^\\s{2}([a-z][a-z0-9_]+):\\s*\\{", server[rpc_start:rpc_end], re.M))
-          calls = set(re.findall(r"(?:api|callApi)\\(\\s*[\"']([a-z0-9_]+)[\"']", html))
+          rpc_names = set(re.findall(r'^\s{2}([a-z][a-z0-9_]+):\s*\{', server[rpc_start:rpc_end], re.M))
+          calls = set(re.findall(r'(?:api|callApi)\(\s*["\']([a-z0-9_]+)["\']', html))
           native_routes = {"__admin_login", "__admin_refresh", "__admin_logout", "__iot_status", "__iot_power"}
           missing = sorted(calls - rpc_names - native_routes)
           assert not missing, "UI calls RPCs absent from Android DB API allowlist: " + ", ".join(missing)
 
           java = Path("admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java").read_text(encoding="utf-8")
-          for token in ["AndroidKeyStore", "AES/GCM/NoPadding", "HttpsURLConnection", "ani_admin_androiddb_v0_keystore_v1", "__admin_login", "__admin_refresh", "__admin_logout", "__iot_status", "__iot_power", "/iot/status", "/iot/power", "setRequestMethod(method)", "GET".equals(method)]:
+          for token in ["AndroidKeyStore", "AES/GCM/NoPadding", "HttpsURLConnection", "ani_admin_androiddb_v0_keystore_v1", "__admin_login", "__admin_refresh", "__admin_logout", "__iot_status", "__iot_power", "/iot/status", "/iot/power", "setRequestMethod(method)", '"GET".equals(method)']:
               assert token in java, "missing native token/API/HTTP method control: " + token
 
           gradle = Path("admin-androiddb-v0/app/build.gradle").read_text(encoding="utf-8")
