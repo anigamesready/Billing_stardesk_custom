@@ -8,6 +8,7 @@ on:
     paths:
       - "backend/android-db/migrations/**"
       - "backend/android-db/server/**"
+      - "backend/android-db/termux/**"
       - "backend/android-db/tests/011_remote_play_pairing_smoke.sql"
       - "backend/android-db/tests/012_remote_play_admin_controls_smoke.sql"
       - "backend/android-db/tests/013_remote_play_server_watchdog_smoke.sql"
