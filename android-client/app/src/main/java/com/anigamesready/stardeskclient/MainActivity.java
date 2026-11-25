@@ -42,9 +42,9 @@ import android.security.keystore.KeyProperties;
 import javax.net.ssl.HttpsURLConnection;
 
 public class MainActivity extends Activity {
-    private static final String PREFS = "stardesk_remote_settings";
     private static final String SECURE_PREFS = "stardesk_remote_secure";
     private static final String KEY_ALIAS = "ani_stardesk_remote_tokens_v1";
+    private static final String API_BASE = "https://ani-games-db-android-stage-gateway.anigamesready.workers.dev";
     private WebView webView;
     private String clientId;
     private final ExecutorService apiExecutor = Executors.newSingleThreadExecutor();
@@ -92,7 +92,6 @@ public class MainActivity extends Activity {
     }
 
     private void showMessage(String m){runOnUiThread(()->Toast.makeText(MainActivity.this,m,Toast.LENGTH_LONG).show());}
-    private SharedPreferences prefs(){return getSharedPreferences(PREFS,MODE_PRIVATE);}
     private SharedPreferences securePrefs(){return getSharedPreferences(SECURE_PREFS,MODE_PRIVATE);}
 
     private SecretKey getOrCreateKey() throws Exception {
@@ -159,11 +158,51 @@ public class MainActivity extends Activity {
         runOnUiThread(()->{if(webView!=null) webView.evaluateJavascript(js,null);});
     }
 
+    private void deliverGatewayHealthResult(String requestId,JSONObject result){
+        if(webView==null) return;
+        final String js="window.__onGatewayHealthResult&&window.__onGatewayHealthResult("
+                +JSONObject.quote(requestId)+","+result.toString()+");";
+        runOnUiThread(()->{if(webView!=null) webView.evaluateJavascript(js,null);});
+    }
+
     private JSONObject errorJson(String code,String message){
         JSONObject result=new JSONObject();
         try{result.put("ok",false);result.put("error",code);result.put("message",message==null?code:message);}
         catch(JSONException ignored){}
         return result;
+    }
+
+    private void executeGatewayHealthCheck(String requestId){
+        apiExecutor.execute(()->{
+            HttpsURLConnection connection=null;
+            try{
+                URL url=new URL(API_BASE+"/_ani_gateway/health");
+                connection=(HttpsURLConnection)url.openConnection();
+                connection.setRequestMethod("GET");
+                connection.setConnectTimeout(8000);
+                connection.setReadTimeout(8000);
+                connection.setInstanceFollowRedirects(false);
+                connection.setRequestProperty("Accept","application/json");
+                connection.setRequestProperty("Cache-Control","no-store");
+                int status=connection.getResponseCode();
+                InputStream stream=status>=200&&status<400?connection.getInputStream():connection.getErrorStream();
+                JSONObject parsed=parseJson(readBounded(stream,32768));
+                boolean ready=status==200
+                        &&"online".equals(parsed.optString("gateway"))
+                        &&parsed.optBoolean("upstream_active",false)
+                        &&parsed.optBoolean("agent_connected",false)
+                        &&"online".equals(parsed.optString("api"))
+                        &&"online".equals(parsed.optString("database"));
+                parsed.put("http_status",status);
+                parsed.put("ok",ready);
+                if(!ready&&!parsed.has("error")) parsed.put("error","ANDROID_DB_RELAY_OFFLINE");
+                deliverGatewayHealthResult(requestId,parsed);
+            }catch(Exception e){
+                deliverGatewayHealthResult(requestId,errorJson(
+                        e.getMessage()==null?"ANDROID_DB_GATEWAY_UNREACHABLE":e.getMessage(),
+                        "Server rental belum dapat dijangkau."));
+            }finally{if(connection!=null)connection.disconnect();}
+        });
     }
 
     private void executeApiRequest(String base,String rpc,String body,String accessToken,String requestId){
@@ -175,9 +214,10 @@ public class MainActivity extends Activity {
                 if(!"https".equalsIgnoreCase(baseUri.getScheme())||baseUri.getHost()==null
                         ||baseUri.getUserInfo()!=null||baseUri.getQuery()!=null||baseUri.getFragment()!=null)
                     throw new IllegalArgumentException("ANDROID_DB_API_REQUIRES_HTTPS");
+                String root=base.trim().replaceAll("/+$","");
+                if(!API_BASE.equals(root)) throw new IllegalArgumentException("ANDROID_DB_API_ENDPOINT_INVALID");
                 if(rpc==null||!rpc.matches("[a-z0-9_]{1,80}")) throw new IllegalArgumentException("RPC_NAME_INVALID");
                 if(body==null||body.length()>32768) throw new IllegalArgumentException("API_BODY_TOO_LARGE");
-                String root=base.trim().replaceAll("/+$","");
                 URL url=new URL(root+"/rest/v1/rpc/"+rpc);
                 connection=(HttpsURLConnection)url.openConnection();
                 connection.setRequestMethod("POST");
@@ -228,17 +268,11 @@ public class MainActivity extends Activity {
             String b=android.os.Build.MODEL==null?"Android":android.os.Build.MODEL;
             return (a+" "+b).trim();
         }
-        @JavascriptInterface public String getAppVersion(){return "0.3.0-androiddb-coin-preview";}
-        @JavascriptInterface public String getApiBase(){return prefs().getString("api_base","");}
-        @JavascriptInterface public boolean setApiBase(String value){
-            try{
-                if(value==null||value.length()>600) return false;
-                Uri uri=Uri.parse(value.trim());
-                if(!"https".equalsIgnoreCase(uri.getScheme())||uri.getHost()==null
-                        ||uri.getUserInfo()!=null||uri.getQuery()!=null||uri.getFragment()!=null) return false;
-                prefs().edit().putString("api_base",value.trim().replaceAll("/+$","")).apply();
-                return true;
-            }catch(Exception e){return false;}
+        @JavascriptInterface public String getAppVersion(){return "0.5.0-androiddb-auto-endpoint-preview";}
+        @JavascriptInterface public String getApiBase(){return API_BASE;}
+        @JavascriptInterface public void checkGateway(String requestId){
+            if(requestId==null||requestId.length()>100) return;
+            executeGatewayHealthCheck(requestId);
         }
         @JavascriptInterface public String getSecureValue(String name){return readSecretValue(name);}
         @JavascriptInterface public boolean saveSecureValue(String name,String value){
