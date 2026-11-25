@@ -580,9 +580,8 @@ async function handler(req, res) {
       const body = await readJson(req);
       return await deviceRequest(req,res,path,body);
     }
-    if (path.startsWith("/wol/") || path.startsWith("/iot/")) {
-      return send(res,501,{ok:false,error:"RELAY_IS_SEPARATE_SERVICE",message:"Blynk/WoL relay is not hosted or controlled by the local rental database server."});
-    }
+    if (path.startsWith("/wol/")) return send(res,404,{ok:false,error:"WOL_ROUTE_NOT_FOUND"});
+    if (path.startsWith("/iot/")) return send(res,404,{ok:false,error:"IOT_ROUTE_NOT_FOUND"});
     return send(res,404,{ok:false,error:"NOT_FOUND",path});
   } catch (error) {
     const status = httpStatus(error);
