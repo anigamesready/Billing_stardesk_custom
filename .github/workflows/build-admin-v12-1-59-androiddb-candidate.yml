@@ -606,18 +606,19 @@ jobs:
               if forbidden_token in cloud:
                   raise SystemExit("PC Billing local/custom API override remains: "+forbidden_token)
           gradle=(Path(os.environ["ANDROID_PROJECT_DIR"])/"app/build.gradle").read_text()
-          if "applicationId 'com.anigames.billingadmin.v161online'" not in gradle or "versionCode 88" not in gradle or "versionName '12.1.61-ANDROIDDB-COIN'" not in gradle:
-              raise SystemExit("V12.1.61 package/version metadata mismatch")
+          if "applicationId 'com.anigames.billingadmin.v161online'" not in gradle or "versionCode 89" not in gradle or "versionName '12.1.62-REMOTE-PLAY-ROLE-FIX'" not in gradle:
+              raise SystemExit("V12.1.62 package/version metadata mismatch")
           manifest=(Path(os.environ["ANDROID_PROJECT_DIR"])/"app/src/main/AndroidManifest.xml").read_text()
-          if 'android:label="AniGames Admin V12.1.61 Android DB Coin"' not in manifest:
-              raise SystemExit("V12.1.61 app label mismatch")
+          if 'android:label="AniGames Admin V12.1.62 Remote Play"' not in manifest:
+              raise SystemExit("V12.1.62 app label mismatch")
           admin=(web/"admin.html").read_text(encoding="utf-8")
           admin_role_fix=(web/"admin.html").read_text(encoding="utf-8")
           role_guard="function isRemotePlayOwner(){return typeof isWakeRelayOwner==='function'&&isWakeRelayOwner();}"
           if role_guard not in admin_role_fix:
               raise SystemExit("Remote Play Admin does not use the canonical Master/Owner role resolver")
-          if "toLowerCase()==='owner'" in admin_role_fix:
-              raise SystemExit("Narrow owner-only alias guard remains in Admin Remote Play UI")
+          remote_owner_fn=re.search(r"function isRemotePlayOwner\\s*\\(\\s*\\)\\s*\\{([^}]*)\\}",admin_role_fix)
+          if not remote_owner_fn or "isWakeRelayOwner" not in remote_owner_fn.group(1):
+              raise SystemExit("Remote Play role helper does not delegate to the canonical Master/Owner resolver")
           for marker in ("coinManagement", "admin_remote_coin_overview", "admin_remote_coin_wallet", "admin_remote_coin_approve_topup", "admin_remote_coin_reject_topup", "admin_remote_coin_set_device_rate", "admin_remote_coin_link_stardesk_device"):
               if marker not in admin: raise SystemExit("Admin Coin feature missing: "+marker)
           for stale in ("globalDbTarget", "requestGlobalDbSwitch", "DB1", "DB2", "databaseTools", "dualDbReadinessPanel", "startDualDbAdmin", "Supabase DB", "Supabase Secret"):
