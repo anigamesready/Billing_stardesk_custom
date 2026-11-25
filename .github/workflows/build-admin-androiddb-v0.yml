@@ -179,7 +179,8 @@ jobs:
           for route in expected_rpc:
               assert any(line.strip().startswith(route + ":") for line in rpc_lines), "UI RPC absent from Android DB backend allowlist: " + route
           # Check every literal RPC actually called by the UI, not just a hand-maintained list.
-          ui_rpc_routes = set(re.findall(r'\\bapi\\(\\s*["\\']([^"\\']+)["\\']', html))
+          ui_rpc_routes = set(re.findall(r"\bapi\(\s*'([^']+)'", html))
+          ui_rpc_routes.update(re.findall(r'\bapi\(\s*"([^"]+)"', html))
           ui_rpc_routes.update(["admin_set_free_test_policy", "admin_set_billing_stop_pause_policy"])
           native_routes = {"__admin_login", "__admin_refresh", "__admin_logout", "__iot_status", "__iot_power", "__gateway_health"}
           assert len(ui_rpc_routes) >= 50, "Admin v0 UI RPC coverage unexpectedly shrank"
