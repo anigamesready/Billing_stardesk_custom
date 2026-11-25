@@ -13,7 +13,7 @@ Status: implementation guardrail for the Android Remote preview. This document d
 
 ### StarDesk Engine
 - Owns the video/audio/input stream and the host-to-client media connection.
-- The media path must remain StarDesk's native direct connection between the Windows host and StarDesk client. It must not be routed through the phone's local API, PostgreSQL, Cloudflare Gateway, or Redmi Relay Agent.
+- The media path must remain inside StarDesk's native host/client transport. StarDesk documents that it prefers peer-to-peer (P2P) and may fall back to its own encrypted relay when P2P is unavailable. That internal StarDesk fallback is still StarDesk's media path; it must never be routed through the Ani Games Ready phone API, PostgreSQL, Cloudflare Gateway, or Redmi Relay Agent.
 - Ani Games Ready account credentials are not StarDesk credentials. Use StarDesk's existing authentication:
   - Remote Access with the same StarDesk account signed in on host and client; or
   - Remote Assist with the host Device ID and Verification Code shared by the host owner.
@@ -44,7 +44,7 @@ The Cloudflare Gateway and Redmi Relay Agent transport API/RPC/control traffic o
 
 ## Current implementation boundary
 
-- Android Remote v0.5 already has account login/refresh, an Android DB dashboard, Coin wallet/top-up/history, GPU rates, account expiry display, and a locked Connect action.
+- Android Remote v0.6 already has account login/refresh, an Android DB dashboard, Coin wallet/top-up/history, GPU rates, account expiry display, and a locked Connect action.
 - This branch adds a server-side account-expiry guard and makes an unverified PC state visibly yellow rather than green.
 - The actual Windows StarDesk Host Agent, authenticated StarDesk session-connected/disconnected adapter, and end-to-end phone-to-PC stream acceptance test remain incomplete.
 - Do not unlock Connect or deduct Coin until those real-device checks pass. The app must continue to hand the video path to StarDesk rather than embedding another streaming stack.
