@@ -66,6 +66,10 @@ BEGIN
          AND x->>'rental_code'='COIN-ADMIN-OVERVIEW'
      )
      OR NOT EXISTS(
+       SELECT 1 FROM jsonb_array_elements(overview->'rentals') x
+       WHERE x->>'id'=rental_id::text AND x->>'code'='COIN-ADMIN-OVERVIEW'
+     )
+     OR NOT EXISTS(
        SELECT 1 FROM jsonb_array_elements(overview->'devices') x
        WHERE x->>'device_id'=device_id::text
          AND x->>'gpu_class'='RTX 5060'
