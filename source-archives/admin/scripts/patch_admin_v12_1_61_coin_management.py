@@ -41,22 +41,26 @@ def strip_legacy_database_css(css: str) -> str:
             break
         boundary = max(css.rfind("}", 0, open_pos), css.rfind("{", 0, open_pos))
         selector = css[boundary + 1:open_pos].strip()
-        depth = 1
-        j = open_pos + 1
-        while j < len(css) and depth:
-            if css[j] == "{":
-                depth += 1
-            elif css[j] == "}":
-                depth -= 1
-            j += 1
-        if depth:
-            raise SystemExit("UNBALANCED_ADMIN_CSS_RULE")
         if ".db-switch" in selector.lower() or "#databasetools" in selector.lower():
+            depth = 1
+            j = open_pos + 1
+            while j < len(css) and depth:
+                if css[j] == "{":
+                    depth += 1
+                elif css[j] == "}":
+                    depth -= 1
+                j += 1
+            if depth:
+                raise SystemExit("UNBALANCED_ADMIN_CSS_RULE")
             removals.append((boundary + 1, j))
-        i = j
+            i = j
+        else:
+            # Descend into @media/@supports blocks so nested rules are inspected.
+            i = open_pos + 1
     for start, end in reversed(removals):
         css = css[:start] + css[end:]
     return css
+
 
 def remove_div_with_class(source: str, class_name: str) -> str:
     start_tag = re.compile(r"<div\b[^>]*>", re.I)
@@ -99,6 +103,11 @@ if style_count < 1:
     raise SystemExit("ADMIN_STYLE_BLOCKS_NOT_FOUND")
 page = page.replace("function openDbSelector(){requestGlobalDbSwitch()} ", "")
 page = page.replace("function openDbSelector(){requestGlobalDbSwitch()}", "")
+# Remove only the retired databaseTools interception from the mobile tab wrapper.
+legacy_tab_intercept = "if(id==='databaseTools'){msg('Konfigurasi Android DB tidak tersedia pada cabang DB Android.',true);return;}"
+if legacy_tab_intercept not in page:
+    raise SystemExit("LEGACY_DATABASE_TOOLS_TAB_INTERCEPT_NOT_FOUND")
+page = page.replace(legacy_tab_intercept, "", 1)
 page = page.replace("Database aktif seluruh sistem:", "Database Android aktif:")
 page = page.replace("Memeriksa route-control DB1/DB2…", "Menggunakan satu Android DB…")
 page = page.replace("DB1 • Utama", "Android DB")
