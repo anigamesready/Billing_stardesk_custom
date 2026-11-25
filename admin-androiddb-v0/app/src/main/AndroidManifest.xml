@@ -3,7 +3,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <application
         android:allowBackup="false"
-        android:icon="@android:drawable/sym_def_app_icon"
+        android:icon="@drawable/ic_admin_v0"
         android:label="Ani Games Admin Android DB v0"
         android:supportsRtl="true"
         android:theme="@style/AdminV0Theme"
