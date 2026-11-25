@@ -25,7 +25,7 @@ h1{font-size:24px;line-height:1.15;margin:0;font-weight:950}h1 span{color:#83caf
 .modal{position:fixed;inset:0;background:#050513ed;display:grid;place-items:center;padding:20px;z-index:30}.modal img{width:min(88vw,430px);background:#fff;border-radius:14px;padding:12px}.modal button{position:absolute;top:22px;right:22px}
 @media(max-width:360px){.app{padding-left:11px;padding-right:11px}.balance{font-size:26px}.pc{grid-template-columns:38px minmax(0,1fr) auto;gap:7px}.monitor{width:38px;height:39px}.pc button{max-width:86px;padding:8px 6px}}
 </style></head><body><div class="app">
-<header class="top"><div class="brand">▣ ANI GAMES <span>READY</span><div class="sub">REMOTE PLAY • ANDROID DB</div></div><div id="connectionBadge" class="preview">DB BELUM DIHUBUNGKAN</div></header>
+<header class="top"><div class="brand">▣ ANI GAMES <span>READY</span><div class="sub">REMOTE PLAY • ANDROID DB</div></div><div id="connectionBadge" class="preview">GATEWAY ANDROID DB • OTOMATIS</div></header>
 <section id="login" class="login"><div class="logo">🎮</div><h1>ANI GAMES <span>READY</span></h1><p class="lead">Masuk dengan User ID rental. Aktivasi satu kali diperlukan untuk perangkat baru.</p>
 <form id="loginForm" class="card">
 <div class="notice" style="margin-bottom:13px">Server Android DB online dikonfigurasi otomatis. Aplikasi tidak memerlukan alamat server manual.</div>
@@ -34,7 +34,7 @@ h1{font-size:24px;line-height:1.15;margin:0;font-weight:950}h1 span{color:#83caf
 <button id="loginButton" class="primary full" type="submit">MASUK KE DASHBOARD</button>
 <p class="hint">Token sesi disimpan terenkripsi di Android Keystore. User ID lain harus diaktivasi oleh Admin.</p>
 </form>
-<div id="loginNotice" class="notice">Masukkan alamat HTTPS menuju Android DB. Server harus aktif dan menyediakan RPC Remote Play + Coin Wallet.</div></section>
+<div id="loginNotice" class="notice">Gateway online Android DB dikonfigurasi otomatis. Login akan memverifikasi koneksi server, database, dan hak akses akun.</div></section>
 
 <section id="dashboard" class="hidden">
 <div class="between"><div class="hello">Halo, <span id="welcome" class="blue">player</span></div><button id="logout">Keluar ↗</button></div>
@@ -179,12 +179,12 @@ async function login(e){
   state.rentalCode=rentalCode;
   await refreshData();
   $("welcome").textContent=rentalCode;$("login").classList.add("hidden");$("dashboard").classList.remove("hidden");tab("home");
-  $("activationCode").value="";$("loginNotice").textContent="Login terhubung ke Android DB.";
+  $("activationCode").value="";$("loginNotice").textContent="Login terhubung ke Android DB online.";
   toast("Login Android DB berhasil.");
  }catch(err){
   state.accessToken="";state.refreshToken="";
   $("loginNotice").textContent="Login gagal: "+String(err?.message||err);
-  setConnectionBadge("DB BELUM TERHUBUNG",false);toast("Login gagal: "+String(err?.message||err));
+  setConnectionBadge("GATEWAY OFFLINE / LOGIN GAGAL",false);toast("Login gagal: "+String(err?.message||err));
  }finally{button.disabled=false;button.textContent="MASUK KE DASHBOARD"}
 }
 async function logout(){
@@ -194,7 +194,7 @@ async function logout(){
  $("dashboard").classList.add("hidden");$("login").classList.remove("hidden");$("uid").value="";$("activationCode").value="";
  setConnectionBadge("GATEWAY ANDROID DB • OTOMATIS",false);toast("Logout berhasil.");
 }
-async function refreshClick(){try{await refreshData();toast("Data Android DB diperbarui.")}catch(e){toast("Refresh gagal: "+String(e?.message||e));setConnectionBadge("DB OFFLINE",false)}}
+async function refreshClick(){try{await refreshData();toast("Data Android DB diperbarui.")}catch(e){toast("Refresh gagal: "+String(e?.message||e));setConnectionBadge("ANDROID DB ONLINE TIDAK TERJANGKAU",false)}}
 async function confirmTopup(){
  const amount=currentAmount();if(!Number.isInteger(amount)||amount<1000||amount>10000000||amount%1000!==0){toast("Nominal harus kelipatan Rp1.000, minimal Rp1.000.");return}
  $("confirmWa").disabled=true;$("confirmWa").textContent="MEMBUAT ORDER...";
