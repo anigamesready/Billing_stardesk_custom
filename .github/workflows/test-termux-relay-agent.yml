@@ -1,0 +1,37 @@
+name: Test Termux Relay Agent
+
+on:
+  push:
+    branches:
+      - feature/termux-relay-agent-20261125
+    paths:
+      - "backend/android-db/relay-agent/**"
+      - ".github/workflows/test-termux-relay-agent.yml"
+  pull_request:
+    paths:
+      - "backend/android-db/relay-agent/**"
+      - ".github/workflows/test-termux-relay-agent.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  protocol-and-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install isolated agent dependency
+        working-directory: backend/android-db/relay-agent
+        run: npm install --omit=dev --no-audit --no-fund
+      - name: Check JavaScript syntax
+        working-directory: backend/android-db/relay-agent
+        run: npm run check
+      - name: Test relay authentication and route boundary
+        working-directory: backend/android-db/relay-agent
+        run: npm test
