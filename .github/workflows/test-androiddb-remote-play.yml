@@ -6,6 +6,7 @@ on:
     branches:
       - feature/androiddb-termux-coin-x100-20261125
       - feature/remote-auto-url-coin-ui-20261125
+      - feature/remote-data-plane-expiry-guard-20261126
     paths:
       - "backend/android-db/migrations/**"
       - "backend/android-db/server/**"
@@ -19,6 +20,7 @@ on:
       - "backend/android-db/tests/017_coin_scale_smoke.sql"
       - "backend/android-db/migrations/021_android_wol_relay.sql"
       - "backend/android-db/migrations/022_coin_unit_scale_100.sql"
+      - "backend/android-db/migrations/024_remote_coin_expiry_guard.sql"
       - ".github/workflows/test-androiddb-remote-play.yml"
   workflow_dispatch:
 
@@ -122,6 +124,7 @@ jobs:
             echo "Applying coin unit scale migration pass $pass"
             psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/migrations/022_coin_unit_scale_100.sql
           done
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/migrations/024_remote_coin_expiry_guard.sql
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/tests/017_coin_scale_smoke.sql
 
       - name: Test Remote Play login and Sunshine pairing contracts/privileges
@@ -214,6 +217,7 @@ jobs:
             echo "Applying x100 migration pass $pass"
             psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_core_upgrade_test -v ON_ERROR_STOP=1 -f backend/android-db/migrations/022_coin_unit_scale_100.sql
           done
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_core_upgrade_test -v ON_ERROR_STOP=1 -f backend/android-db/migrations/024_remote_coin_expiry_guard.sql
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_core_upgrade_test -v ON_ERROR_STOP=1 -f backend/android-db/tests/017_coin_scale_smoke.sql
           for file in \
             backend/android-db/tests/011_remote_play_pairing_smoke.sql \
