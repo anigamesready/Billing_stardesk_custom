@@ -28,7 +28,7 @@ The API login role inherits only `ani_api_runtime`; the Node process does not co
 ```bash
 sv status postgres
 sv status ani-games-ready-api
-sv restart ani-games-ready-api
+sv down ani-games-ready-api && sv up ani-games-ready-api
 cat "$PREFIX/var/log/sv/ani-games-ready-api/current"
 ```
 
@@ -42,7 +42,7 @@ Blynk auth token is requested as an optional hidden prompt on first install. On 
 
 `termux-services` supervises enabled processes when Termux's service daemon is running. The installer creates `~/.termux/boot/99-ani-games-ready-services`; to start services automatically after Android reboots, separately install the Termux:Boot companion app from the same trusted Termux distribution, open it once, and allow background execution/battery use. Android vendor battery-management policies can still stop background apps; this is not a hardware-level always-on guarantee.
 
-## Existing database limitation
+To target a non-default database on a fresh PostgreSQL cluster, set `ANI_DB_NAME` before running the installer. On an existing cluster without `.env`, automatic discovery is allowed only when exactly one database matches the Android rental + device + Remote Play signature; otherwise the installer stops and requires an explicit review.\n\n## Existing database limitation
 
 An existing core DB that has not yet received Remote Play schema `013`–`019` is intentionally not upgraded automatically. The installer stops before any schema write so that the exact live schema can be audited and backed up first. It does not apply the full clean-install migration chain to an existing business database.
 
