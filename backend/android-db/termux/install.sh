@@ -102,6 +102,8 @@ SOURCE_ROOT="$(find "$TMP_DIR" -mindepth 1 -maxdepth 1 -type d -print -quit)"
 [ -n "$SOURCE_ROOT" ] || die "Arsip source kosong."
 [ -f "$SOURCE_ROOT/backend/android-db/server/server.mjs" ] || die "Source backend tidak ditemukan."
 [ -f "$SOURCE_ROOT/backend/android-db/migrations/022_coin_unit_scale_100.sql" ] || die "Migrasi coin x100 tidak ada dalam source terpin."
+[ -f "$SOURCE_ROOT/backend/android-db/migrations/025_admin_androiddb_v0_coin_domain.sql" ] || die "Migrasi Admin Android DB v0 tidak ada dalam source terpin."
+grep -q "androiddb_v0_remote_login" "$SOURCE_ROOT/backend/android-db/server/server.mjs" || die "API Android DB v0 tidak ada dalam source terpin."
 cp -R "$SOURCE_ROOT/backend/android-db/server/." "$SERVER_DIR/"
 mkdir -p "$MIGRATIONS_DIR"
 cp -R "$SOURCE_ROOT/backend/android-db/migrations/." "$MIGRATIONS_DIR/"
@@ -242,7 +244,9 @@ if [ "$NEW_DATABASE" = 1 ]; then
     019_remote_play_session_connected.sql \
     020_remote_coin_wallet.sql \
     021_android_wol_relay.sql \
-    022_coin_unit_scale_100.sql; do
+    022_coin_unit_scale_100.sql \
+    023_admin_coin_management_read_api.sql \
+    025_admin_androiddb_v0_coin_domain.sql; do
     apply_file "$file"
   done
 else
@@ -351,7 +355,8 @@ else
       019_remote_play_session_connected.sql \
       020_remote_coin_wallet.sql \
       021_android_wol_relay.sql \
-      022_coin_unit_scale_100.sql; do
+      022_coin_unit_scale_100.sql \
+      023_admin_coin_management_read_api.sql; do
       apply_file "$file"
     done
   else
@@ -399,6 +404,67 @@ else
       log "Remote Play, coin, WoL dan coin scale=100 sudah lengkap; tidak ada migrasi yang perlu dijalankan."
     fi
   fi
+fi
+
+# Verify/install the independent Coin-rental v0 schema. Existing clusters require
+# a fresh validated backup and explicit APPLY; no v0 data is copied from legacy rentals.
+V0_SCHEMA="$(psql_admin -d "$DB_NAME" -Atqc "SELECT (to_regnamespace('androiddb_v0') IS NOT NULL)::int")"
+V0_TABLE_COUNT="$(psql_admin -d "$DB_NAME" -Atqc "
+  SELECT count(*) FROM unnest(ARRAY[
+    to_regclass('androiddb_v0.rental_accounts'),
+    to_regclass('androiddb_v0.client_credentials'),
+    to_regclass('androiddb_v0.client_sessions'),
+    to_regclass('androiddb_v0.coin_wallets'),
+    to_regclass('androiddb_v0.coin_topup_orders'),
+    to_regclass('androiddb_v0.coin_lots'),
+    to_regclass('androiddb_v0.coin_ledger'),
+    to_regclass('androiddb_v0.pc_coin_rates'),
+    to_regclass('androiddb_v0.stardesk_device_links'),
+    to_regclass('androiddb_v0.host_permissions'),
+    to_regclass('androiddb_v0.host_enrollments'),
+    to_regclass('androiddb_v0.host_registrations'),
+    to_regclass('androiddb_v0.sessions'),
+    to_regclass('androiddb_v0.audit_events')
+  ]) AS u(name) WHERE u.name IS NOT NULL
+")"
+V0_API_COUNT="$(psql_admin -d "$DB_NAME" -Atqc "
+  SELECT count(*) FROM unnest(ARRAY[
+    to_regprocedure('api.androiddb_v0_admin_dashboard(text,integer)'),
+    to_regprocedure('api.androiddb_v0_admin_create_rental(text,text,text)'),
+    to_regprocedure('api.androiddb_v0_admin_set_rental_status(text,uuid,boolean)'),
+    to_regprocedure('api.androiddb_v0_admin_issue_activation(text,uuid)'),
+    to_regprocedure('api.androiddb_v0_admin_wallet(text,uuid,integer)'),
+    to_regprocedure('api.androiddb_v0_admin_approve_topup(text,uuid)'),
+    to_regprocedure('api.androiddb_v0_admin_reject_topup(text,uuid,text)'),
+    to_regprocedure('api.androiddb_v0_admin_set_device_rate(text,uuid,text)'),
+    to_regprocedure('api.androiddb_v0_admin_link_stardesk_device(text,uuid,text,boolean)'),
+    to_regprocedure('api.androiddb_v0_admin_set_host_permission(text,uuid,boolean)'),
+    to_regprocedure('api.androiddb_v0_admin_issue_host_enrollment(text,uuid,integer)'),
+    to_regprocedure('api.androiddb_v0_host_enroll(text,text)'),
+    to_regprocedure('api.androiddb_v0_host_heartbeat(text,boolean,text)'),
+    to_regprocedure('api.androiddb_v0_remote_login(text,text,text)'),
+    to_regprocedure('api.androiddb_v0_remote_refresh(text)'),
+    to_regprocedure('api.androiddb_v0_remote_logout(text)'),
+    to_regprocedure('api.androiddb_v0_remote_coin_wallet(text)'),
+    to_regprocedure('api.androiddb_v0_remote_coin_history(text,integer)'),
+    to_regprocedure('api.androiddb_v0_remote_dashboard(text)'),
+    to_regprocedure('api.androiddb_v0_remote_coin_create_topup(text,bigint,text)')
+  ]) AS u(name) WHERE u.name IS NOT NULL
+")"
+if [ "$V0_SCHEMA" = 1 ]; then
+  [ "$V0_TABLE_COUNT" = 14 ] && [ "$V0_API_COUNT" = 20 ] || die "Schema Android DB v0 terpasang sebagian (tables $V0_TABLE_COUNT/14, RPC $V0_API_COUNT/20). Hentikan untuk audit manual."
+elif [ "$V0_SCHEMA" = 0 ] && [ "$V0_TABLE_COUNT" = 0 ] && [ "$V0_API_COUNT" = 0 ]; then
+  if [ "$NEW_DATABASE" != 1 ]; then
+    log "Memasang domain Admin Android DB v0 yang terpisah dari rental timer lama."
+    backup_existing
+    printf '\nDB: %s | Android DB v0: belum terpasang\n' "$DB_NAME"
+    printf 'Ketik APPLY untuk memasang schema rental Coin v0 setelah backup tervalidasi: '
+    read -r CONFIRM < /dev/tty
+    [ "$CONFIRM" = "APPLY" ] || die "Dibatalkan. Android DB v0 belum dipasang."
+  fi
+  apply_file "025_admin_androiddb_v0_coin_domain.sql"
+else
+  die "Signature Android DB v0 tidak konsisten. Tidak ada migrasi otomatis."
 fi
 
 # Create an isolated, least-privilege API login only for first install.
@@ -450,8 +516,8 @@ node --input-type=module <<'NODE'
 import pg from "pg";
 const pool = new pg.Pool({connectionString: process.env.DATABASE_URL, max: 1, connectionTimeoutMillis: 5000});
 try {
-  const r = await pool.query("SELECT 1 AS ok, to_regprocedure('api.remote_coin_wallet(text)') IS NOT NULL AS coin_api, to_regprocedure('api.wol_relay_status(text)') IS NOT NULL AS wol_api");
-  if (r.rows[0]?.ok !== 1 || !r.rows[0]?.coin_api || !r.rows[0]?.wol_api) {
+  const r = await pool.query("SELECT 1 AS ok, to_regprocedure('api.remote_coin_wallet(text)') IS NOT NULL AS coin_api, to_regprocedure('api.wol_relay_status(text)') IS NOT NULL AS wol_api, to_regprocedure('api.androiddb_v0_admin_dashboard(text,integer)') IS NOT NULL AS admin_v0_api, to_regprocedure('api.androiddb_v0_remote_login(text,text,text)') IS NOT NULL AS remote_v0_api");
+  if (r.rows[0]?.ok !== 1 || !r.rows[0]?.coin_api || !r.rows[0]?.wol_api || !r.rows[0]?.admin_v0_api || !r.rows[0]?.remote_v0_api) {
     throw new Error("ANDROID_DB_REQUIRED_API_NOT_READY");
   }
 } finally {
