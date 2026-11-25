@@ -242,7 +242,8 @@ if [ "$NEW_DATABASE" = 1 ]; then
     019_remote_play_session_connected.sql \
     020_remote_coin_wallet.sql \
     021_android_wol_relay.sql \
-    022_coin_unit_scale_100.sql; do
+    022_coin_unit_scale_100.sql \\
+      024_remote_coin_expiry_guard.sql; do
     apply_file "$file"
   done
 else
@@ -326,6 +327,7 @@ else
       COIN_SCALE="$(psql_admin -d "$DB_NAME" -Atqc "SELECT coin_scale FROM remote_play.coin_unit_config WHERE singleton IS TRUE")"
     fi
   fi
+  EXPIRY_GUARD="$(psql_admin -d "$DB_NAME" -Atqc "SELECT COALESCE(obj_description(to_regprocedure('api.remote_coin_dashboard(text)'),'pg_proc')='ani_remote_coin_expiry_guard_v1',false)::int")"
 
   if [ "$CORE_RENTALS" = 0 ] && [ "$CORE_DEVICES" = 0 ] && [ "$TABLE_COUNT" = 0 ]; then
     log "Database kosong terdeteksi; memasang skema bersih penuh."
@@ -351,7 +353,8 @@ else
       019_remote_play_session_connected.sql \
       020_remote_coin_wallet.sql \
       021_android_wol_relay.sql \
-      022_coin_unit_scale_100.sql; do
+      022_coin_unit_scale_100.sql \\
+      024_remote_coin_expiry_guard.sql; do
       apply_file "$file"
     done
   else
@@ -376,6 +379,7 @@ else
     [ "$COIN_TABLES" = 6 ] || NEEDS_UPDATE=1
     [ "$WOL_TABLES" = 4 ] || NEEDS_UPDATE=1
     [ "$COIN_SCALE" = 100 ] || NEEDS_UPDATE=1
+    [ "$EXPIRY_GUARD" = 1 ] || NEEDS_UPDATE=1
     if [ "$NEEDS_UPDATE" = 1 ]; then
       log "Core Android DB dikenali. Backup tervalidasi dan persetujuan APPLY wajib sebelum addon Remote Play/Coin/WoL."
       backup_existing
@@ -395,6 +399,7 @@ else
       [ "$COIN_TABLES" = 6 ] || apply_file "020_remote_coin_wallet.sql"
       [ "$WOL_TABLES" = 4 ] || apply_file "021_android_wol_relay.sql"
       apply_file "022_coin_unit_scale_100.sql"
+      apply_file "024_remote_coin_expiry_guard.sql"
     else
       log "Remote Play, coin, WoL dan coin scale=100 sudah lengkap; tidak ada migrasi yang perlu dijalankan."
     fi
@@ -450,8 +455,8 @@ node --input-type=module <<'NODE'
 import pg from "pg";
 const pool = new pg.Pool({connectionString: process.env.DATABASE_URL, max: 1, connectionTimeoutMillis: 5000});
 try {
-  const r = await pool.query("SELECT 1 AS ok, to_regprocedure('api.remote_coin_wallet(text)') IS NOT NULL AS coin_api, to_regprocedure('api.wol_relay_status(text)') IS NOT NULL AS wol_api");
-  if (r.rows[0]?.ok !== 1 || !r.rows[0]?.coin_api || !r.rows[0]?.wol_api) {
+  const r = await pool.query("SELECT 1 AS ok, to_regprocedure('api.remote_coin_wallet(text)') IS NOT NULL AS coin_api, to_regprocedure('api.wol_relay_status(text)') IS NOT NULL AS wol_api, COALESCE(obj_description(to_regprocedure('api.remote_coin_dashboard(text)'),'pg_proc')='ani_remote_coin_expiry_guard_v1',false) AS expiry_guard");
+  if (r.rows[0]?.ok !== 1 || !r.rows[0]?.coin_api || !r.rows[0]?.wol_api || !r.rows[0]?.expiry_guard) {
     throw new Error("ANDROID_DB_REQUIRED_API_NOT_READY");
   }
 } finally {
