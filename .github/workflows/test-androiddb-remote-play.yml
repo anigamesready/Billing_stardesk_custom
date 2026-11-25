@@ -4,7 +4,7 @@ name: Test Remote Play and Sunshine pairing on PostgreSQL
 on:
   push:
     branches:
-      - feature/remote-androiddb-live-coin-20261125
+      - feature/androiddb-termux-coin-x100-20261125
     paths:
       - "backend/android-db/migrations/**"
       - "backend/android-db/server/**"
@@ -12,7 +12,7 @@ on:
       - "backend/android-db/tests/012_remote_play_admin_controls_smoke.sql"
       - "backend/android-db/tests/013_remote_play_server_watchdog_smoke.sql"
       - "backend/android-db/tests/014_remote_play_stream_billing_clock_smoke.sql"
-      - "backend/android-db/tests/015_remote_coin_wallet_smoke.sql"
+      - "backend/android-db/tests/015_remote_coin_wallet_smoke.sql"\n      - "backend/android-db/tests/016_coin_scale_seed.sql"\n      - "backend/android-db/tests/017_coin_scale_smoke.sql"\n      - "backend/android-db/migrations/021_android_wol_relay.sql"\n      - "backend/android-db/migrations/022_coin_unit_scale_100.sql"
       - ".github/workflows/test-androiddb-remote-play.yml"
   workflow_dispatch:
 
@@ -73,7 +73,8 @@ jobs:
             backend/android-db/migrations/017_remote_play_dashboard_cooldown.sql \
             backend/android-db/migrations/018_remote_play_server_watchdog.sql \
             backend/android-db/migrations/019_remote_play_session_connected.sql \
-            backend/android-db/migrations/020_remote_coin_wallet.sql; do
+            backend/android-db/migrations/020_remote_coin_wallet.sql \
+            backend/android-db/migrations/021_android_wol_relay.sql; do
               echo "Applying $file"
               psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f "$file"
           done
@@ -98,6 +99,24 @@ jobs:
               echo "Testing $file"
               psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f "$file"
           done
+
+      - name: Seed legacy v1 coin rows before one-time unit conversion
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/tests/016_coin_scale_seed.sql
+
+      - name: Apply idempotent x100 coin migration twice to prove safe reruns
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          for pass in 1 2; do
+            echo "Applying coin unit scale migration pass $pass"
+            psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/migrations/022_coin_unit_scale_100.sql
+          done
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/tests/017_coin_scale_smoke.sql
 
       - name: Test Remote Play login and Sunshine pairing contracts/privileges
         env:
