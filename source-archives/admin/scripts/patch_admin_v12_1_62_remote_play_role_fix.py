@@ -55,8 +55,10 @@ for token in (
     if token not in page:
         raise SystemExit("ADMIN_ROLE_WIRING_MISSING:" + token)
 
-tab_block = re.search(r"(?s)function\\s+tab\\s*\\(\\s*id\\s*\\)\\s*\\{(.*?)\\n\\}", page)
-if not tab_block or "remotePlay" not in tab_block.group(1) or "isRemotePlayOwner()" not in tab_block.group(1):
+tab_start = page.find("function tab(id)")
+tab_end = page.find("\\n}", tab_start) if tab_start >= 0 else -1
+tab_body = page[tab_start:tab_end] if tab_end > tab_start else ""
+if "remotePlay" not in tab_body or "isRemotePlayOwner()" not in tab_body:
     raise SystemExit("REMOTE_PLAY_TAB_NOT_GATED_BY_CANONICAL_OWNER_CHECK")
 
 role_resolver = re.search(r"(?s)function isWakeRelayOwner\(\)\s*\{(.*?)\}", page)
