@@ -11,7 +11,7 @@ h1{font-size:24px;line-height:1.15;margin:0;font-weight:950}h1 span{color:#83caf
 .card{padding:16px;background:linear-gradient(145deg,#1b1948,#101a38);border:1px solid var(--line);border-radius:18px;text-align:left;margin-bottom:11px}
 .label{font-size:10px;font-weight:900;display:block;margin-bottom:7px;letter-spacing:.6px;color:#cac6f2}.field{height:49px;width:100%;border-radius:12px;border:1px solid #655bc0;background:#090e28;color:white;padding:0 13px;font:inherit;font-size:16px;outline:none}.field:focus{border-color:#9a76ff;box-shadow:0 0 0 3px #8b55ff24}.full{width:100%;margin-top:12px;height:47px}.hint{font-size:10px;color:var(--muted);text-align:center;line-height:1.5;margin:10px 0 0}
 .notice{font-size:10px;color:#ded8ff;background:#211847;border:1px solid #51438f;border-radius:13px;padding:11px;margin:12px auto 0;line-height:1.55;text-align:left}
-.hello{font-size:21px;font-weight:950;margin:3px 0 10px}.blue{color:#8bd2ff}.profile{display:grid;grid-template-columns:1fr 1fr;border:1px solid #45408a;border-radius:15px;overflow:hidden;background:linear-gradient(110deg,#1c1951,#101d3c);margin-bottom:11px}.profile>div{padding:11px 12px;min-width:0}.profile>div+div{border-left:1px solid #474077}
+.hello{font-size:21px;font-weight:950;margin:3px 0 10px}.blue{color:#8bd2ff}.profile{display:grid;grid-template-columns:1fr 1fr;border:1px solid #45408a;border-radius:15px;overflow:hidden;background:linear-gradient(110deg,#1c1951,#101d3c);margin-bottom:11px}.profile>div{padding:11px 12px;min-width:0}.profile>div+div{border-left:1px solid #474077}.profile>div:nth-child(3){grid-column:1/-1;border-left:0;border-top:1px solid #474077}
 .cap{font-size:9px;color:#b5b1d9;font-weight:850;letter-spacing:.35px}.val{font-size:13px;font-weight:950;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wallet{padding:16px;background:linear-gradient(120deg,#2a1760,#173d7a);border:1px solid #6550b8;border-radius:18px;margin-bottom:12px}.balance{font-size:30px;font-weight:1000;letter-spacing:-1px;margin-top:4px}.balance small{font-size:12px;color:#d0c6ff;letter-spacing:0}.wallet-note{font-size:10px;color:#d7d2ff;margin-top:5px}
 .lock{background:#30152d;border:1px solid #943d68;border-radius:13px;padding:11px 12px;margin:0 0 12px;color:#ffe2e9;font-size:11px;line-height:1.45}.lock small{display:block;color:#e7bcca;margin-top:3px;font-size:10px}
@@ -28,45 +28,77 @@ h1{font-size:24px;line-height:1.15;margin:0;font-weight:950}h1 span{color:#83caf
 <header class="top"><div class="brand">▣ ANI GAMES <span>READY</span><div class="sub">REMOTE PLAY • ANDROID DB</div></div><div id="connectionBadge" class="preview">DB BELUM DIHUBUNGKAN</div></header>
 <section id="login" class="login"><div class="logo">🎮</div><h1>ANI GAMES <span>READY</span></h1><p class="lead">Masuk dengan User ID rental. Aktivasi satu kali diperlukan untuk perangkat baru.</p>
 <form id="loginForm" class="card">
-<label class="label" for="apiBase">ALAMAT HTTPS SERVER ANDROID DB</label><input id="apiBase" class="field" type="url" placeholder="https://alamat-api-android-db" autocomplete="url" required>
-<div style="margin-top:13px"><label class="label" for="uid">USER ID RENTAL</label><input id="uid" class="field" maxlength="120" placeholder="Masukkan User ID" autocomplete="username" autocapitalize="characters" required></div>
+<div><label class="label" for="uid">USER ID RENTAL</label><input id="uid" class="field" maxlength="120" placeholder="Masukkan User ID" autocomplete="username" autocapitalize="characters" required></div>
 <div style="margin-top:13px"><label class="label" for="activationCode">KODE AKTIVASI PERANGKAT (HANYA AKTIVASI PERTAMA)</label><input id="activationCode" class="field" maxlength="32" placeholder="Kode dari Admin" autocomplete="one-time-code" autocapitalize="characters"></div>
 <button id="loginButton" class="primary full" type="submit">MASUK KE DASHBOARD</button>
 <p class="hint">Token sesi disimpan terenkripsi di Android Keystore. User ID lain harus diaktivasi oleh Admin.</p>
 </form>
-<div id="loginNotice" class="notice">Masukkan alamat HTTPS menuju Android DB. Server harus aktif dan menyediakan RPC Remote Play + Coin Wallet.</div></section>
+<div id="loginNotice" class="notice">Menghubungkan otomatis ke server Ani Games Ready...</div><button id="retryGateway" class="full hidden" type="button">COBA HUBUNGKAN ULANG</button></section>
 
 <section id="dashboard" class="hidden">
 <div class="between"><div class="hello">Halo, <span id="welcome" class="blue">player</span></div><button id="logout">Keluar ↗</button></div>
-<div class="profile"><div><div class="cap">STATUS AKUN RENTAL LAMA</div><div class="val" id="rentalStatus">MEMUAT...</div></div><div><div class="cap">AKSES REMOTE</div><div class="val" id="remoteAccess">MEMUAT...</div></div></div>
+<div class="profile"><div><div class="cap">STATUS AKUN</div><div class="val" id="rentalStatus">MEMUAT...</div></div><div><div class="cap">AKSES REMOTE</div><div class="val" id="remoteAccess">MEMUAT...</div></div><div><div class="cap">AKUN BERLAKU HINGGA</div><div class="val" id="expiryAt">MEMUAT...</div></div></div>
 <div class="wallet"><div class="cap">SALDO DOMPET KOIN • ANDROID DB</div><div class="balance"><span id="balance">0</span> <small>koin</small></div><div class="wallet-note">Saldo hanya berasal dari lot koin yang belum kedaluwarsa.</div></div>
 <div id="walletLock" class="lock hidden"><b>Akses belum siap</b><small id="walletLockText"></small></div>
 <div class="nav"><button data-tab="home" class="active">PC</button><button data-tab="topup">TOP-UP</button><button data-tab="rates">TARIF</button><button data-tab="history">RIWAYAT</button></div>
 <section id="tab-home"><div class="title"><h2>Pilih PC Gaming</h2><button id="refresh">↻ Refresh</button></div><p class="muted" id="pcSummary">Status PC live dari Android DB.</p><div class="pc-list" id="pcList"></div>
-<div class="notice">Status online dan tarif dibaca dari Android DB. Koneksi StarDesk tetap dikunci sampai pemetaan device serta event mulai/berhenti sesi diuji end-to-end.</div></section>
+<div class="notice">Daftar PC dan tarif dibaca langsung dari Android DB. Tombol Connect akan aktif setelah event stream StarDesk dan pemotongan coin lulus uji nyata; saldo rental lama tidak akan dipotong untuk sesi coin.</div></section>
 <section id="tab-topup" class="hidden"><div class="title"><h2>Top-up Koin</h2><span class="muted">QRIS statis</span></div>
 <div class="card"><label class="label">PILIH NOMINAL PEMBAYARAN</label><div class="grid2" id="packages">
-<button type="button" class="package" data-amount="5000"><b>Rp5.000</b><span>37,5 koin</span></button><button type="button" class="package selected" data-amount="10000"><b>Rp10.000</b><span>75 koin</span></button><button type="button" class="package" data-amount="15000"><b>Rp15.000</b><span>112,5 koin</span></button><button type="button" class="package" data-amount="20000"><b>Rp20.000</b><span>150 koin</span></button></div>
+<button type="button" class="package" data-amount="5000"><b>Rp5.000</b><span>3.750 koin</span></button><button type="button" class="package selected" data-amount="10000"><b>Rp10.000</b><span>7.500 koin</span></button><button type="button" class="package" data-amount="15000"><b>Rp15.000</b><span>11.250 koin</span></button><button type="button" class="package" data-amount="20000"><b>Rp20.000</b><span>15.000 koin</span></button></div>
 <div style="margin-top:13px"><label class="label" for="manualAmount">ATAU MASUKKAN NOMINAL SENDIRI (KELIPATAN RP1.000)</label><input id="manualAmount" type="number" min="1000" max="10000000" step="1000" class="field" placeholder="Contoh: 7000"></div>
-<div class="calc"><div class="between"><span class="muted">Koin diterima</span><strong id="coinResult">75 koin</strong></div><div class="between" style="margin-top:6px"><span class="muted">Expired lot koin baru</span><b id="expiryResult">3 hari</b></div><div class="between" style="margin-top:6px"><span class="muted">Saldo valid setelah disetujui</span><b id="totalResult">75 koin</b></div><div class="muted" style="margin-top:8px">Kurs Rp8.000 = 60 koin. Expired lot lama tidak diperpanjang. Masa berlaku dihitung dari saldo valid saat order dibuat.</div></div></div>
+<div class="calc"><div class="between"><span class="muted">Koin diterima</span><strong id="coinResult">7.500 koin</strong></div><div class="between" style="margin-top:6px"><span class="muted">Expired lot koin baru</span><b id="expiryResult">3 hari</b></div><div class="between" style="margin-top:6px"><span class="muted">Saldo valid setelah disetujui</span><b id="totalResult">7.500 koin</b></div><div class="muted" style="margin-top:8px">Kurs Rp8.000 = 6.000 koin. Expired lot lama tidak diperpanjang. Masa berlaku dihitung dari saldo valid saat order dibuat.</div></div></div>
 <div class="card"><div class="between"><b>QRIS Ani Games Ready</b><span class="muted">Merchant</span></div><div class="qris" id="qrisZoom"><img alt="QRIS Ani Games Ready" src="qris_ani_games.png"></div><div class="caption">Ketuk QR untuk memperbesar. QRIS statis: masukkan nominal sendiri di aplikasi bank/e-wallet.</div><div class="between" style="margin-top:12px"><div><div class="muted">Nominal transfer</div><b id="payAmount">Rp10.000</b></div><button id="copyAmount">Salin nominal</button></div><button id="confirmWa" class="primary full">BUAT ORDER & KONFIRMASI WHATSAPP</button><p class="hint">Order dibuat di Android DB dan menunggu persetujuan Owner. Pembayaran tidak otomatis terverifikasi dari QRIS statis.</p></div></section>
 <section id="tab-rates" class="hidden"><div class="title"><h2>Tarif Remote PC</h2><span class="muted">Server Android DB</span></div><div class="table" id="rateList"></div><div class="notice">Tarif per PC wajib ditetapkan Owner di Android DB. Satuan koin ditagihkan terpisah dari sisa waktu rental lama.</div></section>
 <section id="tab-history" class="hidden"><div class="title"><h2>Riwayat Dompet</h2><span class="muted">Android DB</span></div><div id="lotList" class="table"></div><div id="historyList" class="table" style="margin-top:9px"></div></section>
-<div class="footer">ANI GAMES READY • ANDROID DB EDITION<br>REMOTE WALLET PREVIEW • KOIN LIVE, KONEKSI PC BELUM DIAKTIFKAN</div></section></div>
+<div class="footer">ANI GAMES READY • REMOTE PLAY<br>SERVER ONLINE OTOMATIS • ANDROID DB</div></section></div>
 <div id="toast" class="toast"></div><div id="modal" class="modal hidden"><button id="closeModal">Tutup ✕</button><img src="qris_ani_games.png" alt="QRIS Ani Games Ready"></div>
 <script>
 const $=id=>document.getElementById(id);
 const state={apiBase:"",accessToken:"",refreshToken:"",rentalCode:"",balance:0,account:null,hosts:[],lots:[],ledger:[],orders:[],canStart:false};
+let gatewayReady=false;
 let selectedAmount=10000,pendingOrderKey="";
 const rates=[{gpu:"GTX 1050",rp:6000,coins:4500},{gpu:"GTX 1660",rp:6000,coins:4500},{gpu:"RTX 3060",rp:7000,coins:5250},{gpu:"RTX 5060",rp:8000,coins:6000}];
 const native=window.AniAndroid||null;
-let requestSequence=0;const pendingApi=new Map();
+let requestSequence=0;const pendingApi=new Map();let gatewaySequence=0;const pendingGateway=new Map();
 function toast(s){const e=$("toast");e.textContent=s;e.style.display="block";clearTimeout(window.__toast);window.__toast=setTimeout(()=>e.style.display="none",3200)}
 function rupiah(n){return "Rp"+Math.round(Number(n)||0).toLocaleString("id-ID")}
 function dec(n){return Number(n||0).toLocaleString("id-ID",{maximumFractionDigits:8})}
 function coinFor(n){return n*6000/8000}
 function expiryDays(n){if(n<30000)return 3;if(n<60000)return 7;if(n<90000)return 10;if(n<120000)return 14;if(n<150000)return 17;if(n<180000)return 21;if(n<210000)return 24;if(n<240000)return 28;return 30}
 function randomKey(){if(window.crypto?.getRandomValues){const a=new Uint8Array(16);crypto.getRandomValues(a);return [...a].map(x=>x.toString(16).padStart(2,"0")).join("")}return "id-"+Date.now()+"-"+Math.random().toString(16).slice(2)}
+function probeGateway(){
+ if(!native||typeof native.checkGateway!=="function")return Promise.reject(new Error("ANDROID_NATIVE_BRIDGE_MISSING"));
+ return new Promise((resolve,reject)=>{
+  const id="g"+(++gatewaySequence)+"-"+Date.now();
+  pendingGateway.set(id,{resolve,reject});
+  try{native.checkGateway(id)}catch(e){pendingGateway.delete(id);reject(e)}
+  setTimeout(()=>{const p=pendingGateway.get(id);if(p){pendingGateway.delete(id);p.reject(new Error("ANDROID_DB_HEALTH_TIMEOUT"))}},12000);
+ });
+}
+window.__onGatewayHealthResult=(id,result)=>{
+ const p=pendingGateway.get(String(id));if(!p)return;pendingGateway.delete(String(id));
+ if(result?.ok!==true||Number(result?.http_status)!==200){p.reject(new Error(result?.error||"ANDROID_DB_RELAY_OFFLINE"));return}
+ p.resolve(result);
+};
+async function checkGateway(){
+ const loginButton=$("loginButton"),retry=$("retryGateway");
+ loginButton.disabled=true;retry.disabled=true;retry.classList.add("hidden");
+ setConnectionBadge("MEMERIKSA SERVER",false);
+ $("loginNotice").textContent="Menghubungkan otomatis ke server Ani Games Ready...";
+ try{
+  const health=await probeGateway();
+  if(health.gateway!=="online"||health.upstream_active!==true||health.agent_connected!==true||health.api!=="online"||health.database!=="online")throw new Error("ANDROID_DB_RELAY_OFFLINE");
+  state.apiBase=native.getApiBase();
+  if(!state.apiBase)throw new Error("ANDROID_DB_ENDPOINT_MISSING");
+  gatewayReady=true;setConnectionBadge("SERVER ONLINE",true);
+  $("loginNotice").textContent="Server online. Masukkan User ID rental untuk melanjutkan.";
+ }catch(e){
+  gatewayReady=false;state.apiBase="";setConnectionBadge("SERVER OFFLINE",false);
+  $("loginNotice").textContent="Server rental belum dapat dijangkau. Pastikan internet aktif, lalu coba hubungkan ulang.";
+  retry.classList.remove("hidden");
+ }finally{loginButton.disabled=!gatewayReady;retry.disabled=false;}
+}
 function nativeRpc(name,payload={},token=""){
  if(!native||typeof native.apiRequest!=="function")return Promise.reject(new Error("ANDROID_NATIVE_BRIDGE_MISSING"));
  if(!state.apiBase)return Promise.reject(new Error("ANDROID_DB_API_URL_NOT_CONFIGURED"));
@@ -96,6 +128,7 @@ function renderProfile(){
  const status=String(state.account?.status||"unknown").toUpperCase();
  $("rentalStatus").textContent=status;
  $("rentalStatus").className="val "+(status==="ACTIVE"?"green":status==="EXPIRED"?"yellow":"red");
+ $("expiryAt").textContent=state.account?.expiry_at?formatDate(state.account.expiry_at):"TIDAK ADA BATAS WAKTU";
  const access=state.canStart?"DOMPET AKTIF":"BELUM SIAP";
  $("remoteAccess").textContent=access;$("remoteAccess").className="val "+(state.canStart?"green":"yellow");
  const reasons=[];
@@ -153,7 +186,9 @@ async function refreshTokens(refreshToken){
 async function login(e){
  e.preventDefault();const button=$("loginButton");button.disabled=true;button.textContent="MENGHUBUNGKAN...";
  try{
-  const base=$("apiBase").value.trim();if(!native||!native.setApiBase||!native.setApiBase(base))throw new Error("Masukkan URL HTTPS Android DB yang valid.");
+  if(!native)throw new Error("Buka aplikasi Android resmi untuk melanjutkan.");
+  if(!gatewayReady)await checkGateway();
+  if(!gatewayReady)throw new Error("SERVER_ANDROID_DB_OFFLINE");
   state.apiBase=native.getApiBase();const rentalCode=$("uid").value.trim().toUpperCase();
   if(!rentalCode)throw new Error("Masukkan User ID rental.");
   const savedCode=secretGet("remote_rental_code");
@@ -210,12 +245,13 @@ async function confirmTopup(){
  finally{$("confirmWa").disabled=false;$("confirmWa").textContent="BUAT ORDER & KONFIRMASI WHATSAPP"}
 }
 $("loginForm").addEventListener("submit",login);
+$("retryGateway").addEventListener("click",checkGateway);
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>tab(b.dataset.tab)));
 document.querySelectorAll(".package").forEach(b=>b.addEventListener("click",()=>{selectedAmount=Number(b.dataset.amount);$("manualAmount").value="";updateCalc()}));
 $("manualAmount").addEventListener("input",updateCalc);$("refresh").addEventListener("click",refreshClick);
 $("logout").addEventListener("click",logout);$("confirmWa").addEventListener("click",confirmTopup);
 $("copyAmount").addEventListener("click",()=>{const n=String(currentAmount());if(native?.copyText)native.copyText(n);else toast("Nominal: "+rupiah(n))});
 $("qrisZoom").addEventListener("click",()=>$("modal").classList.remove("hidden"));$("closeModal").addEventListener("click",()=>$("modal").classList.add("hidden"));$("modal").addEventListener("click",e=>{if(e.target===$("modal"))$("modal").classList.add("hidden")});
-if(native){$("apiBase").value=native.getApiBase()||"";setConnectionBadge(native.getApiBase()?"HTTPS API TERSIMPAN • BELUM DIUJI":"SET URL ANDROID DB",false)}else{$("loginNotice").textContent="Buka APK Android untuk menggunakan koneksi Android DB."}
+if(native){state.apiBase=native.getApiBase()||"";void checkGateway()}else{$("loginNotice").textContent="Buka APK Android untuk menggunakan koneksi Android DB.";setConnectionBadge("APLIKASI ANDROID",false)}
 updateCalc();
 </script></body>
