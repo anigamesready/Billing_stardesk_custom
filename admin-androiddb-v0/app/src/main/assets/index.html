@@ -227,6 +227,10 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
       <div class="actions"><button onclick="createWolEnrollment()">Buat enrollment relay</button><button onclick="requestWolProbe()">Probe relay</button></div>
       <div class="form-grid" style="margin-top:10px"><div class="wide"><label>Target PC Device ID</label><input id="wolTargetDevice" placeholder="UUID perangkat"></div><div class="wide"><button class="primary" style="width:100%" onclick="sendWolCommand()">Kirim WoL</button></div></div>
       <div id="wolCommandResult" class="hint"></div>
+      <div class="form-grid" style="margin-top:10px">
+        <div><label>WoL Command ID</label><input id="wolCommandId"></div><div><label>Probe ID</label><input id="wolProbeId"></div>
+        <div class="actions wide"><button onclick="checkWolCommand()">Cek command</button><button onclick="checkWolProbe()">Cek probe</button></div>
+      </div>
     </div>
     <div class="card">
       <h2>Blynk IoT</h2>
@@ -308,7 +312,6 @@ async function finishLogin(user){
   el("loginScreen").classList.add("hidden");el("appScreen").classList.remove("hidden");
   globalMessage("Login Owner berhasil. Menghubungkan seluruh modul Admin Android DB.");
   await loadDashboard();
-  try{await loadCoreOverview();}catch(e){globalMessage("DB utama gagal dimuat: "+e.message,true);}
 }
 async function logout(){
   try{await callApi("__admin_logout",{},accessToken);}catch(ignored){}
@@ -329,7 +332,8 @@ async function loadDashboard(){
     const data=await api("androiddb_v0_admin_dashboard",{p_limit:200});
     if(!data||data.ok!==true)throw new Error("ANDROIDDB_V0_DASHBOARD_INVALID");
     dashboardData=data;renderDashboard(data);renderRentals(data);renderHosts(data);renderTopups(data);populateWalletSelect(data);
-    globalMessage("Data Android DB v0 berhasil diperbarui • "+date(data.server_time));return data;
+    try{await loadCoreOverview();}catch(coreError){el("coreSystemStatus").textContent="Core Admin belum terbaca: "+coreError.message;}
+    globalMessage("Data Android DB berhasil diperbarui • "+date(data.server_time));return data;
   }catch(error){globalMessage("Gagal memuat Android DB v0: "+val(error.message||error),true);throw error;}
 }
 function renderDashboard(data){
@@ -510,8 +514,14 @@ function renderDevices(rows,sessions){
   const commands=["refresh","restart_billing","pause","resume","stop","logoff","restart_pc","shutdown"];
   el("deviceList").innerHTML=rows.map(d=>{
     const id=esc(d.id),session=activeByDevice.get(d.id),online=d.status==="online";
-    return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(d.device_name||d.client_id)+'</div><div class="item-meta">'+esc(d.client_id)+' • '+esc(d.power_state||"power unknown")+'</div></div><span class="pill '+(online?"good":"bad")+'">'+esc(val(d.status).toUpperCase())+'</span></div><div class="item-meta">Heartbeat: '+date(d.last_heartbeat_at||d.last_seen_at)+' • Sesi: '+(session?esc(session.code||session.rental_code||session.status):"Tidak ada sesi aktif")+'</div><div class="form-grid" style="margin-top:9px"><div><label>Nama PC</label><input id="devname_'+id+'" value="'+esc(d.device_name||"")+'"></div><div><label>Perintah</label><select id="devcmd_'+id+'">'+commands.map(c=>'<option value="'+c+'">'+c.replaceAll("_"," ")+'</option>').join("")+'</select></div></div><div class="item-actions"><button class="small" onclick="renameDevice(\''+id+'\')">Ubah nama</button><button class="small primary" onclick="sendDeviceCommand(\''+id+'\')">Kirim perintah</button><button class="small" onclick="showDeviceState(\''+id+'\')">Detail PC</button><button class="small" onclick="showDeviceSessions(\''+id+'\')">Sesi PC</button><button class="small" onclick="createRecoveryCode(\''+id+'\')">Kode recovery</button><button class="small" onclick="startDeviceTrial(\''+id+'\')">Free test</button><button class="small danger" onclick="disconnectDevice(\''+id+'\')">Putuskan</button></div></div>';
+    return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(d.device_name||d.client_id)+'</div><div class="item-meta">'+esc(d.client_id)+' • '+esc(d.power_state||"power unknown")+'</div></div><span class="pill '+(online?"good":"bad")+'">'+esc(val(d.status).toUpperCase())+'</span></div><div class="item-meta">Heartbeat: '+date(d.last_heartbeat_at||d.last_seen_at)+' • Sesi: '+(session?esc(session.code||session.rental_code||session.status):"Tidak ada sesi aktif")+'</div><div class="form-grid" style="margin-top:9px"><div><label>Nama PC</label><input id="devname_'+id+'" value="'+esc(d.device_name||"")+'"></div><div><label>Perintah</label><select id="devcmd_'+id+'">'+commands.map(c=>'<option value="'+c+'">'+c.replaceAll("_"," ")+'</option>').join("")+'</select></div></div><div class="item-actions"><button class="small" onclick="renameDevice(\''+id+'\')">Ubah nama</button><button class="small primary" onclick="sendDeviceCommand(\''+id+'\')">Kirim perintah</button><button class="small" onclick="showDeviceState(\''+id+'\')">Detail PC</button><button class="small" onclick="showDeviceSessions(\''+id+'\')">Sesi PC</button><button class="small" onclick="createRecoveryCode(\''+id+'\')">Kode recovery</button><button class="small" onclick="createDeviceEnrollment(\''+id+'\',\''+esc(d.device_name||d.client_id)+'\')">Kode enrollment</button><button class="small" onclick="startDeviceTrial(\''+id+'\')">Free test</button><button class="small danger" onclick="disconnectDevice(\''+id+'\')">Putuskan</button></div></div>';
   }).join("")||'<div class="empty">Belum ada PC terdaftar di organisasi ini.</div>';
+}
+async function createDeviceEnrollment(id,label){
+  const minutes=prompt("Masa berlaku kode enrollment (menit):","30");if(minutes===null)return;
+  const valid=Math.max(5,Math.min(1440,Math.trunc(Number(minutes)||30)));
+  try{const r=await api("create_enrollment",{p_org_id:orgId(),p_label:label,p_minutes:valid});showCode("Kode enrollment PC",r.code||r.enrollment_code||pretty(r),"PC "+label+" • berlaku "+valid+" menit");}
+  catch(e){globalMessage("Gagal membuat enrollment PC: "+e.message,true);}
 }
 async function renameDevice(id){
   try{const a=orgArgs();a.p_device_id=id;a.p_device_name=val(el("devname_"+id).value).trim();if(!a.p_device_name)throw new Error("Nama PC wajib diisi.");await api("admin_rename_device",a);await loadDevices();globalMessage("Nama PC diperbarui.");}
@@ -674,13 +684,23 @@ async function createWolEnrollment(){
   catch(e){globalMessage("Gagal membuat enrollment WoL: "+e.message,true);}
 }
 async function requestWolProbe(){
-  try{const r=await api("wol_relay_probe_request");showJson("wolStatus",r);globalMessage("Probe relay diminta.");}
+  try{const r=await api("wol_relay_probe_request");const id=r.probe_id||r.id||"";el("wolProbeId").value=id;showJson("wolStatus",r);globalMessage("Probe relay diminta.");}
   catch(e){globalMessage("Gagal meminta probe: "+e.message,true);}
+}
+async function checkWolCommand(){
+  const id=val(el("wolCommandId").value).trim();if(!id)return globalMessage("WoL Command ID wajib diisi.",true);
+  try{showJson("wolStatus",await api("wol_relay_command_status",{p_command_id:id}));}
+  catch(e){showJson("wolStatus",{ok:false,error:e.message});}
+}
+async function checkWolProbe(){
+  const id=val(el("wolProbeId").value).trim();if(!id)return globalMessage("WoL Probe ID wajib diisi.",true);
+  try{showJson("wolStatus",await api("wol_relay_probe_status",{p_probe_id:id}));}
+  catch(e){showJson("wolStatus",{ok:false,error:e.message});}
 }
 async function sendWolCommand(){
   const id=val(el("wolTargetDevice").value).trim();if(!id)return globalMessage("Target PC Device ID wajib diisi.",true);
   if(!confirm("Kirim Wake-on-LAN ke target ini?"))return;
-  try{const r=await api("wol_relay_enqueue",{p_target_device_id:id});showJson("wolStatus",r);globalMessage("Perintah WoL dikirim ke relay.");}
+  try{const r=await api("wol_relay_enqueue",{p_target_device_id:id});const cid=r.command_id||r.id||"";if(cid)el("wolCommandId").value=cid;el("wolCommandResult").textContent="Command "+cid+" • "+(r.status||"queued");showJson("wolStatus",r);globalMessage("Perintah WoL dikirim ke relay.");}
   catch(e){globalMessage("WoL gagal: "+e.message,true);}
 }
 async function checkBlynk(){
@@ -696,7 +716,11 @@ async function pulseBlynk(){
 function showCode(title,code,note){el("oneTimeTitle").textContent=title;el("oneTimeCode").textContent=code;el("oneTimeNote").textContent=note;el("oneTimeModal").classList.remove("hidden");}
 function copyCode(){AniAdminV0.copyText(el("oneTimeCode").textContent);}
 function closeCode(){el("oneTimeCode").textContent="";el("oneTimeModal").classList.add("hidden");}
-window.addEventListener("load",function(){restoreSession().catch(function(){});});
+window.addEventListener("load",function(){
+  const now=new Date(),first=new Date(now.getFullYear(),now.getMonth(),1);
+  el("reportFrom").value=first.toISOString().slice(0,10);el("reportTo").value=now.toISOString().slice(0,10);
+  restoreSession().catch(function(){});
+});
 </script>
 </body>
 </html>
