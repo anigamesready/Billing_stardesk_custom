@@ -337,10 +337,11 @@ async function loadCoinAdminWallet(){
 # Keep the new Coin handlers inside the existing Admin WebView script.
 # Function declarations remain available to the HTML action handlers, and no
 # existing login/navigation/core script is split or rewritten.
-script_end = page.rfind("</script>")
-if script_end < 0 or page.count("<script") != 1:
-    raise SystemExit("ADMIN_INLINE_SCRIPT_BOUNDARY_INVALID")
-page = page[:script_end] + coin_js + "\n" + page[script_end:]
+inline_scripts = list(re.finditer(r'<script\\b(?![^>]*\\bsrc=)[^>]*>.*?</script>', page, re.I | re.S))
+if len(inline_scripts) != 1:
+    raise SystemExit("ADMIN_INLINE_SCRIPT_BOUNDARY_INVALID:" + str(len(inline_scripts)))
+inline_end = inline_scripts[0].end() - len("</script>")
+page = page[:inline_end] + "\\n" + coin_js + page[inline_end:]
 
 # Restore password recovery visibility; its own hidden class controls state.
 page = page.replace(",#recovery{display:none!important}", "")
