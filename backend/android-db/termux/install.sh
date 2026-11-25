@@ -28,9 +28,25 @@ psql_admin(){ psql -X -h "$PREFIX/tmp" -p "$DB_PORT" -U "$PG_ADMIN_USER" -v ON_E
 [[ "$DB_PORT" =~ ^[0-9]{1,5}$ ]] || die "Port database tidak valid."
 [ -r /dev/tty ] || die "Jalankan dari terminal interaktif Termux."
 
-log "Memasang runtime resmi Termux (PostgreSQL, Node LTS, npm, service manager)..."
+log "Memeriksa versi PostgreSQL sebelum memasang/memperbarui paket..."
+EXISTING_PG_CLUSTER=0
+if [ -f "$PGDATA/PG_VERSION" ]; then
+  EXISTING_PG_CLUSTER=1
+  command -v postgres >/dev/null 2>&1 || die "Cluster PostgreSQL existing ditemukan tetapi binary postgres tidak tersedia. Tidak akan memasang binary baru di atas data lama secara otomatis."
+  DATA_MAJOR="$(cat "$PGDATA/PG_VERSION" | tr -d '[:space:]')"
+  SERVER_VERSION="$(postgres --version | awk '{print $NF}')"
+  SERVER_MAJOR="$(printf '%s' "$SERVER_VERSION" | cut -d. -f1)"
+  [ "$DATA_MAJOR" = "$SERVER_MAJOR" ] || die "Major version PostgreSQL tidak cocok (data=$DATA_MAJOR, binary=$SERVER_MAJOR). Tidak ada package upgrade, initdb, pg_upgrade atau migrasi yang dijalankan."
+fi
+
+log "Memasang runtime resmi Termux (Node LTS, npm, service manager)..."
 pkg update -y
-pkg install -y postgresql nodejs-lts npm termux-services curl openssl procps termux-api
+if [ "$EXISTING_PG_CLUSTER" = 1 ]; then
+  # Do not request/upgrade the PostgreSQL package over a live data directory.
+  pkg install -y nodejs-lts npm termux-services curl openssl procps termux-api
+else
+  pkg install -y postgresql nodejs-lts npm termux-services curl openssl procps termux-api
+fi
 
 mkdir -p "$HOME" "$APP_DIR" "$SERVER_DIR"
 # Preserve an existing API .env and use its local database/port.
