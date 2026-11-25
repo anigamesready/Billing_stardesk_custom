@@ -31,6 +31,33 @@ for marker in ("V12.1.52-REMOTE-PLAY-ADMIN-CONTROLS", "V12.1.53-REMOTE-PLAY-SHAR
     if marker not in page:
         raise SystemExit("EXPECTED_V12158_BASELINE_MARKER_MISSING:" + marker)
 
+def strip_legacy_database_css(css: str) -> str:
+    """Remove only CSS rules whose selector targets retired DB panels."""
+    removals: list[tuple[int, int]] = []
+    i = 0
+    while i < len(css):
+        open_pos = css.find("{", i)
+        if open_pos < 0:
+            break
+        boundary = max(css.rfind("}", 0, open_pos), css.rfind("{", 0, open_pos))
+        selector = css[boundary + 1:open_pos].strip()
+        depth = 1
+        j = open_pos + 1
+        while j < len(css) and depth:
+            if css[j] == "{":
+                depth += 1
+            elif css[j] == "}":
+                depth -= 1
+            j += 1
+        if depth:
+            raise SystemExit("UNBALANCED_ADMIN_CSS_RULE")
+        if ".db-switch" in selector.lower() or "#databasetools" in selector.lower():
+            removals.append((boundary + 1, j))
+        i = j
+    for start, end in reversed(removals):
+        css = css[:start] + css[end:]
+    return css
+
 def remove_div_with_class(source: str, class_name: str) -> str:
     start_tag = re.compile(r"<div\b[^>]*>", re.I)
     close_tag = re.compile(r"</div\s*>", re.I)
@@ -61,10 +88,15 @@ hide_end = page.find("}", hide_start)
 if hide_end < 0:
     raise SystemExit("EXPECTED_LEGACY_DB_HIDE_RULE_END_NOT_FOUND")
 page = page[:hide_start] + page[hide_end + 1:]
-# Remove only obsolete styles for the retired DB tools. The password-recovery
-# panel is deliberately retained and made visible by its own state classes.
-page = re.sub(r"[^{}]*\.db-switch[^{}]*\{[^{}]*\}", "", page, flags=re.I)
-page = re.sub(r"[^{}]*#databaseTools[^{}]*\{[^{}]*\}", "", page, flags=re.I)
+# Remove only obsolete CSS rules, scoped to each style element. Never run a
+# page-wide brace regex: that can consume markup and JavaScript after a CSS rule.
+style_pattern = re.compile(r"(?is)(<style\b[^>]*>)(.*?)(</style>)")
+page, style_count = style_pattern.subn(
+    lambda m: m.group(1) + strip_legacy_database_css(m.group(2)) + m.group(3),
+    page
+)
+if style_count < 1:
+    raise SystemExit("ADMIN_STYLE_BLOCKS_NOT_FOUND")
 page = page.replace("function openDbSelector(){requestGlobalDbSwitch()} ", "")
 page = page.replace("function openDbSelector(){requestGlobalDbSwitch()}", "")
 page = page.replace("Database aktif seluruh sistem:", "Database Android aktif:")
