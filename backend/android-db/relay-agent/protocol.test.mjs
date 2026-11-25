@@ -38,6 +38,9 @@ test("relay envelope is normalized without accepting absolute or network paths",
   assert.equal(request.headers["x-ignore"], undefined);
   assert.equal(request.body.toString("utf8"), "{}");
   assert.equal(validateEnvelope({
+    type: "request", id: "0e07a2e1-299b-4f8a-9d7a-95b4a41ec772", method: "GET", path: "/health", bodyBase64: Buffer.from("x").toString("base64")
+  }), null);
+  assert.equal(validateEnvelope({
     type: "request", id: "0e07a2e1-299b-4f8a-9d7a-95b4a41ec772", method: "GET", path: "//evil.example/health"
   }), null);
   assert.equal(validateEnvelope({
