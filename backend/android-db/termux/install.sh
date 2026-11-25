@@ -11,8 +11,10 @@ DB_PORT="5432"
 if [ -n "$ANI_DB_NAME" ]; then DB_DEFAULT="$ANI_DB_NAME"; fi
 if [ -n "$ANI_DB_PORT" ]; then DB_PORT="$ANI_DB_PORT"; fi
 PGDATA="$PREFIX/var/lib/postgresql"
+if [ -f "$HOME/.postgres/postgresql.conf" ]; then PGDATA="$HOME/.postgres"; fi
 OS_DB_USER="$(id -un)"
 NEW_DATABASE=0
+NEW_CLUSTER=0
 
 log(){ printf '[ANI-ANDROID-DB] %s\n' "$*"; }
 die(){ printf '[ANI-ANDROID-DB] STOP: %s\n' "$*" >&2; exit 1; }
@@ -73,6 +75,9 @@ chmod 600 "$ENV_FILE" 2>/dev/null || true
 
 # An existing live server is never re-initialized or launched twice.
 if [ ! -f "$PGDATA/PG_VERSION" ]; then
+  if [ -d "$HOME/.postgres" ] && [ "$PGDATA" != "$HOME/.postgres" ] && find "$HOME/.postgres" -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then
+    die "Legacy PostgreSQL data ditemukan di ~/.postgres tetapi config tidak lengkap. Tidak akan membuat cluster baru."
+  fi
   if pg_isready -h "$PREFIX/tmp" -p "$DB_PORT" >/dev/null 2>&1; then
     die "PostgreSQL aktif tetapi PGDATA tidak ditemukan di lokasi standar. Tidak akan initdb."
   fi
@@ -82,6 +87,7 @@ if [ ! -f "$PGDATA/PG_VERSION" ]; then
   log "Cluster PostgreSQL belum ada. Membuat cluster baru..."
   mkdir -p "$PGDATA"
   initdb -D "$PGDATA" --username="$OS_DB_USER" --auth-local=trust --auth-host=scram-sha-256
+  NEW_CLUSTER=1
 fi
 
 # Enable Termux runit service manager and packaged PostgreSQL service.
@@ -125,7 +131,10 @@ done
 
 DB_EXISTS="$(psql_admin -d postgres -Atqc "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'")"
 if [ "$DB_EXISTS" != "1" ]; then
-  log "Database $DB_NAME belum ada; membuat database baru."
+  if [ "$NEW_CLUSTER" != "1" ]; then
+    die "Database '$DB_NAME' tidak ditemukan pada cluster PostgreSQL existing. Tidak akan membuat database baru atau mengalihkan data."
+  fi
+  log "Cluster PostgreSQL baru; membuat database awal $DB_NAME."
   createdb -h "$PREFIX/tmp" -p "$DB_PORT" -U "$PG_ADMIN_USER" "$DB_NAME"
   NEW_DATABASE=1
 fi
@@ -356,7 +365,9 @@ fi
 if [ -f "$PREFIX/etc/profile.d/start-services.sh" ]; then . "$PREFIX/etc/profile.d/start-services.sh"; fi
 sleep 2
 if "$PREFIX/bin/sv" status ani-games-ready-api 2>&1 | grep -q '^run:'; then
-  "$PREFIX/bin/sv" restart ani-games-ready-api >/dev/null 2>&1 || true
+  "$PREFIX/bin/sv" down ani-games-ready-api >/dev/null 2>&1 || true
+  sleep 1
+  "$PREFIX/bin/sv" up ani-games-ready-api >/dev/null 2>&1 || true
 else
   "$PREFIX/bin/sv-enable" ani-games-ready-api >/dev/null 2>&1 || true
   "$PREFIX/bin/sv" up ani-games-ready-api >/dev/null 2>&1 || true
