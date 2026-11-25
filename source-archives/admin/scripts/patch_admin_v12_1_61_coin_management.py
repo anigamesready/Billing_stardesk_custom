@@ -340,7 +340,7 @@ async function loadCoinAdminWallet(){
 script_end = page.rfind("</script>")
 if script_end < 0 or page.count("<script") != 1:
     raise SystemExit("ADMIN_INLINE_SCRIPT_BOUNDARY_INVALID")
-page = page[:script_end] + coin_js + "\\n" + page[script_end:]
+page = page[:script_end] + coin_js + "\n" + page[script_end:]
 
 # Restore password recovery visibility; its own hidden class controls state.
 page = page.replace(",#recovery{display:none!important}", "")
