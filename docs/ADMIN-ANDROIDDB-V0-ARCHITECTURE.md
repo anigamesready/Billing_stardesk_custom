@@ -92,7 +92,7 @@ The active Android DB was not directly reachable in the audit environment. CI ve
 
 ## Regression proof
 
-Workflow `Test Remote Play and Sunshine pairing on PostgreSQL` run 45613390430 succeeded on the isolated branch. It applied the full migration chain to disposable PostgreSQL and passed the legacy tests plus the new v0 test:
+Workflow `Test Remote Play and Sunshine pairing on PostgreSQL` run 45616600311 succeeded on the isolated branch. It also tests that reusing a top-up idempotency key with a different rupiah amount is rejected. Existing core-only database upgrade path passed. It applied the full migration chain to disposable PostgreSQL and passed the legacy tests plus the new v0 test:
 - create v0 rental without creating a legacy rental,
 - activation/login/refresh rotation,
 - top-up idempotency, approve/reject, lots and ledger,
