@@ -45,9 +45,21 @@ BEGIN
   PERFORM api.admin_remote_play_set_host_permission(owner_token,device_id,true);
   PERFORM api.admin_remote_play_set_rental_permission(owner_token,rental_id,true);
 
+  rate_result:=api.admin_remote_coin_set_device_rate(owner_token,device_id,'GTX 1050');
+  IF rate_result->>'hourly_rupiah'<>'6000' OR (rate_result->>'hourly_coins')::numeric<>4500 THEN
+    RAISE EXCEPTION 'COIN_RATE_GTX_1050_X100_WRONG';
+  END IF;
+  rate_result:=api.admin_remote_coin_set_device_rate(owner_token,device_id,'GTX 1660');
+  IF rate_result->>'hourly_rupiah'<>'6000' OR (rate_result->>'hourly_coins')::numeric<>4500 THEN
+    RAISE EXCEPTION 'COIN_RATE_GTX_1660_X100_WRONG';
+  END IF;
+  rate_result:=api.admin_remote_coin_set_device_rate(owner_token,device_id,'RTX 3060');
+  IF rate_result->>'hourly_rupiah'<>'7000' OR (rate_result->>'hourly_coins')::numeric<>5250 THEN
+    RAISE EXCEPTION 'COIN_RATE_RTX_3060_X100_WRONG';
+  END IF;
   rate_result:=api.admin_remote_coin_set_device_rate(owner_token,device_id,'RTX 5060');
   IF rate_result->>'hourly_rupiah'<>'8000' OR (rate_result->>'hourly_coins')::numeric<>6000 THEN
-    RAISE EXCEPTION 'COIN_RATE_CONFIGURATION_WRONG';
+    RAISE EXCEPTION 'COIN_RATE_RTX_5060_X100_WRONG';
   END IF;
   link_result:=api.admin_remote_coin_link_stardesk_device(owner_token,device_id,'SD-CI-DEVICE-5060',true);
   IF link_result->>'stardesk_device_id'<>'SD-CI-DEVICE-5060' THEN
