@@ -1,9 +1,10 @@
-name: Build Ani Games Admin V12.1.60 Android DB Online Candidate
+name: Build Ani Games Admin V12.1.61 Android DB Coin Candidate
 
 on:
   push:
     branches:
       - feature/androiddb-online-remote-admin-20261125
+      - feature/admin-androiddb-coin-api-20261125
   workflow_dispatch:
 
 permissions:
@@ -29,7 +30,8 @@ jobs:
           cp source-archives/admin/reference/admin-v12-1-58-login-gateway-repair.test.mjs tests/admin-v12-1-58-login-gateway-repair.test.mjs
           test -s AniGames-Admin-V12.1.4-ANDROID-PASSWORD-RESET-PATCH-v3.zip
           test -s scripts/patch_admin_v12_1_59_android_db_only.py
-          python3 -m py_compile scripts/patch_admin_v12_1_59_android_db_only.py
+          test -s scripts/patch_admin_v12_1_61_coin_management.py
+          python3 -m py_compile scripts/patch_admin_v12_1_59_android_db_only.py scripts/patch_admin_v12_1_61_coin_management.py
 
       - name: Extract Android source bundle
         run: |
@@ -566,6 +568,8 @@ jobs:
           set -euo pipefail
           python3 "$GITHUB_WORKSPACE/scripts/patch_admin_v12_1_59_android_db_only.py" "$ADMIN_PROJECT_DIR"
           python3 -m py_compile "$GITHUB_WORKSPACE/scripts/patch_admin_v12_1_59_android_db_only.py"
+          python3 "$GITHUB_WORKSPACE/scripts/patch_admin_v12_1_61_coin_management.py" "$ADMIN_PROJECT_DIR"
+          python3 -m py_compile "$GITHUB_WORKSPACE/scripts/patch_admin_v12_1_61_coin_management.py"
           python3 - <<'PY'
           import os, re
           from pathlib import Path
@@ -599,12 +603,18 @@ jobs:
               if forbidden_token in cloud:
                   raise SystemExit("PC Billing local/custom API override remains: "+forbidden_token)
           gradle=(Path(os.environ["ANDROID_PROJECT_DIR"])/"app/build.gradle").read_text()
-          if "applicationId 'com.anigames.billingadmin.v160online'" not in gradle or "versionCode 87" not in gradle or "versionName '12.1.60-ANDROIDDB-ONLINE'" not in gradle:
-              raise SystemExit("V12.1.60 package/version metadata mismatch")
+          if "applicationId 'com.anigames.billingadmin.v161online'" not in gradle or "versionCode 88" not in gradle or "versionName '12.1.61-ANDROIDDB-COIN'" not in gradle:
+              raise SystemExit("V12.1.61 package/version metadata mismatch")
           manifest=(Path(os.environ["ANDROID_PROJECT_DIR"])/"app/src/main/AndroidManifest.xml").read_text()
-          if 'android:label="AniGames Admin V12.1.60 Android DB Online"' not in manifest:
-              raise SystemExit("V12.1.60 app label mismatch")
-          print("PASS: Admin login, rental CRUD, reports, Billing Control, Remote Play, WoL, Blynk and PC Billing target the online Android DB gateway.")
+          if 'android:label="AniGames Admin V12.1.61 Android DB Coin"' not in manifest:
+              raise SystemExit("V12.1.61 app label mismatch")
+          admin=(web/"admin.html").read_text(encoding="utf-8")
+          for marker in ("coinManagement", "admin_remote_coin_overview", "admin_remote_coin_wallet", "admin_remote_coin_approve_topup", "admin_remote_coin_reject_topup", "admin_remote_coin_set_device_rate", "admin_remote_coin_link_stardesk_device"):
+              if marker not in admin: raise SystemExit("Admin Coin feature missing: "+marker)
+          for stale in ("globalDbTarget", "requestGlobalDbSwitch", "DB1", "DB2", "databaseTools", "dualDbReadinessPanel", "startDualDbAdmin", "Supabase DB", "Supabase Secret"):
+              if stale.lower() in admin.lower(): raise SystemExit("Legacy Admin UI concept remains: "+stale)
+          if '#recovery{display:none!important}' in admin: raise SystemExit("Password recovery panel is still hidden")
+          print("PASS: Admin login, rental CRUD, reports, Billing Control, Remote Play, Coin Manager, WoL, Blynk and PC Billing target the one Android DB gateway.")
           PY
           node --check /tmp/admin-v1260-admin.js
           node --check /tmp/admin-v1260-index.js
@@ -632,14 +642,14 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build and verify Admin V12.1.60 Android DB Candidate
+      - name: Build and verify Admin V12.1.61 Android DB Coin Candidate
         shell: bash
         run: |
           set -euo pipefail
           gradle --no-daemon --stacktrace -p "$ANDROID_PROJECT_DIR" assembleDebug
           APK="$ANDROID_PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
-          APK_OUT="$GITHUB_WORKSPACE/output/AniGames-Admin-V12.1.60-ANDROID-DB-ONLINE-CANDIDATE.apk"
+          APK_OUT="$GITHUB_WORKSPACE/output/AniGames-Admin-V12.1.61-ANDROID-DB-COIN-CANDIDATE.apk"
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
           test -n "$AAPT" && test -n "$APKSIGNER"
@@ -647,8 +657,8 @@ jobs:
           cp "$APK" "$APK_OUT"
           test -s "$APK_OUT"
           "$AAPT" dump badging "$APK_OUT" | tee "$GITHUB_WORKSPACE/output/apk-badging.txt"
-          grep -q "package: name='com.anigames.billingadmin.v160online' versionCode='87' versionName='12.1.60-ANDROIDDB-ONLINE'" "$GITHUB_WORKSPACE/output/apk-badging.txt"
-          grep -q "application-label:'AniGames Admin V12.1.60 Android DB Online'" "$GITHUB_WORKSPACE/output/apk-badging.txt"
+          grep -q "package: name='com.anigames.billingadmin.v161online' versionCode='88' versionName='12.1.61-ANDROIDDB-COIN'" "$GITHUB_WORKSPACE/output/apk-badging.txt"
+          grep -q "application-label:'AniGames Admin V12.1.61 Android DB Coin'" "$GITHUB_WORKSPACE/output/apk-badging.txt"
           "$APKSIGNER" verify --verbose "$APK_OUT"
           "$APKSIGNER" verify --print-certs "$APK_OUT"
           sha256sum "$APK_OUT" | tee "$GITHUB_WORKSPACE/output/SHA256SUMS.txt"
@@ -658,7 +668,7 @@ jobs:
       - name: Upload final Admin Online APK
         uses: actions/upload-artifact@v4
         with:
-          name: AniGames-Admin-v12.1.60-ANDROID-DB-ONLINE-CANDIDATE
+          name: AniGames-Admin-v12.1.61-ANDROID-DB-COIN-CANDIDATE
           path: output/*
           if-no-files-found: error
           retention-days: 30
