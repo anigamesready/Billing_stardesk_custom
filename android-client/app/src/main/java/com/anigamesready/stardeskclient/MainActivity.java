@@ -42,6 +42,7 @@ import android.security.keystore.KeyProperties;
 import javax.net.ssl.HttpsURLConnection;
 
 public class MainActivity extends Activity {
+    private static final String ONLINE_API_BASE = "https://ani-games-db-android-stage-gateway.anigamesready.workers.dev";
     private static final String PREFS = "stardesk_remote_settings";
     private static final String SECURE_PREFS = "stardesk_remote_secure";
     private static final String KEY_ALIAS = "ani_stardesk_remote_tokens_v1";
@@ -170,7 +171,7 @@ public class MainActivity extends Activity {
         apiExecutor.execute(()->{
             HttpsURLConnection connection=null;
             try{
-                if(base==null||base.length()>600) throw new IllegalArgumentException("API_BASE_INVALID");
+                if(base==null||!ONLINE_API_BASE.equals(base.trim())) throw new IllegalArgumentException("ANDROID_DB_ONLINE_GATEWAY_LOCKED");
                 Uri baseUri=Uri.parse(base.trim());
                 if(!"https".equalsIgnoreCase(baseUri.getScheme())||baseUri.getHost()==null
                         ||baseUri.getUserInfo()!=null||baseUri.getQuery()!=null||baseUri.getFragment()!=null)
@@ -228,17 +229,13 @@ public class MainActivity extends Activity {
             String b=android.os.Build.MODEL==null?"Android":android.os.Build.MODEL;
             return (a+" "+b).trim();
         }
-        @JavascriptInterface public String getAppVersion(){return "0.3.0-androiddb-coin-preview";}
-        @JavascriptInterface public String getApiBase(){return prefs().getString("api_base","");}
+        @JavascriptInterface public String getAppVersion(){return "0.5.0-androiddb-online-coin-x100";}
+        @JavascriptInterface public String getApiBase(){return ONLINE_API_BASE;}
         @JavascriptInterface public boolean setApiBase(String value){
-            try{
-                if(value==null||value.length()>600) return false;
-                Uri uri=Uri.parse(value.trim());
-                if(!"https".equalsIgnoreCase(uri.getScheme())||uri.getHost()==null
-                        ||uri.getUserInfo()!=null||uri.getQuery()!=null||uri.getFragment()!=null) return false;
-                prefs().edit().putString("api_base",value.trim().replaceAll("/+$","")).apply();
-                return true;
-            }catch(Exception e){return false;}
+            // The client has one approved public API route. Ignore stale/manual loopback preferences.
+            if(value==null||!ONLINE_API_BASE.equals(value.trim())) return false;
+            prefs().edit().putString("api_base",ONLINE_API_BASE).apply();
+            return true;
         }
         @JavascriptInterface public String getSecureValue(String name){return readSecretValue(name);}
         @JavascriptInterface public boolean saveSecureValue(String name,String value){
