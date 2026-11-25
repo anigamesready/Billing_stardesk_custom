@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { AGENT_PROTOCOL, makeAgentToken, verifyAgentToken, isAllowedApiPath, validateEnvelope } from "./protocol.mjs";
+import { AGENT_PROTOCOL, RELAY_WS_URL, makeAgentToken, verifyAgentToken, isAllowedApiPath, validateEnvelope, relayLookup } from "./protocol.mjs";
 
 test("HMAC token matches the relay Worker protocol and expires", () => {
   const secret = "a".repeat(64);
