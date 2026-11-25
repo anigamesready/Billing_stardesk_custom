@@ -66,6 +66,8 @@ jobs:
           assert "EXISTING_PG_CLUSTER" in script and 'PG_VERSION' in script and 'SERVER_MAJOR' in script, "existing PostgreSQL major-version guard missing"
           assert script.index("Fail closed before pkg install") < script.index('pkg update -y'), "unknown-cluster guard must run before package changes"
           assert "Pengaman berhenti sebelum pkg update" in script, "active unmanaged PostgreSQL must fail closed before any install changes"
+          assert 'APP_DIR="$HOME/ani-games-db-android-stage"' in script and 'DB_DEFAULT="ani_games_ready_stage"' in script, "installer must reuse the active Android DB stage instead of creating a parallel database"
+          assert 'PORT="8788"' in script and "PORT=8788" in script, "new API install must preserve the existing Cloudflare relay target port"
           assert script.index("Pengaman berhenti sebelum pkg update") < script.index('pkg update -y') < script.index('cp -R "$SOURCE_ROOT/backend/android-db/server/.'), "unmanaged PostgreSQL preflight must run before package and source changes"
           assert 'Do not request/upgrade the PostgreSQL package over a live data directory.' in script, "must not upgrade PostgreSQL over existing data"
           assert 'apply_file "013_remote_play.sql"' in script and 'apply_file "019_remote_play_session_connected.sql"' in script, "staged Remote Play upgrade chain missing"
