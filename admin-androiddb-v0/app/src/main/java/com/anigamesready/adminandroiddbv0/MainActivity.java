@@ -1,6 +1,7 @@
 package com.anigamesready.adminandroiddbv0;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -9,10 +10,15 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Base64;
 import android.webkit.JavascriptInterface;
+import android.webkit.JsPromptResult;
+import android.webkit.JsResult;
+import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.EditText;
 import android.widget.Toast;
+import android.text.InputType;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -62,6 +68,47 @@ public final class MainActivity extends Activity {
         webView.addJavascriptInterface(new AdminBridge(), "AniAdminV0");
         webView.setWebViewClient(new WebViewClient() {
             @Override public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return true;
+            }
+        });
+        // Admin UI relies on confirm()/prompt() for destructive and financial actions.
+        // Handle JavaScript dialogs natively so these actions remain usable inside WebView.
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override public boolean onJsAlert(WebView view, String url, String message, JsResult result) {
+                new AlertDialog.Builder(MainActivity.this)
+                    .setTitle("Ani Games Admin")
+                    .setMessage(message == null ? "" : message)
+                    .setPositiveButton("OK", (dialog, which) -> result.confirm())
+                    .setOnCancelListener(dialog -> result.cancel())
+                    .show();
+                return true;
+            }
+
+            @Override public boolean onJsConfirm(WebView view, String url, String message, JsResult result) {
+                new AlertDialog.Builder(MainActivity.this)
+                    .setTitle("Konfirmasi Admin")
+                    .setMessage(message == null ? "" : message)
+                    .setPositiveButton("Lanjutkan", (dialog, which) -> result.confirm())
+                    .setNegativeButton("Batal", (dialog, which) -> result.cancel())
+                    .setOnCancelListener(dialog -> result.cancel())
+                    .show();
+                return true;
+            }
+
+            @Override public boolean onJsPrompt(WebView view, String url, String message,
+                                                String defaultValue, JsPromptResult result) {
+                EditText input = new EditText(MainActivity.this);
+                input.setSingleLine(true);
+                input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+                if (defaultValue != null) input.setText(defaultValue);
+                new AlertDialog.Builder(MainActivity.this)
+                    .setTitle("Input Admin")
+                    .setMessage(message == null ? "" : message)
+                    .setView(input)
+                    .setPositiveButton("Simpan", (dialog, which) -> result.confirm(input.getText().toString()))
+                    .setNegativeButton("Batal", (dialog, which) -> result.cancel())
+                    .setOnCancelListener(dialog -> result.cancel())
+                    .show();
                 return true;
             }
         });
