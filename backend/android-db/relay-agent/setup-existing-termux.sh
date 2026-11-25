@@ -99,7 +99,7 @@ check_url() {
   say "$label HTTP: $code"
   [ "$code" = "200" ] || CHECK_FAILED=1
   if command -v python >/dev/null 2>&1; then
-    printf '%s' "$body" | python -c 'import json,sys; d=json.load(sys.stdin); keys=("gateway","relay","agent_connected","api","database","upstream_active","reason","app","apiVersion","remote_access_enabled"); print(" ".join(f"{k}={d[k]}" for k in keys if k in d))' 2>/dev/null | tee -a "$REPORT" || say "Body bukan JSON yang dikenali."
+    printf '%s' "$body" | python -c 'import json,sys; d=json.load(sys.stdin); keys=("gateway","relay","agent_connected","api","database","upstream_active","reason","error","app","apiVersion","remote_access_enabled"); print(" ".join(f"{k}={d[k]}" for k in keys if k in d))' 2>/dev/null | tee -a "$REPORT" || say "Body bukan JSON yang dikenali."
   fi
 }
 
@@ -113,7 +113,10 @@ if [ "$CHECK_FAILED" -eq 0 ]; then
   say "Gateway, Relay Agent, API, dan database merespons HTTP 200."
 else
   say "STATUS: GAGAL"
-  say "PENYEBAB: Minimal satu endpoint belum HTTP 200. Lihat kode HTTP di laporan; service Agent tidak dihapus otomatis."
+  say "PENYEBAB: Minimal satu endpoint belum HTTP 200. Lihat kode HTTP/error di laporan; service Agent tidak dihapus otomatis."
+  say "Laporan tersimpan: Internal Storage/Download/ANI-Relay-Agent-Setup-Report.txt"
+  say "PostgreSQL, API lama, DB, dan Worker secrets tidak diubah."
+  exit 1
 fi
 say "Laporan tersimpan: Internal Storage/Download/ANI-Relay-Agent-Setup-Report.txt"
 say "PostgreSQL, API lama, DB, dan Worker secrets tidak diubah."
