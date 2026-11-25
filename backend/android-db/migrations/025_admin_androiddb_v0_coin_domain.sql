@@ -21,6 +21,10 @@ CREATE TABLE IF NOT EXISTS androiddb_v0.rental_accounts (
 );
 CREATE INDEX IF NOT EXISTS androiddb_v0_rentals_org_idx
   ON androiddb_v0.rental_accounts(org_id,code);
+-- Remote login looks up by rental code only, so codes must be globally unique
+-- across tenants to prevent cross-tenant ambiguity.
+CREATE UNIQUE INDEX IF NOT EXISTS androiddb_v0_rentals_code_global_uidx
+  ON androiddb_v0.rental_accounts(code);
 
 CREATE TABLE IF NOT EXISTS androiddb_v0.client_credentials (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
