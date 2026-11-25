@@ -221,6 +221,8 @@ const RPC = {
   wol_relay_probe_request: { auth: "admin", sql: "SELECT api.wol_relay_probe_request($1::text) AS result", args: [] },
   wol_relay_probe_status: { auth: "admin", sql: "SELECT api.wol_relay_probe_status($1::text,$2::uuid) AS result", args: ["p_probe_id"] },
   admin_remote_coin_topups: { auth: "admin", sql: "SELECT api.admin_remote_coin_topups($1::text,$2::integer) AS result", args: ["p_limit"] },
+  admin_remote_coin_overview: { auth: "admin", sql: "SELECT api.admin_remote_coin_overview($1::text,$2::integer) AS result", args: ["p_limit"] },
+  admin_remote_coin_wallet: { auth: "admin", sql: "SELECT api.admin_remote_coin_wallet($1::text,$2::uuid,$3::integer) AS result", args: ["p_rental_account_id","p_history_limit"] },
   admin_remote_coin_approve_topup: { auth: "admin", sql: "SELECT api.admin_remote_coin_approve_topup($1::text,$2::uuid) AS result", args: ["p_order_id"] },
   admin_remote_coin_reject_topup: { auth: "admin", sql: "SELECT api.admin_remote_coin_reject_topup($1::text,$2::uuid,$3::text) AS result", args: ["p_order_id","p_reason"] },
   admin_remote_coin_set_device_rate: { auth: "admin", sql: "SELECT api.admin_remote_coin_set_device_rate($1::text,$2::uuid,$3::text) AS result", args: ["p_device_id","p_gpu_class"] },
