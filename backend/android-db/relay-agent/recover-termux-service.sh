@@ -5,6 +5,7 @@ PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 HOME="${HOME:-/data/data/com.termux/files/home}"
 SVDIR="$PREFIX/var/service"
 LOGDIR="$PREFIX/var/log"
+export SVDIR LOGDIR
 NAME="ani-games-relay-agent"
 SERVICE="$SVDIR/$NAME"
 REPORT="$HOME/storage/downloads/ANI-Relay-Agent-Recovery-Report.txt"
