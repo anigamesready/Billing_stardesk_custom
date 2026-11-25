@@ -119,9 +119,9 @@ const int = (value, min = 0, max = Number.MAX_SAFE_INTEGER) => Math.max(min, Mat
 function httpStatus(error) {
   if (error.status) return error.status;
   const m = String(error.message || "");
-  if (/REMOTE_PLAY_AUTH_REQUIRED|REMOTE_PLAY_SESSION_EXPIRED|REMOTE_PLAY_REFRESH_EXPIRED|REMOTE_PLAY_HOST_AUTH_REQUIRED|REMOTE_PLAY_HOST_REVOKED|REMOTE_PLAY_INVALID_CREDENTIALS|REMOTE_PLAY_ENROLLMENT_INVALID|INVALID_DEVICE_TOKEN|INVALID_ENROLLMENT|ADMIN_NOT_AUTHENTICATED|ADMIN_SESSION_EXPIRED|ADMIN_REFRESH_EXPIRED|ADMIN_ACCOUNT_DISABLED|INVALID_CREDENTIALS|BILLING_NOT_AUTHENTICATED|BILLING_SESSION_EXPIRED|BILLING_ACCOUNT_DISABLED/.test(m)) return 401;
-  if (/REMOTE_PLAY_DISABLED|REMOTE_PLAY_ACCOUNT_DISABLED|REMOTE_PLAY_HOST_DISABLED|REMOTE_PLAY_HOST_PERMISSION_REQUIRED|REMOTE_PLAY_RENTAL_PERMISSION_REQUIRED|OWNER_ONLY|ORG_ACCESS_DENIED|ADMIN_ORG_ACCESS_DENIED|DEVICE_ACCESS_DENIED|DEVICE_DISABLED|RESELLER_FEATURE_NOT_AVAILABLE|COMMAND_NOT_ALLOWED|FREE_TEST_DISABLED|ADMIN_BOOTSTRAP_DENIED/.test(m)) return 403;
-  if (/NOT_FOUND|RENTAL_NOT_FOUND|COMMAND_NOT_FOUND|RECOVERY_DEVICE_NOT_FOUND/.test(m)) return 404;
+  if (/ANDROIDDB_V0_CLIENT_AUTH_REQUIRED|ANDROIDDB_V0_CLIENT_SESSION_EXPIRED|ANDROIDDB_V0_REFRESH_EXPIRED|ANDROIDDB_V0_HOST_REVOKED|ANDROIDDB_V0_INVALID_CREDENTIALS|REMOTE_PLAY_AUTH_REQUIRED|REMOTE_PLAY_SESSION_EXPIRED|REMOTE_PLAY_REFRESH_EXPIRED|REMOTE_PLAY_HOST_AUTH_REQUIRED|REMOTE_PLAY_HOST_REVOKED|REMOTE_PLAY_INVALID_CREDENTIALS|REMOTE_PLAY_ENROLLMENT_INVALID|INVALID_DEVICE_TOKEN|INVALID_ENROLLMENT|ADMIN_NOT_AUTHENTICATED|ADMIN_SESSION_EXPIRED|ADMIN_REFRESH_EXPIRED|ADMIN_ACCOUNT_DISABLED|INVALID_CREDENTIALS|BILLING_NOT_AUTHENTICATED|BILLING_SESSION_EXPIRED|BILLING_ACCOUNT_DISABLED/.test(m)) return 401;
+  if (/ANDROIDDB_V0_ACCOUNT_DISABLED|ANDROIDDB_V0_HOST_PERMISSION_REQUIRED|ANDROIDDB_V0_RENTAL_NOT_ACTIVE|REMOTE_PLAY_DISABLED|REMOTE_PLAY_ACCOUNT_DISABLED|REMOTE_PLAY_HOST_DISABLED|REMOTE_PLAY_HOST_PERMISSION_REQUIRED|REMOTE_PLAY_RENTAL_PERMISSION_REQUIRED|OWNER_ONLY|ORG_ACCESS_DENIED|ADMIN_ORG_ACCESS_DENIED|DEVICE_ACCESS_DENIED|DEVICE_DISABLED|RESELLER_FEATURE_NOT_AVAILABLE|COMMAND_NOT_ALLOWED|FREE_TEST_DISABLED|ADMIN_BOOTSTRAP_DENIED/.test(m)) return 403;
+  if (/ANDROIDDB_V0_RENTAL_NOT_FOUND|ANDROIDDB_V0_ORDER_NOT_FOUND|DEVICE_NOT_FOUND|REMOTE_PLAY_SESSION_NOT_FOUND|NOT_FOUND|RENTAL_NOT_FOUND|COMMAND_NOT_FOUND|RECOVERY_DEVICE_NOT_FOUND/.test(m)) return 404;
   if (/REMOTE_PLAY_SESSION_ACTIVE|REMOTE_PLAY_BILLING_SESSION_ACTIVE|REMOTE_PLAY_HOST_BUSY|REMOTE_PLAY_COOLDOWN_ACTIVE|REMOTE_PLAY_HOST_OFFLINE_OR_MEDIA_UNAVAILABLE|RENTAL_ACTIVE_ON_REMOTE_PLAY|ACTIVE_TIMER_LOCKED|ACTIVE_OFFLINE_LEASE|OFFLINE_LEASE_HELD|CODE_ALREADY_EXISTS|RENTAL_ACTIVE_ON_OTHER_PC|RENTAL_OFFLINE_LEASE_HELD_BY_OTHER_PC|PC_OFFLINE_COMMAND_BLOCKED|SHUTDOWN_TIMER_DISABLED|ADMIN_BOOTSTRAP_ALREADY_CONFIGURED/.test(m)) return 409;
   if (/RATE_LIMITED/.test(m)) return 429;
   if (/ECONNREFUSED|ETIMEDOUT|57P01|08006|08001/.test(m)) return 503;
@@ -228,6 +228,26 @@ const RPC = {
   admin_remote_coin_set_device_rate: { auth: "admin", sql: "SELECT api.admin_remote_coin_set_device_rate($1::text,$2::uuid,$3::text) AS result", args: ["p_device_id","p_gpu_class"] },
   admin_remote_coin_link_stardesk_device: { auth: "admin", sql: "SELECT api.admin_remote_coin_link_stardesk_device($1::text,$2::uuid,$3::text,$4::boolean) AS result", args: ["p_device_id","p_stardesk_device_id","p_enabled"] },
 
+  // Admin Android DB v0 — separate Coin-rental domain; never route these to legacy rental APIs.
+  androiddb_v0_admin_dashboard: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_dashboard($1::text,$2::integer) AS result", args: ["p_limit"] },
+  androiddb_v0_admin_create_rental: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_create_rental($1::text,$2::text,$3::text) AS result", args: ["p_code","p_client_label"] },
+  androiddb_v0_admin_set_rental_status: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_set_rental_status($1::text,$2::uuid,$3::boolean) AS result", args: ["p_rental_account_id","p_enabled"] },
+  androiddb_v0_admin_issue_activation: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_issue_activation($1::text,$2::uuid) AS result", args: ["p_rental_account_id"] },
+  androiddb_v0_admin_wallet: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_wallet($1::text,$2::uuid,$3::integer) AS result", args: ["p_rental_account_id","p_history_limit"] },
+  androiddb_v0_admin_approve_topup: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_approve_topup($1::text,$2::uuid) AS result", args: ["p_order_id"] },
+  androiddb_v0_admin_reject_topup: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_reject_topup($1::text,$2::uuid,$3::text) AS result", args: ["p_order_id","p_reason"] },
+  androiddb_v0_admin_set_device_rate: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_set_device_rate($1::text,$2::uuid,$3::text) AS result", args: ["p_device_id","p_gpu_class"] },
+  androiddb_v0_admin_link_stardesk_device: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_link_stardesk_device($1::text,$2::uuid,$3::text,$4::boolean) AS result", args: ["p_device_id","p_stardesk_device_id","p_enabled"] },
+  androiddb_v0_admin_set_host_permission: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_set_host_permission($1::text,$2::uuid,$3::boolean) AS result", args: ["p_device_id","p_enabled"] },
+  androiddb_v0_admin_issue_host_enrollment: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_issue_host_enrollment($1::text,$2::uuid,$3::integer) AS result", args: ["p_device_id","p_valid_minutes"] },
+  androiddb_v0_host_heartbeat: { auth: "remote_host", sql: "SELECT api.androiddb_v0_host_heartbeat($1::text,$2::boolean,$3::text) AS result", args: ["p_stardesk_ready","p_agent_version"] },
+  androiddb_v0_remote_logout: { auth: "remote_client", sql: "SELECT api.androiddb_v0_remote_logout($1::text) AS result", args: [] },
+  androiddb_v0_remote_dashboard: { auth: "remote_client", sql: "SELECT api.androiddb_v0_remote_dashboard($1::text) AS result", args: [] },
+  androiddb_v0_remote_coin_wallet: { auth: "remote_client", sql: "SELECT api.androiddb_v0_remote_coin_wallet($1::text) AS result", args: [] },
+  androiddb_v0_remote_coin_history: { auth: "remote_client", sql: "SELECT api.androiddb_v0_remote_coin_history($1::text,$2::integer) AS result", args: ["p_limit"] },
+  androiddb_v0_remote_coin_create_topup: { auth: "remote_client", sql: "SELECT api.androiddb_v0_remote_coin_create_topup($1::text,$2::bigint,$3::text) AS result", args: ["p_amount_rupiah","p_idempotency_key"] },
+  androiddb_v0_remote_refresh: { sql: "SELECT api.androiddb_v0_remote_refresh($1::text) AS result", args: ["p_refresh_token"] },
+
   remote_coin_wallet: { auth: "remote_client", sql: "SELECT api.remote_coin_wallet($1::text) AS result", args: [] },
   remote_coin_dashboard: { auth: "remote_client", sql: "SELECT api.remote_coin_dashboard($1::text) AS result", args: [] },
   remote_coin_history: { auth: "remote_client", sql: "SELECT api.remote_coin_history($1::text,$2::integer) AS result", args: ["p_limit"] },
@@ -279,6 +299,26 @@ async function rpcRequest(req, res, name, body) {
   if (name === "admin_login") {
     const data = await adminLogin(val(body,"p_username",val(body,"username",val(body,"email"))), val(body,"p_password",val(body,"password")), req);
     return send(res, 200, data);
+  }
+  if (name === "androiddb_v0_remote_login") {
+    const rentalCode = str(val(body,"p_rental_code"),40).toUpperCase();
+    const key = bucketHash("androiddb-v0-remote-login",clientIp(req),rentalCode);
+    await callRateLimit(key,5);
+    const result = await scalar("SELECT api.androiddb_v0_remote_login($1::text,$2::text,$3::text) AS result",[
+      rentalCode,str(val(body,"p_activation_code"),64),str(val(body,"p_client_install_id"),128)
+    ]);
+    await clearRateLimit([key]);
+    return send(res,200,result);
+  }
+  if (name === "androiddb_v0_host_enroll") {
+    const enrollmentCode = str(val(body,"p_enrollment_code"),128).toLowerCase();
+    const key = bucketHash("androiddb-v0-host-enroll",clientIp(req),enrollmentCode);
+    await callRateLimit(key,10);
+    const result = await scalar("SELECT api.androiddb_v0_host_enroll($1::text,$2::text) AS result",[
+      enrollmentCode,str(val(body,"p_agent_version"),80)
+    ]);
+    await clearRateLimit([key]);
+    return send(res,200,result);
   }
   if (name === "remote_play_login") {
     const rentalCode = str(val(body,"p_rental_code"),120).toUpperCase();
