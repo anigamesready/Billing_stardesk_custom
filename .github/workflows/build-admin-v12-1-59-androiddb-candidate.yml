@@ -1,9 +1,9 @@
-name: Build Ani Games Admin V12.1.59 Android DB Only Candidate
+name: Build Ani Games Admin V12.1.60 Android DB Online Candidate
 
 on:
   push:
     branches:
-      - feature/admin-v1258-source-port
+      - feature/androiddb-online-remote-admin-20261125
   workflow_dispatch:
 
 permissions:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build-apk:
-    name: Build Ani Games Admin V12.1.59 Android DB Only Candidate
+    name: Build Ani Games Admin V12.1.60 Android DB Online Candidate
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -584,10 +584,10 @@ jobs:
               if len(scripts)!=1: raise SystemExit(f"{name}: expected one inline script, found {len(scripts)}")
               Path("/tmp/admin-v1259-"+name.replace(".html","")+".js").write_text(scripts[0],encoding="utf-8")
           gradle=(Path(os.environ["ANDROID_PROJECT_DIR"])/"app/build.gradle").read_text()
-          if "applicationId 'com.anigames.billingadmin.v159dbonly'" not in gradle or "versionCode 86" not in gradle or "versionName '12.1.59-DBANDROID'" not in gradle:
+          if "applicationId 'com.anigames.billingadmin.v160online'" not in gradle or "versionCode 87" not in gradle or "versionName '12.1.60-ANDROIDDB-ONLINE'" not in gradle:
               raise SystemExit("V12.1.59 package/version metadata mismatch")
           manifest=(Path(os.environ["ANDROID_PROJECT_DIR"])/"app/src/main/AndroidManifest.xml").read_text()
-          if 'android:label="AniGames Admin V12.1.59 Android DB"' not in manifest:
+          if 'android:label="AniGames Admin V12.1.60 Android DB"' not in manifest:
               raise SystemExit("V12.1.59 app label mismatch")
           print("PASS: primary Admin auth, CRUD, Remote Play and Blynk routes use Android DB only.")
           PY
@@ -617,14 +617,14 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build and verify Admin V12.1.59 Android DB Candidate
+      - name: Build and verify Admin V12.1.60 Android DB Candidate
         shell: bash
         run: |
           set -euo pipefail
           gradle --no-daemon --stacktrace -p "$ANDROID_PROJECT_DIR" assembleDebug
           APK="$ANDROID_PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
-          APK_OUT="$GITHUB_WORKSPACE/output/AniGames-Admin-V12.1.59-ANDROID-DB-CANDIDATE.apk"
+          APK_OUT="$GITHUB_WORKSPACE/output/AniGames-Admin-V12.1.60-ANDROID-DB-ONLINE-CANDIDATE.apk"
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
           test -n "$AAPT" && test -n "$APKSIGNER"
@@ -632,8 +632,8 @@ jobs:
           cp "$APK" "$APK_OUT"
           test -s "$APK_OUT"
           "$AAPT" dump badging "$APK_OUT" | tee "$GITHUB_WORKSPACE/output/apk-badging.txt"
-          grep -q "package: name='com.anigames.billingadmin.v159dbonly' versionCode='86' versionName='12.1.59-DBANDROID'" "$GITHUB_WORKSPACE/output/apk-badging.txt"
-          grep -q "application-label:'AniGames Admin V12.1.59 Android DB'" "$GITHUB_WORKSPACE/output/apk-badging.txt"
+          grep -q "package: name='com.anigames.billingadmin.v160online' versionCode='86' versionName='12.1.60-ANDROIDDB-ONLINE'" "$GITHUB_WORKSPACE/output/apk-badging.txt"
+          grep -q "application-label:'AniGames Admin V12.1.60 Android DB'" "$GITHUB_WORKSPACE/output/apk-badging.txt"
           "$APKSIGNER" verify --verbose "$APK_OUT"
           "$APKSIGNER" verify --print-certs "$APK_OUT"
           sha256sum "$APK_OUT" | tee "$GITHUB_WORKSPACE/output/SHA256SUMS.txt"
@@ -643,7 +643,7 @@ jobs:
       - name: Upload final Admin Online APK
         uses: actions/upload-artifact@v4
         with:
-          name: AniGames-Admin-v12.1.59-ANDROID-DB-CANDIDATE
+          name: AniGames-Admin-v12.1.60-ANDROID-DB-ONLINE-CANDIDATE
           path: output/*
           if-no-files-found: error
           retention-days: 30
