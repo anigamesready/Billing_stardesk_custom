@@ -34,6 +34,7 @@ SERVICE_DIR="$PREFIX/var/service/ani-games-relay-agent"
 STAGE_DIR="$HOME/.ani-games-relay-agent-service-staging"
 
 [ ! -e "$SERVICE_DIR" ] || die "Service ani-games-relay-agent sudah ada. Tidak ada file service yang ditimpa."
+[ ! -e "$STAGE_DIR" ] || die "Folder staging sudah ada; periksa manual sebelum menghapusnya."
 mkdir -p "$AGENT_DIR" "$CONFIG_DIR"
 chmod 700 "$CONFIG_DIR"
 
@@ -44,6 +45,7 @@ done
 cd "$AGENT_DIR"
 npm install --omit=dev --no-audit --no-fund
 npm run check
+npm test
 
 if [ ! -f "$ENV_FILE" ]; then
   SECRET="$(openssl rand -hex 32)"
@@ -60,7 +62,6 @@ else
   [ "$SECRET_LEN" -ge 32 ] || die "agent.env sudah ada tetapi RELAY_SHARED_SECRET tidak valid; file lama dipertahankan."
 fi
 
-rm -rf "$STAGE_DIR"
 mkdir -p "$STAGE_DIR/log"
 cat > "$STAGE_DIR/run" <<EOF
 #!$PREFIX/bin/sh
@@ -84,7 +85,7 @@ log "Existing API and PostgreSQL were not changed."
 log "Private configuration: $ENV_FILE"
 log "Run this command in Termux to display the secret privately (never send it in chat):"
 printf "  sed -n 's/^RELAY_SHARED_SECRET=//p' '%s'\n" "$ENV_FILE"
-log "Save that value as Secret RELAY_SHARED_SECRET on Worker ani-games-db-android-stage-ws-relay."
+log "Save the SAME value as Secret RELAY_SHARED_SECRET on the Relay Worker AND EDGE_PROXY_SECRET on the Gateway Worker."
 log "After saving the Worker secret, start the agent with:"
 printf "  rm -f '%s/down' && sv up ani-games-relay-agent\n" "$SERVICE_DIR"
 log "Agent log:"
