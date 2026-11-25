@@ -1,0 +1,144 @@
+name: Build Ani Games Admin Android DB v0 Coin Candidate
+
+on:
+  push:
+    branches:
+      - feature/admin-androiddb-v0-isolated-20261125
+    paths:
+      - "admin-androiddb-v0/**"
+      - ".github/workflows/build-admin-androiddb-v0.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-admin-androiddb-v0:
+    name: Build Admin Android DB v0 0.1.0
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - name: Checkout isolated Admin Android DB v0 source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Configure Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Validate isolated UI and RPC contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          html = Path("admin-androiddb-v0/app/src/main/assets/index.html").read_text(encoding="utf-8")
+          required = [
+              "Ani Games Admin Android DB v0",
+              "ANDROID DB v0",
+              "admin_login",
+              "admin_context",
+              "androiddb_v0_admin_dashboard",
+              "androiddb_v0_admin_create_rental",
+              "androiddb_v0_admin_set_rental_status",
+              "androiddb_v0_admin_issue_activation",
+              "androiddb_v0_admin_wallet",
+              "androiddb_v0_admin_approve_topup",
+              "androiddb_v0_admin_reject_topup",
+              "androiddb_v0_admin_set_device_rate",
+              "androiddb_v0_admin_link_stardesk_device",
+              "androiddb_v0_admin_set_host_permission",
+              "androiddb_v0_admin_issue_host_enrollment",
+              "androiddb_v0_remote_dashboard",
+              "androiddb_v0_coin_topup_orders",
+              "walletRental",
+              "activation_code",
+              "enrollment_code",
+              "Lot Coin",
+          ]
+          for token in required:
+              assert token in html, "missing Admin Android DB v0 UI/API contract: " + token
+          for forbidden in [
+              "remaining_seconds",
+              "expiry_at",
+              "public.rental_accounts",
+              "admin_create_rental_global",
+              "remote_play_login",
+              "remote_coin_dashboard",
+              "remote_coin_wallet",
+              "admin_remote_play_dashboard",
+              "DB1",
+              "DB2",
+              "schedule_shutdown",
+          ]:
+              assert forbidden.lower() not in html.lower(), "legacy rental or other-project API leaked into v0 UI: " + forbidden
+          assert "https://ani-games-db-android-stage-gateway.anigamesready.workers.dev" not in html, "UI must call the native bridge, not expose a gateway field"
+          assert 'id="apiBase"' not in html and 'id="serverUrl"' not in html, "manual gateway field is forbidden"
+          assert "AniAdminV0.apiRequest" in html, "native Android DB HTTPS bridge missing"
+          assert "OWNER_ONLY" in html and 'role||"").toLowerCase()==="owner"' in html, "Owner-only UI guard missing"
+          scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
+          assert len(scripts) == 1, "expected one inline UI script"
+          Path("/tmp/admin-androiddb-v0.js").write_text(scripts[0], encoding="utf-8")
+
+          java = Path("admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java").read_text(encoding="utf-8")
+          for token in ["AndroidKeyStore", "AES/GCM/NoPadding", "HttpsURLConnection", "ani_admin_androiddb_v0_keystore_v1"]:
+              assert token in java, "missing native token/network security control: " + token
+
+          gradle = Path("admin-androiddb-v0/app/build.gradle").read_text(encoding="utf-8")
+          for token in ['applicationId "com.anigames.billingadmin.androiddbv0"', "versionCode 1", 'versionName "0.1.0-androiddb-v0"']:
+              assert token in gradle, "Admin Android DB v0 build identity mismatch: " + token
+
+          manifest = Path("admin-androiddb-v0/app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
+          assert 'android:label="Ani Games Admin Android DB v0"' in manifest
+          assert 'android:usesCleartextTraffic="false"' in manifest
+          PY
+          node --check /tmp/admin-androiddb-v0.js
+
+      - name: Build isolated Admin APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace -p admin-androiddb-v0 clean assembleDebug
+          APK="admin-androiddb-v0/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          mkdir -p output
+          cp "$APK" output/Ani-Games-Admin-Android-DB-v0-Preview-0.1.0.apk
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
+          test -n "$AAPT" && test -n "$APKSIGNER"
+          "$AAPT" dump badging output/Ani-Games-Admin-Android-DB-v0-Preview-0.1.0.apk | tee output/apk-badging.txt
+          grep -q "package: name='com.anigames.billingadmin.androiddbv0' versionCode='1' versionName='0.1.0-androiddb-v0'" output/apk-badging.txt
+          grep -q "application-label:'Ani Games Admin Android DB v0'" output/apk-badging.txt
+          "$APKSIGNER" verify --verbose output/Ani-Games-Admin-Android-DB-v0-Preview-0.1.0.apk
+          "$APKSIGNER" verify --print-certs output/Ani-Games-Admin-Android-DB-v0-Preview-0.1.0.apk
+          sha256sum output/Ani-Games-Admin-Android-DB-v0-Preview-0.1.0.apk | tee output/SHA256SUMS.txt
+          unzip -t output/Ani-Games-Admin-Android-DB-v0-Preview-0.1.0.apk
+          ls -lh output/Ani-Games-Admin-Android-DB-v0-Preview-0.1.0.apk
+
+      - name: Upload isolated Admin Android DB v0 preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ani-Games-Admin-Android-DB-v0-Preview-0.1.0
+          path: output/*
+          if-no-files-found: error
+          retention-days: 30
