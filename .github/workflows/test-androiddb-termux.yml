@@ -4,12 +4,14 @@ on:
   push:
     branches:
       - feature/androiddb-termux-coin-x100-20261125
+      - feature/remote-data-plane-expiry-guard-20261126
     paths:
       - "backend/android-db/termux/**"
       - "backend/android-db/server/**"
       - "backend/android-db/migrations/020_remote_coin_wallet.sql"
       - "backend/android-db/migrations/021_android_wol_relay.sql"
       - "backend/android-db/migrations/022_coin_unit_scale_100.sql"
+      - "backend/android-db/migrations/024_remote_coin_expiry_guard.sql"
       - ".github/workflows/test-androiddb-termux.yml"
   workflow_dispatch:
 
@@ -53,6 +55,8 @@ jobs:
           assert 'ANI_BIND=127.0.0.1' in script and "case \"$ANI_BIND\"" in script, "API must remain loopback-only before tunnel"
           assert "chmod 600 \"$ENV_FILE\"" in script, "secret permissions missing"
           assert "022_coin_unit_scale_100.sql" in script and "021_android_wol_relay.sql" in script, "addon migrations missing"
+          assert "024_remote_coin_expiry_guard.sql" in script and "ani_remote_coin_expiry_guard_v1" in script, "server-side rental expiry guard migration/check missing"
+          assert "EXPIRY_GUARD" in script and "\\"$EXPIRY_GUARD\\" = 1" in script, "existing DB must detect missing expiry guard before migration"
           assert not re.search(r'(?im)^\s*(DROP\s+DATABASE|DROP\s+TABLE|TRUNCATE\b|DELETE\s+FROM\s+public\.)',script), "destructive core DB command found"
           assert "sv down ani-games-ready-api" in readme and "pg_restore --list" in readme, "operator documentation incomplete"
           assert "coin_wallets" in migration and "coin_topup_orders" in migration and "coin_lots" in migration and "coin_ledger" in migration and "pc_coin_rates" in migration
