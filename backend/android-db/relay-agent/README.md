@@ -16,10 +16,10 @@ Cloudflare Gateway and Relay can be online while the Redmi API remains unreachab
 
 Use the exact immutable commit SHA for this release, never a moving branch name:
 
-\`\`\`bash
+```bash
 REF=<40-character-commit-sha>
 curl -fsSL "https://raw.githubusercontent.com/anigamesready/Billing_stardesk_custom/$REF/backend/android-db/relay-agent/install.sh" | ANI_RELAY_REF="$REF" bash
-\`\`\`
+```
 
 The installer checks Node.js 20+, confirms the existing local API health endpoint, downloads only the Relay Agent files, installs the isolated ws dependency, and prepares a stopped runit service.
 
@@ -41,20 +41,20 @@ If the operator already has the matching secret, do not rotate it again.
 
 After the Worker secret is saved:
 
-\`\`\`bash
+```bash
 rm -f "$PREFIX/var/service/ani-games-relay-agent/down"
 sv up ani-games-relay-agent
 sv status ani-games-relay-agent
 tail -n 50 "$PREFIX/var/log/sv/ani-games-relay-agent/current"
-\`\`\`
+```
 
 Then test the public endpoints:
 
-\`\`\`bash
+```bash
 BASE="https://ani-games-db-android-stage-gateway.anigamesready.workers.dev"
 curl -i --connect-timeout 10 --max-time 20 "$BASE/_ani_gateway/health"
 curl -i --connect-timeout 10 --max-time 20 "$BASE/health"
-\`\`\`
+```
 
 Expected gateway health after success: HTTP 200 and gateway: online, relay: online, agent_connected: true, api: online, database: online.
 
@@ -62,11 +62,11 @@ Do not apply a database migration as part of this connectivity repair.
 
 ## Stop / logs
 
-\`\`\`bash
+```bash
 sv down ani-games-relay-agent
 sv status ani-games-relay-agent
 tail -n 100 "$PREFIX/var/log/sv/ani-games-relay-agent/current"
-\`\`\`
+```
 
 These commands target only the new Relay Agent. Do not use them on postgres or ani-games-ready-api.
 
