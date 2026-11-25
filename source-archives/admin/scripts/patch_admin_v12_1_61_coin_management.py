@@ -124,7 +124,7 @@ page = page.replace("Supabase login", "relay authentication")
 # Add the Coin menu in the existing Admin sidebar, replacing the retired
 # placeholder StarDesk settings card with a functional Coin + device mapping page.
 nav_anchor = '<button data-tab="stardesk" onclick="tab(\'stardesk\')">⚙️ StarDesk</button>'
-nav_replacement = '<button data-tab="coinManagement" onclick="tab(\'coinManagement\')">🪙 Coin & StarDesk</button>'
+nav_replacement = '<button id="coinManagementNav" data-tab="coinManagement" onclick="tab(\'coinManagement\')">🪙 Coin & StarDesk</button>'
 if page.count(nav_anchor) != 1:
     raise SystemExit("ADMIN_SIDEBAR_STARDESK_ANCHOR_MISMATCH")
 page = page.replace(nav_anchor, nav_replacement, 1)
@@ -334,11 +334,13 @@ async function loadCoinAdminWallet(){
  }
 }
 """
-# Insert state and function code before the existing Excel export helpers.
-js_anchor = "async function ensureExcelJS(){"
-if page.count(js_anchor) != 1:
-    raise SystemExit("ADMIN_COIN_JS_INSERTION_ANCHOR_MISMATCH")
-page = page.replace(js_anchor, coin_js + "\n" + js_anchor, 1)
+# Keep the new Coin handlers inside the existing Admin WebView script.
+# Function declarations remain available to the HTML action handlers, and no
+# existing login/navigation/core script is split or rewritten.
+script_end = page.rfind("</script>")
+if script_end < 0 or page.count("<script") != 1:
+    raise SystemExit("ADMIN_INLINE_SCRIPT_BOUNDARY_INVALID")
+page = page[:script_end] + coin_js + "\\n" + page[script_end:]
 
 # Restore password recovery visibility; its own hidden class controls state.
 page = page.replace(",#recovery{display:none!important}", "")
