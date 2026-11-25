@@ -157,7 +157,6 @@ public final class GatewayPinnedSocketFactory extends SSLSocketFactory {
         @Override public void bind(SocketAddress bindpoint) throws IOException {
             if (raw.isConnected()) throw new SocketException("already connected");
             localBind = bindpoint;
-            raw.bind(bindpoint);
         }
 
         @Override public void connect(SocketAddress endpoint) throws IOException {
@@ -199,7 +198,7 @@ public final class GatewayPinnedSocketFactory extends SSLSocketFactory {
         @Override public void shutdownInput() throws IOException { raw.shutdownInput(); }
         @Override public void shutdownOutput() throws IOException { raw.shutdownOutput(); }
         @Override public boolean isConnected() { return raw.isConnected(); }
-        @Override public boolean isBound() { return raw.isBound(); }
+        @Override public boolean isBound() { return localBind != null || raw.isBound(); }
         @Override public boolean isClosed() { return closed || raw.isClosed(); }
         @Override public boolean isInputShutdown() { return raw.isInputShutdown(); }
         @Override public boolean isOutputShutdown() { return raw.isOutputShutdown(); }
@@ -208,7 +207,7 @@ public final class GatewayPinnedSocketFactory extends SSLSocketFactory {
         @Override public int getPort() { return raw.getPort(); }
         @Override public int getLocalPort() { return raw.getLocalPort(); }
         @Override public SocketAddress getRemoteSocketAddress() { return raw.getRemoteSocketAddress(); }
-        @Override public SocketAddress getLocalSocketAddress() { return raw.getLocalSocketAddress(); }
+        @Override public SocketAddress getLocalSocketAddress() { return raw.isBound() ? raw.getLocalSocketAddress() : localBind; }
         @Override public SocketChannel getChannel() { return null; }
         @Override public void setTcpNoDelay(boolean value) throws SocketException { tcpNoDelay = value; raw.setTcpNoDelay(value); }
         @Override public boolean getTcpNoDelay() throws SocketException { return raw.getTcpNoDelay(); }
