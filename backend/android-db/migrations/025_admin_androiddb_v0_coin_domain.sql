@@ -314,7 +314,7 @@ BEGIN
           JOIN androiddb_v0.coin_lots l ON l.wallet_id=w.id
           WHERE w.rental_account_id=r.id AND l.expires_at>now()),0),
         'activation_issued',EXISTS(SELECT 1 FROM androiddb_v0.client_credentials c
-          WHERE c.rental_account_id=r.id AND c.consumed_at IS NULL AND c.revoked_at IS NULL AND c.expires_at>now()),
+          WHERE c.rental_account_id=r.id AND c.revoked_at IS NULL),
         'client_logged_in',EXISTS(SELECT 1 FROM androiddb_v0.client_sessions cs
           WHERE cs.rental_account_id=r.id AND cs.revoked_at IS NULL AND cs.expires_at>now())) AS item
     FROM androiddb_v0.rental_accounts r
