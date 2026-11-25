@@ -89,3 +89,17 @@ tail -n 100 "$PREFIX/var/log/sv/ani-games-relay-agent/current"
 These commands target only the new Relay Agent. Do not use them on `postgres` or the existing API service.
 
 The installer does not edit existing Termux:Boot entries. Add automatic startup separately only after the manual connection test passes.
+
+## XL/ISP DNS compatibility
+
+Some ISP DNS resolvers may return non-Cloudflare addresses for the `workers.dev`
+hostname. That can produce a TLS certificate-name mismatch before the Relay
+Agent reaches Cloudflare. The Agent now pins only its Relay WebSocket hostname
+to two verified Cloudflare IPv4 anycast addresses while retaining the original
+hostname for TLS SNI and certificate validation. It does not disable TLS
+verification and does not alter DNS for other applications.
+
+For an already installed Termux Agent, use the immutable commit's
+`patch-cloudflare-dns.sh` through the one-command procedure provided by the
+project maintainer. The patch updates only the existing Relay Agent source,
+backs up the prior files, and restarts only `ani-games-relay-agent`.
