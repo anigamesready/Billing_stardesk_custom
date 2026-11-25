@@ -29,11 +29,14 @@ Before enabling Connect, a real start/stop/heartbeat/watchdog protocol must be c
 
 ## Verification status
 
-- Source-level checks were updated in `.github/workflows/build-stardesk-client.yml`.
-- Android APK build runs were triggered by GitHub Actions after source updates; check the branch's Actions runs for the final build and artifact.
-- Full PostgreSQL regression workflow now includes this feature branch and is triggered by the workflow change. It tests the existing core billing APIs, Remote Play pairing, watchdog, stream billing-clock behavior, coin wallet, x100 conversion, rates, and legacy rental isolation on disposable PostgreSQL.
+- Android build CI run [45585404592](https://github.com/anigamesready/Billing_stardesk_custom/actions/runs/45585404592): **passed**. Static endpoint/UI checks, JavaScript syntax, Gradle clean build, package metadata, APK signature and ZIP integrity all passed.
+- APK package: `com.anigamesready.stardeskclient`; versionCode `5`; versionName `0.5.0-androiddb-auto-endpoint-preview`.
+- APK SHA-256: `be6d9ed28ff3a9ee0322c6137f90d1de2161fc49c29e931480900c3aefdb0999`.
+- Debug signing certificate SHA-256: `cad87dc29e53b09a7aa1db83e3a06edf506f3f0c05f5c6db3f5b2eb807851a1e`.
+- Full PostgreSQL regression run [45585609068](https://github.com/anigamesready/Billing_stardesk_custom/actions/runs/45585609068): **passed**. This covered the core billing regression suite, Remote Play login/pairing/Owner permissions/watchdog, authenticated stream billing clock, coin wallet/top-up/lot expiry/GPU rates/StarDesk mapping, one-time x100 migration reruns, and upgrade from core-only Android DB on disposable PostgreSQL.
 - No active Android DB migration was applied.
 - No Windows Desktop 1.6.0 installer or source was inspected or changed.
 - No real Android device installation or actual StarDesk remote streaming acceptance test was performed.
+- The gateway URL is fixed in the app, but the live relay-agent/API/database health probe could not be externally confirmed during this task. On device, the app will fail closed until its own HTTPS health probe reports all dependencies online.
 
 Status: **SAFE-TEST / Preview only — not production-approved.**
