@@ -43,5 +43,7 @@ jobs:
         run: |
           grep -q 'protocol.test.mjs' install.sh
           grep -q 'read -r -s' install.sh
+          grep -q 'ANI_RELAY_SECRET_FILE' install.sh
+          grep -q 'tr -d' install.sh
           ! grep -q 'openssl rand' install.sh
           ! grep -q 'wrangler secret' install.sh
