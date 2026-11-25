@@ -56,8 +56,7 @@ for token in (
         raise SystemExit("ADMIN_ROLE_WIRING_MISSING:" + token)
 
 tab_start = page.find("function tab(id)")
-tab_end = page.find("\\n}", tab_start) if tab_start >= 0 else -1
-tab_body = page[tab_start:tab_end] if tab_end > tab_start else ""
+tab_body = page[tab_start:tab_start + 1200] if tab_start >= 0 else ""
 if "remotePlay" not in tab_body or "isRemotePlayOwner()" not in tab_body:
     raise SystemExit("REMOTE_PLAY_TAB_NOT_GATED_BY_CANONICAL_OWNER_CHECK")
 
