@@ -62,7 +62,7 @@ Do not apply migration 025 manually to the older Supabase project or a different
 
 ## API runtime and Cloudflare boundary
 
-The PostgreSQL API role inherits only `ani_api_runtime`; the Node process does not connect as PostgreSQL superuser. API credentials are stored in `server/.env` with mode 600. The local Node API binds to loopback (127.0.0.1) on port 8787 only.
+The PostgreSQL API role inherits only `ani_api_runtime`; the Node process does not connect as PostgreSQL superuser. API credentials are stored in `server/.env` with mode 600. The local Node API binds to loopback (127.0.0.1) on port 8788 only.
 
 The public HTTPS gateway and WebSocket relay are separate Cloudflare Workers, configured to route to the private Android DB relay. Worker presence and service bindings do not prove the Redmi relay is connected or the PostgreSQL database is healthy. Use the endpoint and logs below on the actual Redmi to verify runtime health.
 
@@ -73,12 +73,12 @@ sv status postgres
 sv status ani-games-ready-api
 sv down ani-games-ready-api && sv up ani-games-ready-api
 cat "$PREFIX/var/log/sv/ani-games-ready-api/current"
-curl -fsS http://127.0.0.1:8787/health
+curl -fsS http://127.0.0.1:8788/health
 ```
 
-Local health endpoint: `http://127.0.0.1:8787/health`
+Local health endpoint: `http://127.0.0.1:8788/health`
 
-First Owner setup page (only when initial Owner setup is still required): `http://127.0.0.1:8787/setup`
+First Owner setup page (only when initial Owner setup is still required): `http://127.0.0.1:8788/setup`
 
 Blynk auth token is requested as an optional hidden prompt on first install. On a reinstall, existing .env values are preserved.
 
