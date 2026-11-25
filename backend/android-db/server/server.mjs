@@ -6,6 +6,8 @@ const HOST = process.env.ANI_BIND || "127.0.0.1";
 const PORT = Number(process.env.PORT || 8787);
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const PEPPER = process.env.ANI_API_PEPPER || "";
+const BLYNK_AUTH_TOKEN = process.env.BLYNK_AUTH_TOKEN || "";
+const BLYNK_POWER_PIN = String(process.env.BLYNK_POWER_PIN || "V0").trim().toUpperCase();
 const BOOTSTRAP_TOKEN = process.env.ANI_ADMIN_BOOTSTRAP_TOKEN || "";
 const ALLOWED_ORIGINS = (process.env.ANI_ALLOWED_ORIGINS || "").split(",").map(x => x.trim()).filter(Boolean);
 const MAX_BODY = 2 * 1024 * 1024;
@@ -212,6 +214,12 @@ const RPC = {
   admin_remote_play_issue_host_enrollment: { auth: "admin", sql: "SELECT api.admin_remote_play_issue_host_enrollment($1::text,$2::uuid,$3::integer) AS result", args: ["p_device_id","p_valid_minutes"] },
   admin_remote_play_sessions: { auth: "admin", sql: "SELECT api.admin_remote_play_sessions($1::text,$2::integer) AS result", args: ["p_limit"] },
   admin_remote_play_dashboard: { auth: "admin", sql: "SELECT api.admin_remote_play_dashboard($1::text,$2::integer) AS result", args: ["p_limit"] },
+  wol_relay_create_enrollment: { auth: "admin", sql: "SELECT api.wol_relay_create_enrollment($1::text) AS result", args: [] },
+  wol_relay_status: { auth: "admin", sql: "SELECT api.wol_relay_status($1::text) AS result", args: [] },
+  wol_relay_enqueue: { auth: "admin", sql: "SELECT api.wol_relay_enqueue($1::text,$2::uuid) AS result", args: ["p_target_device_id"] },
+  wol_relay_command_status: { auth: "admin", sql: "SELECT api.wol_relay_command_status($1::text,$2::uuid) AS result", args: ["p_command_id"] },
+  wol_relay_probe_request: { auth: "admin", sql: "SELECT api.wol_relay_probe_request($1::text) AS result", args: [] },
+  wol_relay_probe_status: { auth: "admin", sql: "SELECT api.wol_relay_probe_status($1::text,$2::uuid) AS result", args: ["p_probe_id"] },
   admin_remote_coin_topups: { auth: "admin", sql: "SELECT api.admin_remote_coin_topups($1::text,$2::integer) AS result", args: ["p_limit"] },
   admin_remote_coin_approve_topup: { auth: "admin", sql: "SELECT api.admin_remote_coin_approve_topup($1::text,$2::uuid) AS result", args: ["p_order_id"] },
   admin_remote_coin_reject_topup: { auth: "admin", sql: "SELECT api.admin_remote_coin_reject_topup($1::text,$2::uuid,$3::text) AS result", args: ["p_order_id","p_reason"] },
@@ -318,6 +326,51 @@ async function deviceRequest(req, res, path, body) {
   // Accept the Android DB device Bearer token; body.token remains supported for legacy compatibility.
   // body.token remains supported for legacy compatibility. Never log either value.
   const token = bearer(req) || str(body.token, 512);
+  if (path === "/device/wol/enroll") {
+    const code = str(body.code, 64).toUpperCase();
+    const installationId = str(body.installationId, 128);
+    if (!/^[A-F0-9]{12}$/.test(code) || installationId.length < 8) {
+      return send(res, 400, {ok:false,error:"INVALID_WOL_RELAY_ENROLLMENT"});
+    }
+    const rateKey = bucketHash("wol-relay-enroll", clientIp(req), code);
+    await callRateLimit(rateKey, 5);
+    const result = await scalar(
+      "SELECT api.wol_relay_register($1::text,$2::text,$3::text,$4::text,$5::text) AS result",
+      [code,str(body.relayName,100),installationId,str(body.appVersion,64),str(body.model,100)]
+    );
+    await clearRateLimit([rateKey]);
+    return send(res,200,result);
+  }
+  if (path === "/device/wol/heartbeat") {
+    if (!token) return send(res,401,{ok:false,error:"WOL_RELAY_AUTH_REQUIRED"});
+    return send(res,200,await scalar(
+      "SELECT api.wol_relay_heartbeat($1::text,$2::jsonb) AS result",
+      [token,body.metrics && typeof body.metrics === "object" ? body.metrics : {}]
+    ));
+  }
+  if (path === "/device/wol/poll") {
+    if (!token) return send(res,401,{ok:false,error:"WOL_RELAY_AUTH_REQUIRED"});
+    return send(res,200,await scalar("SELECT api.wol_relay_poll($1::text) AS result",[token]));
+  }
+  if (path === "/device/wol/ack") {
+    if (!token) return send(res,401,{ok:false,error:"WOL_RELAY_AUTH_REQUIRED"});
+    const commandId=str(body.commandId,64);
+    const status=str(body.status,32);
+    const result=body.result && typeof body.result === "object" ? body.result : {};
+    return send(res,200,await scalar(
+      "SELECT api.wol_relay_ack($1::text,$2::uuid,$3::text,$4::jsonb) AS result",
+      [token,commandId,status,result]
+    ));
+  }
+  if (path === "/device/wol/probe-ack") {
+    if (!token) return send(res,401,{ok:false,error:"WOL_RELAY_AUTH_REQUIRED"});
+    const probeId=str(body.probeId,64), nonce=str(body.nonce,64);
+    const metrics=body.metrics && typeof body.metrics === "object" ? body.metrics : {};
+    return send(res,200,await scalar(
+      "SELECT api.wol_relay_probe_ack($1::text,$2::uuid,$3::uuid,$4::jsonb) AS result",
+      [token,probeId,nonce,metrics]
+    ));
+  }
   if (path === "/device/enroll") {
     const code = str(body.code,80).toUpperCase();
     const clientId = str(body.clientId,128);
@@ -410,6 +463,86 @@ async function authRequest(req, res, url, path) {
   return send(res,404,{message:"AUTH_ROUTE_NOT_FOUND"});
 }
 
+function validatedBlynkPin() {
+  if (!/^V[0-9]+$/.test(BLYNK_POWER_PIN)) throw new Error("BLYNK_POWER_PIN_INVALID");
+  return BLYNK_POWER_PIN;
+}
+async function blynkFetch(url, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { signal: controller.signal, cache: "no-store", redirect: "error" });
+  } catch (_) {
+    const error = new Error("BLYNK_UPSTREAM_UNAVAILABLE");
+    error.status = 502;
+    throw error;
+  } finally { clearTimeout(timer); }
+}
+async function requireOwnerAdmin(token) {
+  if (!token) { const e = new Error("AUTH_REQUIRED"); e.status = 401; throw e; }
+  // This owner-only RPC validates the same opaque Android DB Admin session used by the app.
+  await scalar("SELECT api.wol_relay_status($1::text) AS result", [token]);
+  const context = await scalar("SELECT api.admin_context($1::text) AS result", [token]);
+  if (!Array.isArray(context?.orgs) || context.orgs.length === 0) throw new Error("ADMIN_ORG_ACCESS_DENIED");
+  return context;
+}
+async function blynkWrite(value) {
+  const url = new URL("https://blynk.cloud/external/api/update");
+  url.searchParams.set("token", BLYNK_AUTH_TOKEN);
+  url.searchParams.set(validatedBlynkPin(), value);
+  const response = await blynkFetch(url, 8000);
+  const body = (await response.text()).trim();
+  return { ok: response.ok && !/error|invalid token|wrong pin|no datastream|not found/i.test(body), status: response.status, body };
+}
+async function validateBlynkDevice(token, context, deviceId) {
+  if (!deviceId) throw new Error("device_id_required");
+  const accessible = [];
+  for (const org of context.orgs) {
+    const rows = await scalar(
+      "SELECT COALESCE(jsonb_agg(to_jsonb(x)), '[]'::jsonb) AS result FROM api.admin_devices($1::text,$2::uuid) x",
+      [token, org.id]
+    );
+    if (Array.isArray(rows)) accessible.push(...rows);
+  }
+  const visible = accessible.filter(row => !(row?.metadata && Object.hasOwn(row.metadata, "pairingDuplicateArchivedAt")));
+  if (!visible.some(row => String(row.id) === String(deviceId))) throw new Error("DEVICE_NOT_ACCESSIBLE");
+  const mapped = visible.filter(row => String(row?.metadata?.blynkPowerTarget).toLowerCase() === "true");
+  if (mapped.length > 1) throw new Error("BLYNK_DEVICE_MAPPING_CONFLICT");
+  if (mapped.length === 1 && String(mapped[0].id) !== String(deviceId)) throw new Error("BLYNK_DEVICE_MAPPING_MISMATCH");
+  if (mapped.length === 0 && visible.length !== 1) throw new Error("BLYNK_DEVICE_MAPPING_REQUIRED");
+}
+async function iotRequest(req, res, path, body = {}) {
+  const token = bearer(req);
+  const context = await requireOwnerAdmin(token);
+  if (!BLYNK_AUTH_TOKEN) return send(res, 503, { ok:false, error:"BLYNK_AUTH_TOKEN_NOT_CONFIGURED" });
+  const pin = validatedBlynkPin();
+  const statusUrl = new URL("https://blynk.cloud/external/api/isHardwareConnected");
+  statusUrl.searchParams.set("token", BLYNK_AUTH_TOKEN);
+  const statusResponse = await blynkFetch(statusUrl, 8000);
+  const statusBody = (await statusResponse.text()).trim();
+  if (!statusResponse.ok || /invalid token|error/i.test(statusBody)) {
+    return send(res, 502, { ok:false, error:"BLYNK_STATUS_UNAVAILABLE" });
+  }
+  const online = statusBody.toLowerCase() === "true";
+  if (path === "/iot/status") return send(res, 200, { ok:true, online, pin });
+  if (path !== "/iot/power") return send(res, 404, { ok:false, error:"IOT_ROUTE_NOT_FOUND" });
+  if (!online) return send(res, 503, { ok:false, error:"BLYNK_DEVICE_OFFLINE" });
+  await validateBlynkDevice(token, context, str(body.deviceId, 128));
+  const high = await blynkWrite("1");
+  if (!high.ok) {
+    try { await blynkWrite("0"); } catch (_) {}
+    return send(res, 502, { ok:false, error:"BLYNK_COMMAND_FAILED", pin });
+  }
+  await new Promise(resolve => setTimeout(resolve, 500));
+  let low = await blynkWrite("0"), releaseRecovered = false;
+  if (!low.ok) {
+    try { low = await blynkWrite("0"); releaseRecovered = !!low.ok; }
+    catch (_) { low = { ok:false, body:"release retry failed", status:0 }; }
+  }
+  if (!low.ok) return send(res, 502, { ok:false, error:"BLYNK_RELEASE_FAILED", releaseRecovered:false, pin });
+  return send(res, 200, { ok:true, message:"power_pulse_sent", pin, pulse_ms:500, deviceId:str(body.deviceId,128), releaseRecovered });
+}
+
 async function handler(req, res) {
   const started = Date.now();
   const url = new URL(req.url || "/", "http://127.0.0.1");
@@ -421,9 +554,11 @@ async function handler(req, res) {
     if (path === prefix || path.startsWith(prefix + "/")) path = path.slice(prefix.length) || "/";
     if (path === "/health" && req.method === "GET") {
       await query("SELECT 1");
-      return send(res,200,{app:"Ani Games Ready Local Server",api:"online",database:"online",apiVersion:"db-android-v1",remote_access_enabled:!isLoopback,bind_host:HOST,relay:"separate"});
+      return send(res,200,{app:"Ani Games Ready Local Server",api:"online",database:"online",apiVersion:"db-android-v1",remote_access_enabled:!isLoopback,bind_host:HOST,relay:"android-db"});
     }
     if (path.startsWith("/auth/v1/")) return await authRequest(req,res,url,path);
+    if (path === "/iot/status" && req.method === "GET") return await iotRequest(req,res,path);
+    if (path === "/iot/power" && req.method === "POST") return await iotRequest(req,res,path,await readJson(req));
     if (path === "/setup" && req.method === "GET") {
       if (!BOOTSTRAP_TOKEN || !isLoopback || !["127.0.0.1","::1","::ffff:127.0.0.1"].includes(req.socket.remoteAddress)) return send(res,404,{error:"NOT_FOUND"});
       res.writeHead(200,{"content-type":"text/html; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});
