@@ -6,8 +6,8 @@ android {
         applicationId "com.anigamesready.stardeskclient"
         minSdk 26
         targetSdk 35
-        versionCode 6
-        versionName "0.6.0-androiddb-v0-coin"
+        versionCode 7
+        versionName "0.6.1-androiddb-v0-coin-gateway-pin"
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
