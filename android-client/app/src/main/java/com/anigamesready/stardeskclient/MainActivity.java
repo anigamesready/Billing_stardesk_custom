@@ -27,6 +27,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URL;
+import java.net.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.util.concurrent.ExecutorService;
@@ -180,7 +181,12 @@ public class MainActivity extends Activity {
                 if(body==null||body.length()>32768) throw new IllegalArgumentException("API_BODY_TOO_LARGE");
                 String root=base.trim().replaceAll("/+$","");
                 URL url=new URL(root+"/rest/v1/rpc/"+rpc);
-                connection=(HttpsURLConnection)url.openConnection();
+                connection=(HttpsURLConnection)url.openConnection(Proxy.NO_PROXY);
+                connection.setSSLSocketFactory(new GatewayPinnedSocketFactory());
+                connection.setHostnameVerifier((hostname, session) ->
+                        GatewayPinnedSocketFactory.isGatewayHost(hostname)
+                                && HttpsURLConnection.getDefaultHostnameVerifier().verify(
+                                        GatewayPinnedSocketFactory.GATEWAY_HOST, session));
                 connection.setRequestMethod("POST");
                 connection.setConnectTimeout(10000);
                 connection.setReadTimeout(15000);
