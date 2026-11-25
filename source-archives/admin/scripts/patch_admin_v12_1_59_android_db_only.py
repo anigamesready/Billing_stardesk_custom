@@ -196,6 +196,12 @@ for name in ("admin.html","index.html","admin-control.html"):
     page = page.replace("ani-games-db-android-stage-ws-relay.anigamesready.workers.dev", "legacy-stage-relay-disabled.invalid")
     page = page.replace("Alamat Gateway DB Android", "Alamat API Android DB")
     page = page.replace("ALAMAT GATEWAY DB ANDROID", "ALAMAT API ANDROID DB")
+    # Server address is a fixed online route; never show an editable/local endpoint.
+    if "ani-admin-online-gateway-only" not in page:
+        hide_style = """<style id="ani-admin-online-gateway-only">#localApiInput,label[for="localApiInput"],button[onclick*="saveLocalApiUrl"],.form-group:has(#localApiInput),.form-row:has(#localApiInput),.field-row:has(#localApiInput),.config-row:has(#localApiInput){display:none!important}</style>"""
+        page, n = re.subn(r"</head>", hide_style + "</head>", page, count=1, flags=re.I)
+        if n != 1:
+            raise SystemExit("ADMIN_ONLINE_GATEWAY_STYLE_INSERT_FAILED:" + name)
     # The V12.1.58 gateway repair replaced the original API routing guard.
     local_api_base_fn = """function localApiBase(){
  try{localStorage.setItem(LOCAL_API_KEY,ONLINE_GATEWAY_URL)}catch(_){}
