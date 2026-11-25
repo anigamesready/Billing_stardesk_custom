@@ -32,15 +32,15 @@ for marker in ("V12.1.52-REMOTE-PLAY-ADMIN-CONTROLS", "V12.1.53-REMOTE-PLAY-SHAR
         raise SystemExit("EXPECTED_V12158_BASELINE_MARKER_MISSING:" + marker)
 
 def remove_div_with_class(source: str, class_name: str) -> str:
-    start_tag = re.compile(r"<div\\b[^>]*>", re.I)
-    close_tag = re.compile(r"</div\\s*>", re.I)
+    start_tag = re.compile(r"<div\b[^>]*>", re.I)
+    close_tag = re.compile(r"</div\s*>", re.I)
     for match in start_tag.finditer(source):
         attrs = match.group(0)
-        class_match = re.search(r"""\\bclass\\s*=\\s*["']([^"']*)["']""", attrs, re.I)
+        class_match = re.search(r"""\bclass\s*=\s*["']([^"']*)["']""", attrs, re.I)
         if not class_match or class_name not in class_match.group(1).split():
             continue
         depth = 1
-        for token in re.finditer(r"</?div\\b[^>]*>", source[match.end():], re.I):
+        for token in re.finditer(r"</?div\b[^>]*>", source[match.end():], re.I):
             if token.group(0).startswith("</"):
                 depth -= 1
             else:
@@ -54,17 +54,17 @@ def remove_div_with_class(source: str, class_name: str) -> str:
 # Remove the actual obsolete database switch node, not merely hide it with CSS.
 page = remove_div_with_class(page, "db-switch")
 page = re.sub(
-    r"/\\*\\s*DB Android branch: legacy Supabase DB1/DB2 route UI is intentionally unavailable\\.\\s*\\*/\\s*"
-    r"\\.db-switch,#databaseTools,\\.nav \\[data-tab=["']databaseTools["']\\],"
-    r"button\\[onclick\\*=["']databaseTools["']\\],#recovery\\s*\\{display:none!important\\}",
+    r"/\*\s*DB Android branch: legacy Supabase DB1/DB2 route UI is intentionally unavailable\.\s*\*/\s*"
+    r"\.db-switch,#databaseTools,\.nav \[data-tab=["']databaseTools["']\],"
+    r"button\[onclick\*=["']databaseTools["']\],#recovery\s*\{display:none!important\}",
     "",
     page,
     flags=re.I
 )
 # Remove only obsolete styles for the retired DB tools. The password-recovery
 # panel is deliberately retained and made visible by its own state classes.
-page = re.sub(r"[^{}]*\\.db-switch[^{}]*\\{[^{}]*\\}", "", page, flags=re.I)
-page = re.sub(r"[^{}]*#databaseTools[^{}]*\\{[^{}]*\\}", "", page, flags=re.I)
+page = re.sub(r"[^{}]*\.db-switch[^{}]*\{[^{}]*\}", "", page, flags=re.I)
+page = re.sub(r"[^{}]*#databaseTools[^{}]*\{[^{}]*\}", "", page, flags=re.I)
 page = page.replace("function openDbSelector(){requestGlobalDbSwitch()} ", "")
 page = page.replace("function openDbSelector(){requestGlobalDbSwitch()}", "")
 page = page.replace("Database aktif seluruh sistem:", "Database Android aktif:")
@@ -87,6 +87,11 @@ nav_replacement = '<button data-tab="coinManagement" onclick="tab(\'coinManageme
 if page.count(nav_anchor) != 1:
     raise SystemExit("ADMIN_SIDEBAR_STARDESK_ANCHOR_MISMATCH")
 page = page.replace(nav_anchor, nav_replacement, 1)
+role_ui_anchor = "function applyRemotePlayRoleUI(){const nav=$('remotePlayAdminNav');if(nav)nav.classList.toggle('hidden',!isRemotePlayOwner());}"
+role_ui_next = "function applyRemotePlayRoleUI(){const allowed=isRemotePlayOwner(),nav=$('remotePlayAdminNav'),coin=$('coinManagementNav');if(nav)nav.classList.toggle('hidden',!allowed);if(coin)coin.classList.toggle('hidden',!allowed);}"
+if page.count(role_ui_anchor) != 1:
+    raise SystemExit("ADMIN_REMOTE_PLAY_ROLE_UI_ANCHOR_MISMATCH")
+page = page.replace(role_ui_anchor, role_ui_next, 1)
 
 old_stardesk = re.compile(r'<section id="stardesk" class="section">.*?</section>', re.I | re.S)
 page, stardesk_count = old_stardesk.subn("", page, count=1)
@@ -131,7 +136,7 @@ page = page.replace(account_anchor, coin_section + account_anchor, 1)
 
 # Add a role-gated loader to the existing sidebar router. No new auth path or
 # storage is introduced: rpc() uses the existing Android DB Admin access token.
-tab_pattern = re.compile(r"(?ms)^function tab\\(id\\)\\{.*?^\\}")
+tab_pattern = re.compile(r"(?ms)^function tab\(id\)\{.*?^\}")
 tab_fn = """function tab(id){
  if((id==='pairing'||id==='remotePlay'||id==='coinManagement')&&!isRemotePlayOwner())return;
  document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));
@@ -313,9 +318,9 @@ admin_path.write_text(page, encoding="utf-8")
 # Candidate package is unique so installing it cannot overwrite the selected
 # 12.1.58 SAFE-TEST baseline.
 gradle = gradle_path.read_text(encoding="utf-8")
-gradle, n1 = re.subn(r"applicationId\\s+['\"][^'\"]+['\"]", "applicationId 'com.anigames.billingadmin.v161online'", gradle, count=1)
-gradle, n2 = re.subn(r"versionCode\\s+\\d+", "versionCode 88", gradle, count=1)
-gradle, n3 = re.subn(r"versionName\\s+['\"][^'\"]+['\"]", "versionName '12.1.61-ANDROIDDB-COIN'", gradle, count=1)
+gradle, n1 = re.subn(r"applicationId\s+['\"][^'\"]+['\"]", "applicationId 'com.anigames.billingadmin.v161online'", gradle, count=1)
+gradle, n2 = re.subn(r"versionCode\s+\d+", "versionCode 88", gradle, count=1)
+gradle, n3 = re.subn(r"versionName\s+['\"][^'\"]+['\"]", "versionName '12.1.61-ANDROIDDB-COIN'", gradle, count=1)
 if (n1,n2,n3)!=(1,1,1):
     raise SystemExit("ADMIN_V12161_VERSION_METADATA_PATCH_FAILED:" + repr((n1,n2,n3)))
 gradle_path.write_text(gradle, encoding="utf-8")
@@ -327,7 +332,7 @@ if n != 1:
 manifest_path.write_text(manifest, encoding="utf-8")
 
 # Final static requirements and JS syntax source.
-scripts = re.findall(r'<script\\b(?![^>]*\\bsrc=)[^>]*>(.*?)</script>', page, re.I | re.S)
+scripts = re.findall(r'<script\b(?![^>]*\bsrc=)[^>]*>(.*?)</script>', page, re.I | re.S)
 if len(scripts) != 1:
     raise SystemExit("ADMIN_V12161_INLINE_SCRIPT_COUNT_INVALID:" + str(len(scripts)))
 Path("/tmp/admin-v1261-check.js").write_text(scripts[0], encoding="utf-8")
