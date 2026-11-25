@@ -1,4 +1,4 @@
-# Ani Games Ready Remote — Android DB Preview v0.2.0
+# Ani Games Ready Remote — Android DB v0 / Coin Preview 0.6.0
 
 This isolated branch previews the Remote Play client interface and basic local controls. It is NOT a production-connected client.
 
