@@ -158,6 +158,71 @@ jobs:
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/tests/015_remote_coin_wallet_smoke.sql
 
 
+      - name: Upgrade an existing core-only Android DB without replaying core migrations
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          createdb -h 127.0.0.1 -p 5432 -U postgres ani_games_core_upgrade_test
+          for file in \
+            backend/android-db/migrations/000_prerequisites.sql \
+            backend/android-db/migrations/002_core_business_schema.sql \
+            backend/android-db/migrations/003_pc_device_api_functions.sql \
+            backend/android-db/migrations/004_billing_reseller_api.sql \
+            backend/android-db/migrations/005_runtime_privileges.sql \
+            backend/android-db/migrations/006_admin_local_auth_and_rpc.sql \
+            backend/android-db/migrations/007_billing_control_commands.sql \
+            backend/android-db/migrations/008_local_business_triggers.sql \
+            backend/android-db/migrations/009_admin_business_routines.sql \
+            backend/android-db/migrations/010_billing_reseller_refresh_and_devices.sql \
+            backend/android-db/migrations/011_billing_control_android_rpcs.sql \
+            backend/android-db/migrations/012_billing_stop_pause_policy.sql; do
+              echo "Installing existing core: $file"
+              psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_core_upgrade_test -v ON_ERROR_STOP=1 -f "$file"
+          done
+          for file in \
+            backend/android-db/tests/001_pc_device_api_smoke.sql \
+            backend/android-db/tests/002_billing_reseller_api_smoke.sql \
+            backend/android-db/tests/003_runtime_privileges_smoke.sql \
+            backend/android-db/tests/004_admin_local_auth_smoke.sql \
+            backend/android-db/tests/005_billing_control_commands_smoke.sql \
+            backend/android-db/tests/006_local_business_triggers_smoke.sql \
+            backend/android-db/tests/007_admin_device_policy_smoke.sql \
+            backend/android-db/tests/008_admin_enrollment_reports_theme_smoke.sql \
+            backend/android-db/tests/009_admin_billing_user_crud_smoke.sql \
+            backend/android-db/tests/010_billing_refresh_smoke.sql; do
+              echo "Regressing existing core: $file"
+              psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_core_upgrade_test -v ON_ERROR_STOP=1 -f "$file"
+          done
+          for file in \
+            backend/android-db/migrations/013_remote_play.sql \
+            backend/android-db/migrations/014_remote_play_pairing.sql \
+            backend/android-db/migrations/015_remote_play_admin_controls.sql \
+            backend/android-db/migrations/016_remote_play_cloudflare_mesh.sql \
+            backend/android-db/migrations/017_remote_play_dashboard_cooldown.sql \
+            backend/android-db/migrations/018_remote_play_server_watchdog.sql \
+            backend/android-db/migrations/019_remote_play_session_connected.sql \
+            backend/android-db/migrations/020_remote_coin_wallet.sql \
+            backend/android-db/migrations/021_android_wol_relay.sql; do
+              echo "Applying additive addon: $file"
+              psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_core_upgrade_test -v ON_ERROR_STOP=1 -f "$file"
+          done
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_core_upgrade_test -v ON_ERROR_STOP=1 -f backend/android-db/tests/016_coin_scale_seed.sql
+          for pass in 1 2; do
+            echo "Applying x100 migration pass $pass"
+            psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_core_upgrade_test -v ON_ERROR_STOP=1 -f backend/android-db/migrations/022_coin_unit_scale_100.sql
+          done
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_core_upgrade_test -v ON_ERROR_STOP=1 -f backend/android-db/tests/017_coin_scale_smoke.sql
+          for file in \
+            backend/android-db/tests/011_remote_play_pairing_smoke.sql \
+            backend/android-db/tests/012_remote_play_admin_controls_smoke.sql \
+            backend/android-db/tests/013_remote_play_server_watchdog_smoke.sql \
+            backend/android-db/tests/014_remote_play_stream_billing_clock_smoke.sql \
+            backend/android-db/tests/015_remote_coin_wallet_smoke.sql; do
+              echo "Testing upgraded addon: $file"
+              psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_core_upgrade_test -v ON_ERROR_STOP=1 -f "$file"
+          done
+
       - name: Install Node dependency and syntax-check DB Android API gateway
         uses: actions/setup-node@v4
         with:
