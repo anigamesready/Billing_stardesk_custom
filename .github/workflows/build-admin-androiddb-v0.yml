@@ -7,6 +7,11 @@ on:
       - feature/admin-androiddb-v0-full-db-20261126
     paths:
       - "admin-androiddb-v0/**"
+      - "backend/android-db/server/server.mjs"
+      - "backend/android-db/migrations/006_admin_local_auth_and_rpc.sql"
+      - "backend/android-db/migrations/009_admin_business_routines.sql"
+      - "backend/android-db/migrations/011_billing_control_android_rpcs.sql"
+      - ".github/workflows/test-androiddb-remote-play.yml"
       - ".github/workflows/build-admin-androiddb-v0.yml"
   workflow_dispatch:
 
