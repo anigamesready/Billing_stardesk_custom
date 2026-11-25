@@ -31,8 +31,9 @@ Cloudflare Worker secrets are write-only; existing values cannot be read back. O
 
 1. In Termux, run the exact sed command printed by the installer. Copy its output privately.
 2. In Cloudflare Dashboard, open Workers & Pages → ani-games-db-android-stage-ws-relay → Settings → Variables and Secrets.
-3. Add or replace the Secret named RELAY_SHARED_SECRET with that exact value. Save the Worker change.
-4. Never send the secret in chat, screenshots, or logs.
+3. Set its Secret named RELAY_SHARED_SECRET to that exact value.
+4. Open Worker ani-games-db-android-stage-gateway → Settings → Variables and Secrets; set Secret EDGE_PROXY_SECRET to the SAME exact value. Save both Worker changes.
+5. Never send the secret in chat, screenshots, or logs.
 
 If the operator already has the matching secret, do not rotate it again.
 
