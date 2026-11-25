@@ -2,11 +2,12 @@
 set -Ee -o pipefail
 umask 077
 
-APP_DIR="$HOME/ani-games-ready-android-db"
+# Reuse the already-running Android DB stage directory/database; do not create a parallel DB.
+APP_DIR="$HOME/ani-games-db-android-stage"
 SERVER_DIR="$APP_DIR/server"
 MIGRATIONS_DIR="$APP_DIR/migrations"
 ENV_FILE="$SERVER_DIR/.env"
-DB_DEFAULT="ani_games_ready"
+DB_DEFAULT="ani_games_ready_stage"
 DB_PORT="5432"
 if [ -n "$ANI_DB_NAME" ]; then DB_DEFAULT="$ANI_DB_NAME"; fi
 if [ -n "$ANI_DB_PORT" ]; then DB_PORT="$ANI_DB_PORT"; fi
@@ -61,6 +62,18 @@ if [ "$EXISTING_PG_CLUSTER" = 1 ] && command -v pg_isready >/dev/null 2>&1 \
   if [ ! -x "$PREFIX/bin/sv" ] || [ ! -d "$SVDIR/postgres" ] \
      || ! "$PREFIX/bin/sv" status postgres 2>&1 | grep -q '^run:'; then
     die "PostgreSQL sudah aktif tetapi belum dikelola runit. Pengaman berhenti sebelum pkg update, penyalinan source/API, perubahan service, atau migrasi database. Perlu prosedur adopsi service terpisah; jangan jalankan sv up terhadap proses lama."
+  fi
+fi
+
+# Never overwrite an API source tree while its Node process is running outside
+# the supervised service that this installer can safely restart.
+if [ -d "$SERVER_DIR" ] && command -v pgrep >/dev/null 2>&1; then
+  RUNNING_API_PIDS="$(pgrep -f -- "$SERVER_DIR/server.mjs" || true)"
+  if [ -n "$RUNNING_API_PIDS" ]; then
+    export SVDIR="$PREFIX/var/service"
+    if [ ! -x "$PREFIX/bin/sv" ] || ! "$PREFIX/bin/sv" status ani-games-ready-api 2>&1 | grep -q '^run:'; then
+      die "Node API sudah aktif di luar runit (PID $RUNNING_API_PIDS). Pengaman berhenti sebelum pkg update atau penyalinan source/API. Hentikan/adopsi proses secara terencana terlebih dahulu."
+    fi
   fi
 fi
 
