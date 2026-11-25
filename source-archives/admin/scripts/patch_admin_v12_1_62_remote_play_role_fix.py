@@ -35,7 +35,7 @@ if "function isWakeRelayOwner()" not in page:
     raise SystemExit("CANONICAL_MASTER_OWNER_RESOLVER_MISSING")
 
 new = "function isRemotePlayOwner(){return typeof isWakeRelayOwner==='function'&&isWakeRelayOwner();}"
-owner_pattern = re.compile(r"function\\s+isRemotePlayOwner\\s*\\(\\s*\\)\\s*\\{[^}]*\\}")
+owner_pattern = re.compile(r"function\s+isRemotePlayOwner\s*\(\s*\)\s*\{[^}]*\}")
 matches = list(owner_pattern.finditer(page))
 if len(matches) == 1:
     page = page[:matches[0].start()] + new + page[matches[0].end():]
