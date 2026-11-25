@@ -6,7 +6,7 @@ DECLARE
   org_id uuid;
   rental_id uuid;
   device_id uuid;
-  wallet_id uuid;
+  v_wallet_id uuid;
   order_id uuid;
 BEGIN
   login_result:=api.admin_login('CI-OWNER','CI-Admin-New-Password-2026');
@@ -22,7 +22,7 @@ BEGIN
   RETURNING id INTO device_id;
 
   INSERT INTO remote_play.coin_wallets(rental_account_id,balance)
-  VALUES(rental_id,75) RETURNING id INTO wallet_id;
+  VALUES(rental_id,75) RETURNING id INTO v_wallet_id;
 
   INSERT INTO remote_play.coin_topup_orders(
     rental_account_id,amount_rupiah,coin_amount,expiry_days,status,idempotency_key,
@@ -32,12 +32,12 @@ BEGIN
   ) RETURNING id INTO order_id;
 
   INSERT INTO remote_play.coin_lots(wallet_id,source_order_id,original_coins,remaining_coins,expires_at)
-  VALUES(wallet_id,order_id,75,75,now()+interval '3 days');
+  VALUES(v_wallet_id,order_id,75,75,now()+interval '3 days');
 
   INSERT INTO remote_play.coin_ledger(
     wallet_id,lot_id,event_type,amount_coins,balance_after,reference_type,reference_id,idempotency_key
   )
-  SELECT wallet_id,l.id,'topup_credit',75,75,'topup_order',order_id::text,'coin-scale-seed-ledger-0001'
+  SELECT v_wallet_id,l.id,'topup_credit',75,75,'topup_order',order_id::text,'coin-scale-seed-ledger-0001'
   FROM remote_play.coin_lots l WHERE l.source_order_id=order_id;
 
   INSERT INTO remote_play.pc_coin_rates(
