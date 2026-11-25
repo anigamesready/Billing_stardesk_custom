@@ -1,0 +1,78 @@
+name: Validate Termux Android DB backend package
+
+on:
+  push:
+    branches:
+      - feature/androiddb-termux-coin-x100-20261125
+    paths:
+      - "backend/android-db/termux/**"
+      - "backend/android-db/server/**"
+      - "backend/android-db/migrations/020_remote_coin_wallet.sql"
+      - "backend/android-db/migrations/021_android_wol_relay.sql"
+      - "backend/android-db/migrations/022_coin_unit_scale_100.sql"
+      - ".github/workflows/test-androiddb-termux.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-termux-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate installer shell syntax
+        run: |
+          set -euo pipefail
+          bash -n backend/android-db/termux/install.sh
+
+      - name: ShellCheck installer errors
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+          shellcheck --severity=error backend/android-db/termux/install.sh
+
+      - name: Verify install safety gates and release contents
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          script=Path("backend/android-db/termux/install.sh").read_text()
+          readme=Path("backend/android-db/termux/README.md").read_text()
+          migration=Path("backend/android-db/migrations/022_coin_unit_scale_100.sql").read_text()
+          server=Path("backend/android-db/server/server.mjs").read_text()
+
+          assert re.search(r'\[\[ "\$ANI_DB_REF" =~ \^\[0-9a-fA-F\]\{40\}\$ \]\]',script), "installer must pin immutable SHA"
+          assert "pg_dump" in script and "pg_dumpall" in script and "pg_restore --list" in script, "existing DB backup/verification missing"
+          assert 'CONFIRM" = "APPLY"' in script, "existing DB migration confirmation missing"
+          assert "MATCH_COUNT" in script and "MATCH_COUNT\" -gt 1" in script, "ambiguous existing DB must stop"
+          assert "NEW_CLUSTER=1" in script and "NEW_CLUSTER\" != \"1\"" in script, "installer may only create DB on fresh cluster"
+          assert 'sv-enable" ani-games-ready-api' in script and 'sv" down ani-games-ready-api' in script and 'sv" up ani-games-ready-api' in script, "Termux runit lifecycle incomplete"
+          assert 'ANI_BIND=127.0.0.1' in script and "case \"$ANI_BIND\"" in script, "API must remain loopback-only before tunnel"
+          assert "chmod 600 \"$ENV_FILE\"" in script, "secret permissions missing"
+          assert "022_coin_unit_scale_100.sql" in script and "021_android_wol_relay.sql" in script, "addon migrations missing"
+          assert not re.search(r'(?im)^\s*(DROP\s+DATABASE|DROP\s+TABLE|TRUNCATE\b|DELETE\s+FROM\s+public\.)',script), "destructive core DB command found"
+          assert "sv down ani-games-ready-api" in readme and "pg_restore --list" in readme, "operator documentation incomplete"
+          assert "coin_wallets" in migration and "coin_topup_orders" in migration and "coin_lots" in migration and "coin_ledger" in migration and "pc_coin_rates" in migration
+          for klass,coins in [("GTX 1050",4500),("GTX 1660",4500),("RTX 3060",5250),("RTX 5060",6000)]:
+              assert re.search(rf"WHEN '{re.escape(klass)}'.*?v_coins:={coins};",migration), f"wrong x100 rate for {klass}"
+          assert 'path === "/device/wol/poll"' in server and 'path === "/iot/power"' in server, "Android DB WoL/Blynk routes missing"
+          assert 'redirect: "error"' in server, "Blynk request redirects must be disabled"
+          assert 'relay:"android-db"' in server, "service reports stale relay architecture"
+          assert "CORE_ADDON_READY" in script and "RP_SCHEMA" in script, "existing core DB upgrade detection missing"
+          assert "EXISTING_PG_CLUSTER" in script and 'PG_VERSION' in script and 'SERVER_MAJOR' in script, "existing PostgreSQL major-version guard missing"
+          assert script.index("Fail closed before pkg install") < script.index('pkg update -y'), "unknown-cluster guard must run before package changes"
+          assert 'Do not request/upgrade the PostgreSQL package over a live data directory.' in script, "must not upgrade PostgreSQL over existing data"
+          assert 'apply_file "013_remote_play.sql"' in script and 'apply_file "019_remote_play_session_connected.sql"' in script, "staged Remote Play upgrade chain missing"
+          assert "Schema Remote Play terdeteksi tetapi kontrak 013-019 tidak lengkap" in script, "partial Remote Play schema must stop"
+          PY
+
+      - name: Validate Node API syntax and dependency install
+        working-directory: backend/android-db/server
+        run: |
+          set -euo pipefail
+          node --check server.mjs
+          npm install --no-audit --no-fund
+          npm run check

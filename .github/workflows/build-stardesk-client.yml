@@ -1,0 +1,93 @@
+name: Build Ani Games Ready Remote Android DB v0 Coin Candidate
+on:
+  push:
+    branches:
+      - feature/androiddb-online-remote-admin-20261125
+      - feature/admin-androiddb-v0-isolated-20261125
+    paths:
+      - "android-client/**"
+      - ".github/workflows/build-stardesk-client.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-debug-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Configure Android SDK
+        run: |
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
+      - name: Validate live Android DB integration boundary
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          h=Path("android-client/app/src/main/assets/index.html").read_text()
+          for token in ["loginForm","apiBase","activationCode","androiddb_v0_remote_login","androiddb_v0_remote_refresh","androiddb_v0_remote_dashboard","androiddb_v0_remote_coin_wallet","androiddb_v0_remote_coin_history","androiddb_v0_remote_coin_create_topup","idempotency_key","stardesk_linked","Koneksi dikunci","*60/8000","Math.round","75 koin","112,5 koin","150 koin","ONLINE_API_BASE","n<300","45","52.5","60"]:
+              assert token.lower() in h.lower(), "missing integration control/contract: "+token
+          for forbidden in ["supabase.co","supabase.createclient","functions/v1/stardesk-client-api","PREVIEW-"]:
+              assert forbidden.lower() not in h.lower(), "legacy/demo backend reference remains: "+forbidden
+          assert "localStorage.setItem('remote_access_token'" not in h
+          for legacy_rpc in ["remote_play_login","remote_play_refresh","remote_play_logout","remote_coin_dashboard","remote_coin_wallet","remote_coin_history","remote_coin_create_topup"]:
+              assert 'nativeRpc("'+legacy_rpc+'"' not in h, "legacy RPC call remains: "+legacy_rpc
+          assert "STATUS AKUN COIN" in h and "STATUS AKUN RENTAL LAMA" not in h
+          assert "KOIN ×100" not in h
+          assert "expiry_at" not in h.lower() and "remaining_seconds" not in h.lower(), "legacy rental expiry/time model leaked into Remote v0 UI"
+          assert "nativeRpc(\"androiddb_v0_remote_dashboard\"" in h
+          assert "nativeRpc(\"androiddb_v0_remote_coin_create_topup\"" in h
+          assert 'id="apiBase"' not in h and '$("apiBase")' not in h, "manual server URL field must not be present"
+          assert "https://ani-games-db-android-stage-gateway.anigamesready.workers.dev" in h, "fixed online Android DB gateway missing"
+          assert "127.0.0.1:8787" not in h and "localhost:8787" not in h, "loopback server route remains in Remote UI"
+          scripts=re.findall(r"<script>(.*?)</script>",h,re.S)
+          assert len(scripts)==1, "expected one inline JS block"
+          Path("/tmp/remote-androiddb.js").write_text(scripts[0])
+          java=Path("android-client/app/src/main/java/com/anigamesready/stardeskclient/MainActivity.java").read_text()
+          for token in ["AndroidKeyStore","AES/GCM/NoPadding","apiRequest","HttpsURLConnection","getSecureValue","saveSecureValue"]:
+              assert token in java, "missing native security/API bridge: "+token
+          gradle=Path("android-client/app/build.gradle").read_text()
+          assert 'versionCode 6' in gradle and 'versionName "0.6.0-androiddb-v0-coin"' in gradle
+          manifest=Path("android-client/app/src/main/AndroidManifest.xml").read_text()
+          assert 'android:usesCleartextTraffic="false"' in manifest
+          assert '<uses-permission android:name="android.permission.INTERNET"' in manifest
+          PY
+          node --check /tmp/remote-androiddb.js
+          test -s android-client/app/src/main/assets/qris_ani_games.png
+      - name: Build debug APK
+        working-directory: android-client
+        run: gradle --no-daemon clean assembleDebug
+      - name: Verify package identity and signature
+        run: |
+          set -euo pipefail
+          APK="android-client/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
+          "$AAPT" dump badging "$APK" | tee /tmp/remote-badging.txt
+          grep -q "package: name='com.anigamesready.stardeskclient' versionCode='6' versionName='0.6.0-androiddb-v0-coin'" /tmp/remote-badging.txt
+          "$APKSIGNER" verify --verbose "$APK"
+          "$APKSIGNER" verify --print-certs "$APK"
+          sha256sum "$APK" | tee SHA256SUMS-REMOTE-ANDROIDDB.txt
+          unzip -t "$APK"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Ani-Games-Ready-Remote-AndroidDB-v0-Coin-v0.6.0
+          path: |
+            android-client/app/build/outputs/apk/debug/app-debug.apk
+            SHA256SUMS-REMOTE-ANDROIDDB.txt
+          if-no-files-found: error
+          retention-days: 14
