@@ -7,6 +7,7 @@ on:
       - feature/admin-androiddb-v0-full-db-20261126
     paths:
       - "admin-androiddb-v0/**"
+      - "tests/android-gateway-dns-pin.test.mjs"
       - "backend/android-db/server/server.mjs"
       - "backend/android-db/migrations/006_admin_local_auth_and_rpc.sql"
       - "backend/android-db/migrations/009_admin_business_routines.sql"
@@ -20,7 +21,7 @@ permissions:
 
 jobs:
   build-admin-androiddb-v0:
-    name: Build Admin Android DB v0 0.2.0
+    name: Build Admin Android DB v0 0.2.1
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -202,11 +203,15 @@ jobs:
               assert native_route in Path("admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java").read_text(encoding="utf-8"), "native route missing: " + native_route
 
           java = Path("admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java").read_text(encoding="utf-8")
-          for token in ["AndroidKeyStore", "AES/GCM/NoPadding", "HttpsURLConnection", "ani_admin_androiddb_v0_keystore_v1", "__admin_login", "__admin_refresh", "__admin_logout", "__iot_status", "__iot_power", "/iot/status", "/iot/power", "setRequestMethod(method)", '"GET".equals(method)', "WebChromeClient", "onJsAlert", "onJsConfirm", "onJsPrompt", "JsPromptResult", "JsResult"]:
+          tls = Path("admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/GatewayPinnedSocketFactory.java").read_text(encoding="utf-8")
+          for token in ["Proxy.NO_PROXY", "GatewayPinnedSocketFactory", "setSSLSocketFactory", "setHostnameVerifier", "getDefaultHostnameVerifier", "AndroidKeyStore", "AES/GCM/NoPadding", "HttpsURLConnection", "ani_admin_androiddb_v0_keystore_v1", "__admin_login", "__admin_refresh", "__admin_logout", "__iot_status", "__iot_power", "/iot/status", "/iot/power", "setRequestMethod(method)", '"GET".equals(method)', "WebChromeClient", "onJsAlert", "onJsConfirm", "onJsPrompt", "JsPromptResult", "JsResult"]:
               assert token in java, "missing native token/API/HTTP method control: " + token
 
+          for token in ["104.18.13.15", "104.18.12.15", "SNIHostName", "delegate.createSocket(raw, GATEWAY_HOST, port, autoClose)", "isPinnedIpv4Address(raw.getInetAddress())"]:
+              assert token in tls, "missing pinned Cloudflare TLS control: " + token
+          assert "InetAddress.getByName" not in tls and "X509TrustManager" not in tls, "DNS/trust bypass detected in pinned gateway socket factory"
           gradle = Path("admin-androiddb-v0/app/build.gradle").read_text(encoding="utf-8")
-          for token in ['applicationId "com.anigames.billingadmin.androiddbv0"', "versionCode 2", 'versionName "0.2.0-full-db"']:
+          for token in ['applicationId "com.anigames.billingadmin.androiddbv0"', "versionCode 3", 'versionName "0.2.1-gateway-dns-pin"']:
               assert token in gradle, "Admin Android DB v0 build identity mismatch: " + token
 
           manifest = Path("admin-androiddb-v0/app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
@@ -214,6 +219,7 @@ jobs:
           assert 'android:usesCleartextTraffic="false"' in manifest
           PY
           node --check /tmp/admin-androiddb-v0.js
+          node --test tests/android-gateway-dns-pin.test.mjs
 
       - name: Build isolated Admin APK
         shell: bash
@@ -223,23 +229,23 @@ jobs:
           APK="admin-androiddb-v0/app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
           mkdir -p output
-          cp "$APK" output/Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.0.apk
+          cp "$APK" output/Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.1.apk
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
           test -n "$AAPT" && test -n "$APKSIGNER"
-          "$AAPT" dump badging output/Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.0.apk | tee output/apk-badging.txt
-          grep -q "package: name='com.anigames.billingadmin.androiddbv0' versionCode='2' versionName='0.2.0-full-db'" output/apk-badging.txt
+          "$AAPT" dump badging output/Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.1.apk | tee output/apk-badging.txt
+          grep -q "package: name='com.anigames.billingadmin.androiddbv0' versionCode='3' versionName='0.2.1-gateway-dns-pin'" output/apk-badging.txt
           grep -q "application-label:'Ani Games Admin Android DB v0'" output/apk-badging.txt
-          "$APKSIGNER" verify --verbose output/Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.0.apk
-          "$APKSIGNER" verify --print-certs output/Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.0.apk
-          sha256sum output/Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.0.apk | tee output/SHA256SUMS.txt
-          unzip -t output/Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.0.apk
-          ls -lh output/Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.0.apk
+          "$APKSIGNER" verify --verbose output/Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.1.apk
+          "$APKSIGNER" verify --print-certs output/Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.1.apk
+          sha256sum output/Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.1.apk | tee output/SHA256SUMS.txt
+          unzip -t output/Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.1.apk
+          ls -lh output/Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.1.apk
 
       - name: Upload isolated Admin Android DB v0 preview
         uses: actions/upload-artifact@v4
         with:
-          name: Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.0
+          name: Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.1
           path: output/*
           if-no-files-found: error
           retention-days: 30
