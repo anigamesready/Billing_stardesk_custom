@@ -10,7 +10,7 @@ DB_DEFAULT="ani_games_ready"
 DB_PORT="5432"
 if [ -n "$ANI_DB_NAME" ]; then DB_DEFAULT="$ANI_DB_NAME"; fi
 if [ -n "$ANI_DB_PORT" ]; then DB_PORT="$ANI_DB_PORT"; fi
-if [ -z "$PGDATA" ]; then PGDATA="$PREFIX/var/lib/postgresql"; fi
+PGDATA="$PREFIX/var/lib/postgresql"
 OS_DB_USER="$(id -un)"
 NEW_DATABASE=0
 
@@ -163,7 +163,7 @@ if [ "$NEW_DATABASE" = 1 ]; then
     007_billing_control_commands.sql \
     008_local_business_triggers.sql \
     009_admin_business_routines.sql \
-    010_billing_refresh_and_devices.sql \
+    010_billing_reseller_refresh_and_devices.sql \
     011_billing_control_android_rpcs.sql \
     012_billing_stop_pause_policy.sql \
     013_remote_play.sql \
@@ -219,7 +219,7 @@ else
       007_billing_control_commands.sql \
       008_local_business_triggers.sql \
       009_admin_business_routines.sql \
-      010_billing_refresh_and_devices.sql \
+      010_billing_reseller_refresh_and_devices.sql \
       011_billing_control_android_rpcs.sql \
       012_billing_stop_pause_policy.sql \
       013_remote_play.sql \
@@ -294,6 +294,10 @@ set -a
 . "$ENV_FILE"
 set +a
 [ -n "$DATABASE_URL" ] || die "DATABASE_URL belum tersedia."
+if [ -z "$ANI_BIND" ]; then ANI_BIND="127.0.0.1"; fi
+if [ -z "$PORT" ]; then PORT="8787"; fi
+API_PORT="$PORT"
+[[ "$API_PORT" =~ ^[0-9]{1,5}$ ]] || die "Port API tidak valid."
 case "$ANI_BIND" in 127.0.0.1|localhost|::1) ;; *) die "ANI_BIND harus loopback sampai HTTPS tunnel dikonfigurasi."; esac
 
 cd "$SERVER_DIR"
@@ -351,11 +355,15 @@ fi
 
 if [ -f "$PREFIX/etc/profile.d/start-services.sh" ]; then . "$PREFIX/etc/profile.d/start-services.sh"; fi
 sleep 2
-"$PREFIX/bin/sv-enable" ani-games-ready-api >/dev/null 2>&1 || true
-"$PREFIX/bin/sv" up ani-games-ready-api >/dev/null 2>&1 || true
+if "$PREFIX/bin/sv" status ani-games-ready-api 2>&1 | grep -q '^run:'; then
+  "$PREFIX/bin/sv" restart ani-games-ready-api >/dev/null 2>&1 || true
+else
+  "$PREFIX/bin/sv-enable" ani-games-ready-api >/dev/null 2>&1 || true
+  "$PREFIX/bin/sv" up ani-games-ready-api >/dev/null 2>&1 || true
+fi
 HEALTH=0
 for _ in $(seq 1 30); do
-  if curl --fail --silent http://127.0.0.1:8787/health >/dev/null 2>&1 && "$PREFIX/bin/sv" status ani-games-ready-api 2>&1 | grep -q '^run:'; then
+  if curl --fail --silent "http://127.0.0.1:$API_PORT/health" >/dev/null 2>&1 && "$PREFIX/bin/sv" status ani-games-ready-api 2>&1 | grep -q '^run:'; then
     HEALTH=1
     break
   fi
@@ -364,7 +372,7 @@ done
 [ "$HEALTH" = 1 ] || die "API belum sehat. Cek log: $PREFIX/var/log/sv/ani-games-ready-api/current"
 
 log "INSTALLASI BACKEND SELESAI."
-log "API lokal: http://127.0.0.1:8787/health"
+log "API lokal: http://127.0.0.1:$API_PORT/health"
 log "Setup Owner pertama: http://127.0.0.1:8787/setup"
 log "Service PostgreSQL: sv status postgres"
 log "Service API: sv status ani-games-ready-api"
