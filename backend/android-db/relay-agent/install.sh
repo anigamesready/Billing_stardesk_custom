@@ -68,8 +68,17 @@ if [ -f "$ENV_FILE" ]; then
   SECRET_COUNT="$(grep -c '^RELAY_SHARED_SECRET=' "$ENV_FILE" || true)"
   [ "$SECRET_COUNT" = "1" ] || die "agent.env ada tetapi harus berisi tepat satu RELAY_SHARED_SECRET. File lama dipertahankan."
   SECRET="$(sed -n 's/^RELAY_SHARED_SECRET=//p' "$ENV_FILE")"
+elif [ -n "${ANI_RELAY_SECRET_FILE:-}" ]; then
+  SECRET_FILE="$ANI_RELAY_SECRET_FILE"
+  [ -f "$SECRET_FILE" ] && [ -r "$SECRET_FILE" ] || die "ANI_RELAY_SECRET_FILE tidak ditemukan atau tidak dapat dibaca."
+  case "$SECRET_FILE" in
+    "$HOME"/*) ;;
+    *) die "File secret harus berada di dalam direktori HOME Termux." ;;
+  esac
+  SECRET="$(tr -d '\r\n' < "$SECRET_FILE")"
+  [ -n "$SECRET" ] || die "File secret kosong. Tidak ada konfigurasi yang dibuat."
 else
-  [ -r /dev/tty ] || die "Tidak ada agent.env dan sesi bukan terminal interaktif. Jalankan installer langsung dari Termux."
+  [ -r /dev/tty ] || die "Tidak ada agent.env/ANI_RELAY_SECRET_FILE dan sesi bukan terminal interaktif. Jalankan installer langsung dari Termux."
   printf '\nSecret lama yang SAMA dengan nilai pada Relay Worker dan Gateway Worker diperlukan.\n' >/dev/tty
   printf 'Masukkan nilai secret lama (input disembunyikan): ' >/dev/tty
   IFS= read -r -s SECRET </dev/tty || die "Gagal membaca secret dari terminal."
