@@ -9,7 +9,7 @@ Status: implementation guardrail for the Android Remote preview. This document d
 - Authenticates the rental account against the Ani Games Ready Android DB.
 - Reads PC inventory, rates, owner permissions, availability and account balance/expiry.
 - Requests an authorized session and signals start/stop/control events through the Android DB API.
-- Hands video interaction to the installed StarDesk native client. The custom app is not a video player, media relay, or remote-desktop transport implementation.
+- Once the authorization and host/session handoff are validated, hands video interaction to the installed StarDesk native client. In this preview, Connect remains locked; a successful StarDesk launch/stream handoff has not yet been proven. The custom app is not a video player, media relay, or remote-desktop transport implementation.
 
 ### StarDesk Engine
 - Owns the video/audio/input stream and the host-to-client media connection.
