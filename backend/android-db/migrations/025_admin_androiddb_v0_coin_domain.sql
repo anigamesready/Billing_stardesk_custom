@@ -857,22 +857,6 @@ BEGIN
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION api.androiddb_v0_admin_dashboard(
-  p_session_token text,p_limit integer DEFAULT 100
-) RETURNS jsonb
-LANGUAGE plpgsql SECURITY DEFINER
-SET search_path TO 'public','androiddb_v0','private','pg_catalog'
-AS $function$
-DECLARE a public.admin_accounts%ROWTYPE; r androiddb_v0.rental_accounts%ROWTYPE;
-  w androiddb_v0.coin_wallets%ROWTYPE; lim integer:=greatest(1,least(100,coalesce(p_limit,50)));
-  v_balance numeric(18,8); v_lots jsonb; v_ledger jsonb; v_orders jsonb;
-BEGIN
-  a:=private.androiddb_v0_require_admin(p_session_token);
-  SELECT * INTO r FROM androiddb_v0.rental_accounts WHERE id=p_rental_account_id AND org_id=a.org_id FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'ANDROIDDB_V0_RENTAL_NOT_FOUND'; END IF;
-END;
-$function$;
-
 CREATE OR REPLACE FUNCTION api.androiddb_v0_admin_approve_topup(
   p_session_token text,p_order_id uuid
 ) RETURNS jsonb
