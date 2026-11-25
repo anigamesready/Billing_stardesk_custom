@@ -1,5 +1,5 @@
 import WebSocket from "ws";
-import { AGENT_PROTOCOL, RELAY_WS_URL, MAX_RESPONSE_BYTES, makeAgentToken, validateEnvelope } from "./protocol.mjs";
+import { AGENT_PROTOCOL, RELAY_WS_URL, MAX_RESPONSE_BYTES, makeAgentToken, validateEnvelope, relayLookup } from "./protocol.mjs";
 
 const SECRET = process.env.RELAY_SHARED_SECRET || "";
 const API_BASE = new URL(process.env.ANI_LOCAL_API_URL || "http://127.0.0.1:8788");
@@ -105,7 +105,8 @@ function connect() {
   if (stopping) return;
   const token = makeAgentToken(SECRET);
   const socket = new WebSocket(WS_URL, [AGENT_PROTOCOL, "ani-token-" + token], {
-    handshakeTimeout: 15000, maxPayload: 10 * 1024 * 1024, perMessageDeflate: false
+    handshakeTimeout: 15000, maxPayload: 10 * 1024 * 1024, perMessageDeflate: false,
+    lookup: relayLookup, servername: WS_URL.hostname
   });
   activeSocket = socket;
   let heartbeat = null;
@@ -152,5 +153,5 @@ function shutdown(signal) {
 }
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
-log("starting", { localApi: API_BASE.origin, endpoint: WS_URL.origin });
+log("starting", { localApi: API_BASE.origin, endpoint: WS_URL.origin, relayDns: "cloudflare-ipv4-pinned", tlsVerification: "enabled" });
 connect();
