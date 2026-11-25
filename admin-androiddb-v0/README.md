@@ -1,28 +1,32 @@
-# Ani Games Admin Android DB v0 — Preview 0.1.0
+# Ani Games Admin Android DB v0 — Preview 0.2.0
 
-This is a separate Android application project in the repository. It does not patch or replace Admin V12.x.
+A standalone Android Owner/Admin app in this repository. It does not patch, replace, or share the package identity of Admin V12.x.
 
 ## Identity
 - Package: `com.anigames.billingadmin.androiddbv0`
 - Namespace: `com.anigamesready.adminandroiddbv0`
-- Version: `0.1.0-androiddb-v0`, code 1
+- Version: `0.2.0-full-db`, versionCode 2
 - Project root: `admin-androiddb-v0/`
-- Build workflow: `.github/workflows/build-admin-androiddb-v0.yml`
 
-## Scope
-- Owner login and Android DB organization/tenant check.
-- Create/enable/disable the new Coin rental account.
-- Issue one-time Remote activation code.
-- View top-up requests; approve/reject with the Owner account.
-- Inspect wallet balance, Coin lots and ledger.
-- Configure per-PC GPU rate and StarDesk device mapping.
-- Grant/revoke PC Host permission and issue Host Agent enrollment code.
-- Native HTTPS gateway bridge and encrypted refresh token using Android Keystore.
+## Android DB integration
+The app uses the existing Android DB HTTPS Gateway and the existing Owner/Admin login/session. All business data is read or changed through the explicit token-bound RPC functions already exposed by `backend/android-db/server/server.mjs`. The app does not connect to Supabase or execute SQL against table endpoints.
 
-## Isolation
-All member/wallet/order/lot/ledger/Remote Host data belongs to `androiddb_v0`. Admin authentication and organization membership remain on the existing core auth tables; PC inventory references the existing `public.devices` records. This app does not call legacy rental CRUD, timer, remaining-time, or account-expiry APIs.
+The UI contains:
+- Core Owner overview and organization selection.
+- Legacy rental timer account CRUD, kept in the existing core rental schema and its normal RPC rules.
+- PC inventory, device state, rename/disconnect, active sessions, command queue/status, free test and recovery/enrollment.
+- Reports: compact, monthly, detailed paged usage, rental period breakdown and Admin activity.
+- Billing policies, organization theme and Owner password change.
+- Billing Admin/Reseller user management and reseller creation.
+- Remote Host permissions/enrollment, Remote overview, WoL relay/probe/command status and Blynk momentary power pulse.
+- Independent Coin-rental v0 account, activation, wallet, top-up approval/rejection, lots/ledger, GPU rates, StarDesk mapping and Host Agent enrollment.
 
-The app is built with a unique package ID and separate Gradle project. Its source and build are maintained only in this repository.
+## Data separation
+One Android PostgreSQL database remains the single source of truth. The legacy timer rental domain continues using the existing core tables and APIs. The AniCoin-only domain remains isolated under schema `androiddb_v0` and must not debit or alter legacy rental seconds or expiry. PC inventory and Owner authentication remain shared core resources. No DB1/DB2 selector or second database is introduced.
 
-## Safety status
-Preview/SAFE-TEST only. Do not merge into the stable Admin app. Do not apply migration 025 to the current Termux database until its backup is validated and the installer receives explicit `APPLY`. Connect and Coin session billing are intentionally not part of this preview.
+The `androiddb_v0` module uses its dedicated RPCs. Legacy rental CRUD, PC controls, reports, settings, users, WoL and Remote administration use the existing token-bound core Admin RPCs. The Android app never reads tables directly.
+
+## Safety and release status
+This is a debug preview, not a production/release-signed APK. Do not merge into the stable Admin app. Live Redmi DB migration state is not inferred from CI: migration 025 must be independently verified against the live database. On an existing PostgreSQL cluster, migration 025 is gated by a validated database/roles backup and explicit `APPLY`. Do not restart or reinitialize a running PostgreSQL service to install this preview.
+
+Remote video transport and Coin session billing are not enabled by this Admin integration scope.
