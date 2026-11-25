@@ -102,7 +102,7 @@ if [ -f "$ENV_FILE" ]; then
   IFS='|' read -r DB_HOST DB_PORT DB_NAME <<< "$DB_INFO"
   if [ -z "$ANI_BIND" ]; then ANI_BIND="127.0.0.1"; fi
   case "$ANI_BIND" in 127.0.0.1|localhost|::1) ;; *) die "ANI_BIND harus loopback sebelum proses migrasi database."; esac
-  if [ -z "$PORT" ]; then PORT="8787"; fi
+  if [ -z "$PORT" ]; then PORT="8788"; fi
   case "$DB_HOST" in 127.0.0.1|localhost|::1) ;; *) die "DATABASE_URL bukan database lokal Termux. Host luar tidak disentuh."; esac
 else
   DB_HOST="127.0.0.1"
@@ -512,7 +512,7 @@ SQL
   cat > "$ENV_FILE" <<EOF
 DATABASE_URL=postgresql://$API_DB_USER:$API_DB_PASSWORD@127.0.0.1:$DB_PORT/$DB_NAME?sslmode=disable
 ANI_BIND=127.0.0.1
-PORT=8787
+PORT=8788
 ANI_API_PEPPER=$API_PEPPER
 ANI_ADMIN_BOOTSTRAP_TOKEN=$BOOTSTRAP_TOKEN
 ANI_ALLOWED_ORIGINS=
@@ -527,7 +527,7 @@ set -a
 set +a
 [ -n "$DATABASE_URL" ] || die "DATABASE_URL belum tersedia."
 if [ -z "$ANI_BIND" ]; then ANI_BIND="127.0.0.1"; fi
-if [ -z "$PORT" ]; then PORT="8787"; fi
+if [ -z "$PORT" ]; then PORT="8788"; fi
 API_PORT="$PORT"
 [[ "$API_PORT" =~ ^[0-9]{1,5}$ ]] || die "Port API tidak valid."
 case "$ANI_BIND" in 127.0.0.1|localhost|::1) ;; *) die "ANI_BIND harus loopback sampai HTTPS tunnel dikonfigurasi."; esac
@@ -607,7 +607,7 @@ done
 
 log "INSTALLASI BACKEND SELESAI."
 log "API lokal: http://127.0.0.1:$API_PORT/health"
-log "Setup Owner pertama: http://127.0.0.1:8787/setup"
+log "Setup Owner pertama: http://127.0.0.1:8788/setup"
 log "Service PostgreSQL: sv status postgres"
 log "Service API: sv status ani-games-ready-api"
 log "Log API: cat $PREFIX/var/log/sv/ani-games-ready-api/current"
