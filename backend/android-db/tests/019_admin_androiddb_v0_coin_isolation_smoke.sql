@@ -4,7 +4,7 @@ DO $$
 DECLARE
   login_result jsonb;
   owner_token text;
-  org_id uuid;
+  v_org uuid;
   device_id uuid;
   legacy_rental_id uuid;
   v0_rental_id uuid;
@@ -39,18 +39,18 @@ DECLARE
 BEGIN
   login_result:=api.admin_login('CI-OWNER','CI-Admin-New-Password-2026');
   owner_token:=login_result->>'token';
-  org_id:=(login_result->>'org_id')::uuid;
-  IF coalesce(owner_token,'')='' OR org_id IS NULL THEN
+  v_org:=(login_result->>'org_id')::uuid;
+  IF coalesce(owner_token,'')='' OR v_org IS NULL THEN
     RAISE EXCEPTION 'ANDROIDDB_V0_OWNER_LOGIN_FAILED';
   END IF;
 
   -- Legacy rental exists alongside v0. It must never be read or mutated by v0.
   INSERT INTO public.rental_accounts(org_id,code,category,remaining_seconds,status,client_label,expiry_at)
-  VALUES(org_id,'V0-LEGACY-KEEP','reguler',9876,'active','Legacy keep row',now()+interval '11 days')
+  VALUES(v_org,'V0-LEGACY-KEEP','reguler',9876,'active','Legacy keep row',now()+interval '11 days')
   RETURNING id,remaining_seconds,expiry_at INTO legacy_rental_id,old_seconds,old_expiry;
 
   INSERT INTO public.devices(org_id,client_id,device_name,status,last_seen_at)
-  VALUES(org_id,'V0-CI-RTX5060','V0 CI RTX 5060','online',now())
+  VALUES(v_org,'V0-CI-RTX5060','V0 CI RTX 5060','online',now())
   RETURNING id INTO device_id;
 
   IF EXISTS(
@@ -69,7 +69,7 @@ BEGIN
   IF EXISTS(SELECT 1 FROM public.rental_accounts WHERE upper(code)='V0-CI-MEMBER') THEN
     RAISE EXCEPTION 'ANDROIDDB_V0_RENTAL_LEAKED_TO_LEGACY_PUBLIC_RENTALS';
   END IF;
-  IF NOT EXISTS(SELECT 1 FROM androiddb_v0.rental_accounts WHERE id=v0_rental_id AND org_id=org_id) THEN
+  IF NOT EXISTS(SELECT 1 FROM androiddb_v0.rental_accounts WHERE id=v0_rental_id AND org_id=v_org) THEN
     RAISE EXCEPTION 'ANDROIDDB_V0_RENTAL_NOT_STORED_IN_V0_SCHEMA';
   END IF;
 
