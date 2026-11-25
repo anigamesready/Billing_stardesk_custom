@@ -89,6 +89,7 @@ if [ -f "$LOGFILE" ]; then
   tail -n 25 "$LOGFILE" | tee -a "$REPORT"
 fi
 
+CHECK_FAILED=0
 check_url() {
   local label="$1" url="$2" result code body
   result="$(curl -sS --connect-timeout 10 --max-time 20 -w $'\n__HTTP__%{http_code}' "$url" 2>&1 || true)"
@@ -96,6 +97,7 @@ check_url() {
   body="${result%$'\n__HTTP__'*}"
   [ "$code" != "$result" ] || code="000"
   say "$label HTTP: $code"
+  [ "$code" = "200" ] || CHECK_FAILED=1
   if command -v python >/dev/null 2>&1; then
     printf '%s' "$body" | python -c 'import json,sys; d=json.load(sys.stdin); keys=("gateway","relay","agent_connected","api","database","upstream_active","reason","app","apiVersion","remote_access_enabled"); print(" ".join(f"{k}={d[k]}" for k in keys if k in d))' 2>/dev/null | tee -a "$REPORT" || say "Body bukan JSON yang dikenali."
   fi
@@ -106,6 +108,12 @@ check_url "Gateway Relay health" "$BASE_URL/_ani_gateway/health"
 say "Tes API Gateway health..."
 check_url "API Gateway health" "$BASE_URL/health"
 
-say "STATUS: PEMERIKSAAN SELESAI"
+if [ "$CHECK_FAILED" -eq 0 ]; then
+  say "STATUS: BERHASIL"
+  say "Gateway, Relay Agent, API, dan database merespons HTTP 200."
+else
+  say "STATUS: GAGAL"
+  say "PENYEBAB: Minimal satu endpoint belum HTTP 200. Lihat kode HTTP di laporan; service Agent tidak dihapus otomatis."
+fi
 say "Laporan tersimpan: Internal Storage/Download/ANI-Relay-Agent-Setup-Report.txt"
 say "PostgreSQL, API lama, DB, dan Worker secrets tidak diubah."
