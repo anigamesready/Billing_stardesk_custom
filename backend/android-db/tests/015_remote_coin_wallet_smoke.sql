@@ -153,6 +153,16 @@ BEGIN
     RAISE EXCEPTION 'COIN_EXPIRED_LOT_LEDGER_EVENT_MISSING';
   END IF;
 
+  -- Server-side authorization must reject an expired rental even when
+  -- the wallet has a positive balance and the PC is otherwise configured.
+  dashboard:=api.remote_coin_dashboard(client_token);
+  IF dashboard->>'can_start'<>'false' THEN
+    RAISE EXCEPTION 'EXPIRED_RENTAL_MUST_NOT_START_COIN_SESSION';
+  END IF;
+
+  UPDATE public.rental_accounts
+  SET status='active',expiry_at=now()+interval '3 days'
+  WHERE id=rental_id;
   dashboard:=api.remote_coin_dashboard(client_token);
   IF dashboard->>'can_start'<>'true'
      OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(dashboard->'hosts') h
@@ -164,7 +174,15 @@ BEGIN
          AND (h->>'hourly_coins')::numeric=6000
          AND h->>'stardesk_linked'='true'
          AND h->>'stardesk_device_id'='SD-CI-DEVICE-5060') THEN
-    RAISE EXCEPTION 'COIN_DASHBOARD_OR_STAR_DESK_MAPPING_INVALID';
+    RAISE EXCEPTION 'ACTIVE_RENTAL_COIN_DASHBOARD_OR_STAR_DESK_MAPPING_INVALID';
+  END IF;
+
+  UPDATE public.rental_accounts
+  SET status='expired',expiry_at=now()-interval '3 days'
+  WHERE id=rental_id;
+  dashboard:=api.remote_coin_dashboard(client_token);
+  IF dashboard->>'can_start'<>'false' THEN
+    RAISE EXCEPTION 'EXPIRED_TIMESTAMP_MUST_NOT_START_COIN_SESSION';
   END IF;
 
   IF (SELECT remaining_seconds FROM public.rental_accounts WHERE id=rental_id)<>initial_remaining
