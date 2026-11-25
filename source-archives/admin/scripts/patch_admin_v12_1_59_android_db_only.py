@@ -32,7 +32,6 @@ STAGE_RELAY = "ani-games-db-android-stage-ws-relay.anigamesready.workers.dev"
 api_config = r"""
 const LOCAL_API_KEY='ani_games_ready_db_android_api_url_v1';
 const ONLINE_GATEWAY_URL='https://ani-games-db-android-stage-gateway.anigamesready.workers.dev';
-const LEGACY_RELAY_HOST='ani-games-db-android-stage-ws-relay.anigamesready.workers.dev';
 function localApiBase(){
   try{localStorage.setItem(LOCAL_API_KEY,ONLINE_GATEWAY_URL)}catch(_){}
   return ONLINE_GATEWAY_URL;
