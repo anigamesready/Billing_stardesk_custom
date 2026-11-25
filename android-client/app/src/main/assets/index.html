@@ -124,6 +124,13 @@ function currentAmount(){const v=$("manualAmount").value.trim();return v?Math.ma
 function updateCalc(){const n=currentAmount(),c=coinFor(n),t=state.balance+c;$("coinResult").textContent=dec(c)+" koin";$("expiryResult").textContent=expiryDays(t)+" hari";$("totalResult").textContent=dec(t)+" koin";$("payAmount").textContent=rupiah(n);$("confirmWa").disabled=n<1000||n>10000000||n%1000!==0;document.querySelectorAll(".package").forEach(b=>b.classList.toggle("selected",!$("manualAmount").value&&Number(b.dataset.amount)===selectedAmount))}
 function tab(name){["home","topup","rates","history"].forEach(x=>$("tab-"+x).classList.toggle("hidden",x!==name));document.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===name))}
 function formatDate(v){if(!v)return"-";const d=new Date(v);return Number.isNaN(d.getTime())?String(v):d.toLocaleString("id-ID",{dateStyle:"medium",timeStyle:"short"})}
+function accountExpiryValid(account){
+ const status=String(account?.status||"").toLowerCase();
+ if(["disabled","deleted","inactive","expired"].includes(status))return false;
+ if(!account?.expiry_at)return true;
+ const expiryMs=Date.parse(account.expiry_at);
+ return Number.isFinite(expiryMs)&&expiryMs>Date.now();
+}
 function renderProfile(){
  const status=String(state.account?.status||"unknown").toUpperCase();
  $("rentalStatus").textContent=status;
@@ -134,6 +141,9 @@ function renderProfile(){
  const reasons=[];
  if(!state.account)reasons.push("Data akun belum tersedia.");
  if(["DISABLED","DELETED","INACTIVE"].includes(status))reasons.push("Akun dinonaktifkan oleh Admin.");
+ if(status==="EXPIRED")reasons.push("Akun rental sudah berakhir.");
+ const expiryMs=state.account?.expiry_at?Date.parse(state.account.expiry_at):null;
+ if(expiryMs!==null&&(!Number.isFinite(expiryMs)||expiryMs<=Date.now()))reasons.push("Masa aktif akun rental sudah berakhir.");
  if(state.balance<=0)reasons.push("Saldo koin belum tersedia. Buat order top-up dan tunggu persetujuan Owner.");
  if(!state.account?.status)reasons.push("Status akun belum terbaca.");
  if(reasons.length){$("walletLock").classList.remove("hidden");$("walletLockText").textContent=reasons.join(" ")}
@@ -170,7 +180,7 @@ async function refreshData(){
   nativeRpc("remote_coin_wallet",{},state.accessToken),
   nativeRpc("remote_coin_history",{p_limit:50},state.accessToken)
  ]);
- state.account=dashboard.rental_account||null;state.canStart=!!dashboard.can_start;state.hosts=Array.isArray(dashboard.hosts)?dashboard.hosts:[];
+ state.account=dashboard.rental_account||null;state.canStart=!!dashboard.can_start&&accountExpiryValid(state.account);state.hosts=Array.isArray(dashboard.hosts)?dashboard.hosts:[];
  state.balance=Number(wallet.balance??dashboard.wallet?.balance??0);state.lots=Array.isArray(wallet.lots)?wallet.lots:[];
  state.ledger=Array.isArray(history.ledger)?history.ledger:[];state.orders=Array.isArray(history.orders)?history.orders:[];
  $("balance").textContent=dec(state.balance);renderProfile();renderPCs();renderRates();renderHistory();updateCalc();
