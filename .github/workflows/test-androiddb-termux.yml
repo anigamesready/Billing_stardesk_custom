@@ -61,6 +61,9 @@ jobs:
           assert 'path === "/device/wol/poll"' in server and 'path === "/iot/power"' in server, "Android DB WoL/Blynk routes missing"
           assert 'redirect: "error"' in server, "Blynk request redirects must be disabled"
           assert 'relay:"android-db"' in server, "service reports stale relay architecture"
+          assert "CORE_ADDON_READY" in script and "RP_SCHEMA" in script, "existing core DB upgrade detection missing"
+          assert 'apply_file "013_remote_play.sql"' in script and 'apply_file "019_remote_play_session_connected.sql"' in script, "staged Remote Play upgrade chain missing"
+          assert "Schema Remote Play terdeteksi tetapi kontrak 013-019 tidak lengkap" in script, "partial Remote Play schema must stop"
           PY
 
       - name: Validate Node API syntax and dependency install
