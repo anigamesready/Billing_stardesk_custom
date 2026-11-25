@@ -207,7 +207,7 @@ for name in ("admin.html","index.html","admin-control.html"):
         if n != 1:
             raise SystemExit("LOCAL_API_BASE_REPAIR_FAILED:" + name)
     # Keep the endpoint input useful and give localhost the main Android DB port.
-    page = page.replace("value=\"https://ani-games-db-android-stage-gateway.anigamesready.workers.dev\"", "value=\"http://127.0.0.1:8787\"")
+    page = page.replace("value=\"https://ani-games-db-android-stage-gateway.anigamesready.workers.dev\"", "value=\""+ONLINE_API+"\"")
     page = page.replace("https://ani-games-db-android-stage-gateway.anigamesready.workers.dev", ONLINE_API)
     if name == "admin.html":
         # Replace the complete legacy DB1/DB2/Supabase routing config with one local API config.
@@ -306,7 +306,7 @@ cloud_api_ui = '''<div class="form-grid">
                         </div>
                         <div class="form-group" style="grid-column: 1 / -1;">
                             <label>Kode Pairing / Enrollment PC</label>'''
-if "id=\"v11-api-base\"" not in billing_html:
+if "Gateway Android DB online dikonfigurasi otomatis." not in billing_html:
     if cloud_ui_anchor not in billing_html:
         raise SystemExit("ANDROID_DB_BILLING_API_UI_ANCHOR_MISSING")
     billing_html = billing_html.replace(cloud_ui_anchor, cloud_api_ui, 1)
