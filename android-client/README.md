@@ -1,27 +1,26 @@
-# Ani Games Ready Remote — Android DB Preview v0.2.0
+# Ani Games Ready Remote — Android DB Auto Endpoint Preview v0.5.0
 
-This isolated branch previews the Remote Play client interface and basic local controls. It is NOT a production-connected client.
+This Android Remote preview uses the Android DB API through the project's fixed Cloudflare HTTPS gateway. The endpoint is built into the native app; the renter does not need to enter or see a server URL.
 
 ## Included
-- User ID entry; a sample expired rental can still enter the dashboard.
-- Coin wallet example, top-up presets Rp5k/Rp10k/Rp15k/Rp20k and manual rupiah amount.
-- Conversion at Rp8,000 = 60 coins, and new-lot expiry preview using the agreed total-balance tiers.
-- Ani Games Ready static QRIS, zoom, copy nominal and WhatsApp handoff to 082298316902.
-- WhatsApp message explicitly says PREVIEW / DO NOT PROCESS; no order is created and no wallet is credited.
-- Approved rates and sample PCs for GTX 1050, GTX 1660, RTX 3060, RTX 5060.
-- Navigation, refresh sample list, and logout.
+- Automatic HTTPS gateway selection and native health probe. Login is enabled only when the gateway, relay agent, local API and Android DB all report healthy.
+- Rental User ID activation and refresh-token login.
+- Access and refresh tokens encrypted with Android Keystore AES-GCM.
+- Live Android DB wallet balance, coin lots, transaction history and per-PC GPU rates.
+- QRIS top-up order creation with idempotency and WhatsApp Owner confirmation.
+- Coin amount labels and calculations use the approved x100 display unit: Rp8,000 = 6,000 coins.
+- Account status and expiry display.
+- PC availability and GPU rate states from Android DB.
 
-## Not active in this preview
-- All displayed account balance, expiry state, PC state and history are demonstration data.
-- No Supabase endpoint, API key or second database is included.
-- No Android DB login, top-up order, payment approval, coin mutation or live PC list.
-- PC selection only displays a notice; it does not start StarDesk.
-- QRIS is static; payer must enter amount manually.
+## Deliberately not enabled yet
+- PC Connect and StarDesk launch remain locked. The repository currently has no verified StarDesk host-agent stream callback source and no proven mobile stream-connected/disconnected callback contract. A start-command acknowledgement alone is not proof that the user is actually streaming.
+- Coin session start/stop settlement is not connected to a proven streaming event. Do not reuse legacy Remote Play settlement because it deducts rental seconds.
+- This is a Preview build; it has not passed a real phone-to-PC streaming and coin-settlement acceptance test.
+- The fixed public endpoint still requires a live relay agent connection to the Android DB host. A public URL cannot make a disconnected host online.
 
 ## Build
-Branch: `stardesk-androiddb-preview-v2`
+Branch: `feature/remote-auto-url-coin-ui-20261125`
 Application ID: `com.anigamesready.stardeskclient`
-Version: `0.2.0-preview`, versionCode 2
-Artifact name: `Ani-Games-Ready-Remote-AndroidDB-Preview-v0.2.0`
+Version: `0.5.0-androiddb-auto-endpoint-preview`, versionCode 5
 
-See `docs/ANDROID-DB-INTEGRATION-AUDIT.md` and `docs/ANDROID-DB-COIN-MODULE-DRAFT.md` before live integration.
+CI builds a debug APK and checks package metadata, signature, native HTTPS health probe, JavaScript syntax, UI contracts and x100 coin labels. This is a SAFE-TEST/Preview artifact, not a production release.
