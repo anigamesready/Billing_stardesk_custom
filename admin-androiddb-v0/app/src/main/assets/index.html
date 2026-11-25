@@ -151,7 +151,7 @@ async function login(){
   try{
     const username=val(el("username").value).trim(),password=val(el("password").value);
     if(!username||!password)throw new Error("Username dan password wajib diisi.");
-    const result=await callApi("admin_login",{p_username:username,p_password:password},"");
+    const result=await callApi("__admin_login",{email:username,password:password},"");
     if(!result||!result.access_token||!result.refresh_token)throw new Error("ADMIN_LOGIN_RESPONSE_INVALID");
     accessToken=result.access_token;refreshToken=result.refresh_token;saveRefreshToken();
     await finishLogin(result.user);
