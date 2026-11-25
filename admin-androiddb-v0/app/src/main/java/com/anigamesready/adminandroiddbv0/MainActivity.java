@@ -168,7 +168,9 @@ public final class MainActivity extends Activity {
             try {
                 if (route == null || route.length() > 100) throw new IllegalArgumentException("API_ROUTE_INVALID");
                 final String path;
-                if ("__admin_refresh".equals(route)) {
+                if ("__admin_login".equals(route)) {
+                    path = "/auth/v1/token?grant_type=password";
+                } else if ("__admin_refresh".equals(route)) {
                     path = "/auth/v1/token?grant_type=refresh_token";
                 } else if ("__admin_logout".equals(route)) {
                     path = "/auth/v1/logout";
