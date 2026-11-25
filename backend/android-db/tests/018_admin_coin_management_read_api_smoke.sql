@@ -96,8 +96,13 @@ BEGIN
        'ani_api_runtime','api.admin_remote_coin_overview(text,integer)','EXECUTE')
      OR NOT has_function_privilege(
        'ani_api_runtime','api.admin_remote_coin_wallet(text,uuid,integer)','EXECUTE')
-     OR has_function_privilege(
-       'PUBLIC','api.admin_remote_coin_wallet(text,uuid,integer)','EXECUTE') THEN
+     OR EXISTS (
+       SELECT 1
+       FROM pg_proc p,
+         LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) acl
+       WHERE p.oid='api.admin_remote_coin_wallet(text,uuid,integer)'::regprocedure
+         AND acl.grantee=0 AND acl.privilege_type='EXECUTE'
+     ) THEN
     RAISE EXCEPTION 'COIN_ADMIN_READ_RPC_PRIVILEGES_INVALID';
   END IF;
 
