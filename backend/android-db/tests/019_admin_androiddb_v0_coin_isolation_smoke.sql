@@ -104,6 +104,13 @@ BEGIN
      OR topup_result->>'status'<>'pending' THEN
     RAISE EXCEPTION 'ANDROIDDB_V0_TOPUP_OR_IDEMPOTENCY_FAILED';
   END IF;
+  BEGIN
+    PERFORM api.androiddb_v0_remote_coin_create_topup(access_token,5000,'androiddb-v0-topup-idem-0001');
+    RAISE EXCEPTION 'ANDROIDDB_V0_IDEMPOTENCY_AMOUNT_CONFLICT_ACCEPTED';
+  EXCEPTION WHEN SQLSTATE 'P0001' THEN
+    GET STACKED DIAGNOSTICS error_text=MESSAGE_TEXT;
+    IF error_text<>'ANDROIDDB_V0_IDEMPOTENCY_CONFLICT' THEN RAISE; END IF;
+  END;
   approve_result:=api.androiddb_v0_admin_approve_topup(owner_token,order_id);
   approve_duplicate:=api.androiddb_v0_admin_approve_topup(owner_token,order_id);
   IF approve_result->>'status'<>'approved'
