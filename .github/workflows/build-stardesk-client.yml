@@ -4,8 +4,10 @@ on:
     branches:
       - feature/androiddb-online-remote-admin-20261125
       - feature/admin-androiddb-v0-isolated-20261125
+      - feature/admin-androiddb-v0-full-db-20261126
     paths:
       - "android-client/**"
+      - "tests/android-gateway-dns-pin.test.mjs"
       - ".github/workflows/build-stardesk-client.yml"
   workflow_dispatch:
 permissions:
@@ -57,15 +59,20 @@ jobs:
           assert len(scripts)==1, "expected one inline JS block"
           Path("/tmp/remote-androiddb.js").write_text(scripts[0])
           java=Path("android-client/app/src/main/java/com/anigamesready/stardeskclient/MainActivity.java").read_text()
-          for token in ["AndroidKeyStore","AES/GCM/NoPadding","apiRequest","HttpsURLConnection","getSecureValue","saveSecureValue"]:
+          for token in ["AndroidKeyStore","AES/GCM/NoPadding","apiRequest","HttpsURLConnection","getSecureValue","saveSecureValue","Proxy.NO_PROXY","GatewayPinnedSocketFactory","setSSLSocketFactory","setHostnameVerifier","getDefaultHostnameVerifier"]:
               assert token in java, "missing native security/API bridge: "+token
+          tls=Path("android-client/app/src/main/java/com/anigamesready/stardeskclient/GatewayPinnedSocketFactory.java").read_text()
+          for token in ["104.18.13.15", "104.18.12.15", "SNIHostName", "delegate.createSocket(raw, GATEWAY_HOST, port, autoClose)", "isPinnedIpv4Address(raw.getInetAddress())"]:
+              assert token in tls, "missing pinned Cloudflare TLS control: "+token
+          assert "InetAddress.getByName" not in tls and "X509TrustManager" not in tls, "DNS/trust bypass detected in pinned gateway socket factory"
           gradle=Path("android-client/app/build.gradle").read_text()
-          assert 'versionCode 6' in gradle and 'versionName "0.6.0-androiddb-v0-coin"' in gradle
+          assert 'versionCode 7' in gradle and 'versionName "0.6.1-androiddb-v0-coin-gateway-pin"' in gradle
           manifest=Path("android-client/app/src/main/AndroidManifest.xml").read_text()
           assert 'android:usesCleartextTraffic="false"' in manifest
           assert '<uses-permission android:name="android.permission.INTERNET"' in manifest
           PY
           node --check /tmp/remote-androiddb.js
+          node --test tests/android-gateway-dns-pin.test.mjs
           test -s android-client/app/src/main/assets/qris_ani_games.png
       - name: Build debug APK
         working-directory: android-client
@@ -78,14 +85,14 @@ jobs:
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
           "$AAPT" dump badging "$APK" | tee /tmp/remote-badging.txt
-          grep -q "package: name='com.anigamesready.stardeskclient' versionCode='6' versionName='0.6.0-androiddb-v0-coin'" /tmp/remote-badging.txt
+          grep -q "package: name='com.anigamesready.stardeskclient' versionCode='7' versionName='0.6.1-androiddb-v0-coin-gateway-pin'" /tmp/remote-badging.txt
           "$APKSIGNER" verify --verbose "$APK"
           "$APKSIGNER" verify --print-certs "$APK"
           sha256sum "$APK" | tee SHA256SUMS-REMOTE-ANDROIDDB.txt
           unzip -t "$APK"
       - uses: actions/upload-artifact@v4
         with:
-          name: Ani-Games-Ready-Remote-AndroidDB-v0-Coin-v0.6.0
+          name: Ani-Games-Ready-Remote-AndroidDB-v0-Coin-v0.6.1-Gateway-Pin
           path: |
             android-client/app/build/outputs/apk/debug/app-debug.apk
             SHA256SUMS-REMOTE-ANDROIDDB.txt
