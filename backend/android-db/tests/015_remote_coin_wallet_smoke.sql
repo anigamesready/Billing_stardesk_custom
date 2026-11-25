@@ -117,7 +117,7 @@ BEGIN
     RAISE EXCEPTION 'COIN_TOPUP_REJECTION_IDEMPOTENCY_FAILED';
   END IF;
   wallet_result:=api.remote_coin_wallet(client_token);
-  IF (wallet_result->>'balance')::numeric<>375 THEN
+  IF (wallet_result->>'balance')::numeric<>37500 THEN
     RAISE EXCEPTION 'COIN_REJECTED_ORDER_CHANGED_WALLET';
   END IF;
 
