@@ -1,0 +1,45 @@
+name: Test Android DB online gateway Blynk routes
+
+on:
+  push:
+    branches:
+      - feature/androiddb-online-remote-admin-20261125
+    paths:
+      - "edge/cloudflare/**"
+      - "tests/edge-cloudflare-online-gateway.test.mjs"
+      - ".github/workflows/test-online-db-gateway.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-iot-route-allowlist:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Syntax check active Worker source archives
+        run: |
+          set -euo pipefail
+          node --check edge/cloudflare/ani-games-db-android-stage-gateway.mjs
+          node --check edge/cloudflare/ani-games-db-android-stage-ws-relay.mjs
+      - name: Test exact Blynk gateway and relay allowlist
+        run: node --test tests/edge-cloudflare-online-gateway.test.mjs
+      - name: Verify route scope and local-only bootstrap restrictions
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          gateway=Path("edge/cloudflare/ani-games-db-android-stage-gateway.mjs").read_text()
+          relay=Path("edge/cloudflare/ani-games-db-android-stage-ws-relay.mjs").read_text()
+          for path in ('"/iot/status"','"/iot/power"'):
+              assert path in gateway and path in relay, "Blynk route missing: "+path
+          assert 'path.startsWith("/iot/")' not in gateway
+          assert 'path.startsWith("/iot/")' not in relay
+          assert 'path === "/setup"' in gateway and 'path === "/setup"' in relay
+          assert '"/api/admin/bootstrap"' in gateway and '"/api/admin/bootstrap"' in relay
+          assert '/_ani_gateway/health' in gateway and '/_relay/health' in relay
+          PY
