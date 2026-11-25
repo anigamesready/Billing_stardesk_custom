@@ -141,7 +141,7 @@ if [ "$NEW_CLUSTER" != "1" ] && [ "$ENV_PRESENT" != "1" ]; then
   DISCOVERED_DB=""
   while IFS= read -r candidate; do
     [[ "$candidate" =~ ^[A-Za-z0-9_]{1,50}$ ]] || continue
-    has_core="$(psql_admin -d "$candidate" -Atqc "SELECT (to_regclass('public.rental_accounts') IS NOT NULL AND to_regclass('public.devices') IS NOT NULL AND to_regclass('remote_play.sessions') IS NOT NULL)::int" 2>/dev/null || printf '0')"
+    has_core="$(psql_admin -d "$candidate" -Atqc "SELECT (to_regclass('public.rental_accounts') IS NOT NULL AND to_regclass('public.devices') IS NOT NULL AND to_regclass('public.rental_sessions') IS NOT NULL AND to_regprocedure('private.admin_account_by_token(text)') IS NOT NULL)::int" 2>/dev/null || printf '0')"
     if [ "$has_core" = "1" ]; then
       MATCH_COUNT=$((MATCH_COUNT+1))
       DISCOVERED_DB="$candidate"
@@ -261,6 +261,35 @@ else
       ]) AS u(name) WHERE u.name IS NOT NULL)
   ")"
   IFS='|' read -r CORE_RENTALS CORE_DEVICES RP_SESSIONS RP_LOGIN RP_ADMIN RP_CLIENT RP_ADMIN_HELPER TABLE_COUNT COIN_TABLES WOL_TABLES COIN_API_COUNT WOL_API_COUNT <<< "$DB_STATE"
+  RP_SCHEMA="$(psql_admin -d "$DB_NAME" -Atqc "SELECT (to_regnamespace('remote_play') IS NOT NULL)::int")"
+  CORE_ADDON_READY="$(psql_admin -d "$DB_NAME" -Atqc "
+    SELECT (
+      to_regclass('public.rental_accounts') IS NOT NULL
+      AND to_regclass('public.devices') IS NOT NULL
+      AND to_regclass('public.rental_sessions') IS NOT NULL
+      AND to_regclass('public.usage_events') IS NOT NULL
+      AND to_regclass('public.audit_logs') IS NOT NULL
+      AND to_regclass('public.admin_accounts') IS NOT NULL
+      AND to_regclass('public.org_members') IS NOT NULL
+      AND to_regclass('public.device_tokens') IS NOT NULL
+      AND to_regprocedure('private.admin_account_by_token(text)') IS NOT NULL
+      AND to_regprocedure('api.admin_context_v2(text)') IS NOT NULL
+      AND EXISTS(SELECT 1 FROM pg_roles WHERE rolname='ani_api_runtime' AND NOT rolcanlogin)
+    )::int
+  ")"
+  RP_COMPLETE="$(psql_admin -d "$DB_NAME" -Atqc "
+    SELECT (
+      to_regclass('remote_play.sessions') IS NOT NULL
+      AND to_regprocedure('api.remote_play_login(text,text,text)') IS NOT NULL
+      AND to_regprocedure('api.remote_play_pairing_prepare(text,uuid,text,text,inet)') IS NOT NULL
+      AND to_regprocedure('api.remote_play_host_pairing_poll(text,uuid)') IS NOT NULL
+      AND to_regprocedure('api.admin_remote_play_dashboard(text,integer)') IS NOT NULL
+      AND to_regprocedure('api.remote_play_watchdog_sweep()') IS NOT NULL
+      AND to_regprocedure('api.remote_play_session_connected(text,uuid)') IS NOT NULL
+      AND to_regprocedure('private.remote_play_get_client(text)') IS NOT NULL
+      AND to_regprocedure('private.remote_play_require_admin(text)') IS NOT NULL
+    )::int
+  ")"
   COIN_SCALE=0
   if [ "$COIN_TABLES" = 6 ]; then
     if [ "$(psql_admin -d "$DB_NAME" -Atqc "SELECT to_regclass('remote_play.coin_unit_config') IS NOT NULL")" = "t" ]; then
@@ -296,10 +325,16 @@ else
       apply_file "$file"
     done
   else
-    [ "$CORE_RENTALS" = 1 ] && [ "$CORE_DEVICES" = 1 ] || die "Database berisi tabel tetapi core rental/device tidak lengkap. Tidak ada migrasi diterapkan."
-    [ "$RP_SESSIONS" = 1 ] && [ "$RP_LOGIN" = 1 ] && [ "$RP_ADMIN" = 1 ] && [ "$RP_CLIENT" = 1 ] && [ "$RP_ADMIN_HELPER" = 1 ] || die "Core DB ditemukan, tetapi Remote Play 013-019 belum lengkap. Tidak akan menerka urutan migrasi."
+    [ "$CORE_RENTALS" = 1 ] && [ "$CORE_DEVICES" = 1 ] && [ "$CORE_ADDON_READY" = 1 ] || die "Database existing belum memenuhi signature core Android DB 000-012. Tidak ada migrasi diterapkan."
     [ "$COIN_TABLES" = 0 ] || [ "$COIN_TABLES" = 6 ] || die "Tabel coin terpasang sebagian ($COIN_TABLES/6); hentikan untuk audit."
     [ "$WOL_TABLES" = 0 ] || [ "$WOL_TABLES" = 4 ] || die "Tabel WoL terpasang sebagian ($WOL_TABLES/4); hentikan untuk audit."
+    NEEDS_REMOTE_PLAY=0
+    if [ "$RP_SCHEMA" = 1 ]; then
+      [ "$RP_COMPLETE" = 1 ] || die "Schema Remote Play terdeteksi tetapi kontrak 013-019 tidak lengkap. Tidak ada migrasi otomatis."
+    else
+      [ "$RP_SESSIONS" = 0 ] && [ "$RP_LOGIN" = 0 ] && [ "$COIN_TABLES" = 0 ] && [ "$WOL_TABLES" = 0 ] || die "Remote Play/addon terpasang sebagian tanpa schema remote_play. Butuh audit manual."
+      NEEDS_REMOTE_PLAY=1
+    fi
     if [ "$COIN_TABLES" = 6 ] && [ "$COIN_API_COUNT" != 9 ]; then
       die "Coin table sudah ada tetapi kontrak API tidak lengkap ($COIN_API_COUNT/9). Tidak ada migrasi otomatis."
     fi
@@ -307,21 +342,31 @@ else
       die "WoL table sudah ada tetapi kontrak API tidak lengkap ($WOL_API_COUNT/11). Tidak ada migrasi otomatis."
     fi
     NEEDS_UPDATE=0
+    [ "$NEEDS_REMOTE_PLAY" = 0 ] || NEEDS_UPDATE=1
     [ "$COIN_TABLES" = 6 ] || NEEDS_UPDATE=1
     [ "$WOL_TABLES" = 4 ] || NEEDS_UPDATE=1
     [ "$COIN_SCALE" = 100 ] || NEEDS_UPDATE=1
     if [ "$NEEDS_UPDATE" = 1 ]; then
-      log "Core DB ditemukan. Backup dibuat sebelum addon coin/WoL; tabel rental/device inti tidak diubah."
+      log "Core Android DB dikenali. Backup tervalidasi dan persetujuan APPLY wajib sebelum addon Remote Play/Coin/WoL."
       backup_existing
-      printf '\nDB: %s | coin tables: %s/6 | WoL tables: %s/4 | coin scale: %s\n' "$DB_NAME" "$COIN_TABLES" "$WOL_TABLES" "$COIN_SCALE"
+      printf '\nDB: %s | Remote Play perlu: %s | coin tables: %s/6 | WoL tables: %s/4 | coin scale: %s\n' "$DB_NAME" "$NEEDS_REMOTE_PLAY" "$COIN_TABLES" "$WOL_TABLES" "$COIN_SCALE"
       printf 'Ketik APPLY untuk menyetujui migrasi addon setelah backup tervalidasi: '
       read -r CONFIRM < /dev/tty
       [ "$CONFIRM" = "APPLY" ] || die "Dibatalkan. Database tetap pada keadaan semula."
+      if [ "$NEEDS_REMOTE_PLAY" = 1 ]; then
+        apply_file "013_remote_play.sql"
+        apply_file "014_remote_play_pairing.sql"
+        apply_file "015_remote_play_admin_controls.sql"
+        apply_file "016_remote_play_cloudflare_mesh.sql"
+        apply_file "017_remote_play_dashboard_cooldown.sql"
+        apply_file "018_remote_play_server_watchdog.sql"
+        apply_file "019_remote_play_session_connected.sql"
+      fi
       [ "$COIN_TABLES" = 6 ] || apply_file "020_remote_coin_wallet.sql"
       [ "$WOL_TABLES" = 4 ] || apply_file "021_android_wol_relay.sql"
       apply_file "022_coin_unit_scale_100.sql"
     else
-      log "Schema addon lengkap dan coin scale=100; tidak ada migrasi yang perlu dijalankan."
+      log "Remote Play, coin, WoL dan coin scale=100 sudah lengkap; tidak ada migrasi yang perlu dijalankan."
     fi
   fi
 fi
