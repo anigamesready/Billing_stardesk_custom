@@ -348,7 +348,7 @@ function renderRentals(data){
   const rows=Array.isArray(data.rental_accounts)?data.rental_accounts:[];
   el("rentalList").innerHTML=rows.map(function(r){
     const id=esc(r.id),enabled=r.status==="active";
-    return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(r.code)+'</div><div class="item-meta">'+esc(r.client_label||"Tanpa nama")+' • Dibuat '+date(r.created_at)+'</div></div><span class="pill '+(enabled?"good":"bad")+'">'+esc(val(r.status).toUpperCase())+'</span></div><div class="item-meta">Saldo: <b>'+coin(r.coin_balance)+'</b> • Remote login: '+(r.client_logged_in?"Aktif":"Belum login")+' • Aktivasi: '+(r.activation_issued?"Pernah diterbitkan":"Belum diterbitkan")+'</div><div class="item-actions"><button class="small primary" onclick="issueActivation(\''+id+'\',\''+esc(r.code)+'\')">Kode Remote</button><button class="small '+(enabled?"danger":"")+'" onclick="toggleRental(\''+id+'\','+(!enabled)+')">'+(enabled?"Nonaktifkan":"Aktifkan")+'</button><button class="small" onclick="selectWallet(\''+id+'\')">Wallet</button></div></div>';
+    return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(r.code)+'</div><div class="item-meta">'+esc(r.client_label||"Tanpa nama")+' • Dibuat '+date(r.created_at)+'</div></div><span class="pill '+(enabled?"good":"bad")+'">'+esc(val(r.status).toUpperCase())+'</span></div><div class="item-meta">Saldo: <b>'+coin(r.coin_balance)+'</b> • Remote login: '+(r.client_logged_in?"Aktif":"Belum login")+' • Aktivasi: '+(r.activation_issued?"Pernah diterbitkan":"Belum diterbitkan")+'</div><div class="item-actions"><button class="small primary" data-id="'+id+'" onclick="issueActivation(this.dataset.id)">Kode Remote</button><button class="small '+(enabled?"danger":"")+'" onclick="toggleRental(\''+id+'\','+(!enabled)+')">'+(enabled?"Nonaktifkan":"Aktifkan")+'</button><button class="small" onclick="selectWallet(\''+id+'\')">Wallet</button></div></div>';
   }).join("")||'<div class="empty">Belum ada rental Coin v0.</div>';
 }
 function renderHosts(data){
@@ -385,7 +385,9 @@ async function toggleRental(id,enabled){
   try{const r=await api("androiddb_v0_admin_set_rental_status",{p_rental_account_id:id,p_enabled:enabled});if(r.ok!==true)throw new Error("Perubahan status tidak dikonfirmasi.");await loadDashboard();globalMessage("Status rental diperbarui.");}
   catch(error){globalMessage("Gagal mengubah rental: "+val(error.message||error),true);}
 }
-async function issueActivation(id,code){
+async function issueActivation(id){
+  const member=(dashboardData&&Array.isArray(dashboardData.rental_accounts)?dashboardData.rental_accounts:[]).find(x=>x.id===id)||{};
+  const code=val(member.code)||id;
   if(!confirm("Terbitkan kode aktivasi satu kali untuk "+code+"? Kode lama dan login sebelumnya akan dicabut."))return;
   try{const r=await api("androiddb_v0_admin_issue_activation",{p_rental_account_id:id});if(r.ok!==true||!r.activation_code)throw new Error("Kode aktivasi tidak tersedia.");showCode("KODE AKTIVASI REMOTE",r.activation_code,"ID Rental "+code+" • Berlaku "+date(r.expires_at)+" • Satu kali pakai.");await loadDashboard();}
   catch(error){globalMessage("Gagal menerbitkan kode: "+val(error.message||error),true);}
@@ -430,6 +432,7 @@ async function loadWallet(){
   }catch(error){el("walletResult").innerHTML='<div class="msg error">'+esc(error.message||error)+'</div>';}
 }
 
+let billingUsersData=[];
 let coreOverview={rentals:[],devices:[],sessions:[],alerts:[]};
 let currentOrgId="";
 function orgId(){return val(el("orgSelect")&&el("orgSelect").value||currentOrgId||adminContext&&adminContext.orgs&&adminContext.orgs[0]&&adminContext.orgs[0].id);}
@@ -514,13 +517,13 @@ function renderDevices(rows,sessions){
   const commands=["refresh","restart_billing","pause","resume","stop","logoff","restart_pc","shutdown"];
   el("deviceList").innerHTML=rows.map(d=>{
     const id=esc(d.id),session=activeByDevice.get(d.id),online=d.status==="online";
-    return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(d.device_name||d.client_id)+'</div><div class="item-meta">'+esc(d.client_id)+' • '+esc(d.power_state||"power unknown")+'</div></div><span class="pill '+(online?"good":"bad")+'">'+esc(val(d.status).toUpperCase())+'</span></div><div class="item-meta">Heartbeat: '+date(d.last_heartbeat_at||d.last_seen_at)+' • Sesi: '+(session?esc(session.code||session.rental_code||session.status):"Tidak ada sesi aktif")+'</div><div class="form-grid" style="margin-top:9px"><div><label>Nama PC</label><input id="devname_'+id+'" value="'+esc(d.device_name||"")+'"></div><div><label>Perintah</label><select id="devcmd_'+id+'">'+commands.map(c=>'<option value="'+c+'">'+c.replaceAll("_"," ")+'</option>').join("")+'</select></div></div><div class="item-actions"><button class="small" onclick="renameDevice(\''+id+'\')">Ubah nama</button><button class="small primary" onclick="sendDeviceCommand(\''+id+'\')">Kirim perintah</button><button class="small" onclick="showDeviceState(\''+id+'\')">Detail PC</button><button class="small" onclick="showDeviceSessions(\''+id+'\')">Sesi PC</button><button class="small" onclick="createRecoveryCode(\''+id+'\')">Kode recovery</button><button class="small" onclick="createDeviceEnrollment(\''+id+'\',\''+esc(d.device_name||d.client_id)+'\')">Kode enrollment</button><button class="small" onclick="startDeviceTrial(\''+id+'\')">Free test</button><button class="small danger" onclick="disconnectDevice(\''+id+'\')">Putuskan</button></div></div>';
+    return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(d.device_name||d.client_id)+'</div><div class="item-meta">'+esc(d.client_id)+' • '+esc(d.power_state||"power unknown")+'</div></div><span class="pill '+(online?"good":"bad")+'">'+esc(val(d.status).toUpperCase())+'</span></div><div class="item-meta">Heartbeat: '+date(d.last_heartbeat_at||d.last_seen_at)+' • Sesi: '+(session?esc(session.code||session.rental_code||session.status):"Tidak ada sesi aktif")+'</div><div class="form-grid" style="margin-top:9px"><div><label>Nama PC</label><input id="devname_'+id+'" value="'+esc(d.device_name||"")+'"></div><div><label>Perintah</label><select id="devcmd_'+id+'">'+commands.map(c=>'<option value="'+c+'">'+c.replaceAll("_"," ")+'</option>').join("")+'</select></div></div><div class="item-actions"><button class="small" onclick="renameDevice(\''+id+'\')">Ubah nama</button><button class="small primary" onclick="sendDeviceCommand(\''+id+'\')">Kirim perintah</button><button class="small" onclick="showDeviceState(\''+id+'\')">Detail PC</button><button class="small" onclick="showDeviceSessions(\''+id+'\')">Sesi PC</button><button class="small" onclick="createRecoveryCode(\''+id+'\')">Kode recovery</button><button class="small" data-id="'+id+'" onclick="createDeviceEnrollment(this.dataset.id)">Kode enrollment</button><button class="small" onclick="startDeviceTrial(\''+id+'\')">Free test</button><button class="small danger" onclick="disconnectDevice(\''+id+'\')">Putuskan</button></div></div>';
   }).join("")||'<div class="empty">Belum ada PC terdaftar di organisasi ini.</div>';
 }
-async function createDeviceEnrollment(id,label){
+async function createDeviceEnrollment(id){
   const minutes=prompt("Masa berlaku kode enrollment (menit):","30");if(minutes===null)return;
   const valid=Math.max(5,Math.min(1440,Math.trunc(Number(minutes)||30)));
-  try{const r=await api("create_enrollment",{p_org_id:orgId(),p_label:label,p_minutes:valid});showCode("Kode enrollment PC",r.code||r.enrollment_code||pretty(r),"PC "+label+" • berlaku "+valid+" menit");}
+  try{const r=await api("create_enrollment",{p_org_id:orgId(),p_label:"PC "+id,p_minutes:valid});showCode("Kode enrollment PC",r.code||r.enrollment_code||pretty(r),"PC "+id+" • berlaku "+valid+" menit");}
   catch(e){globalMessage("Gagal membuat enrollment PC: "+e.message,true);}
 }
 async function renameDevice(id){
@@ -614,10 +617,10 @@ async function changeOwnerPassword(){
 }
 async function loadBillingUsers(){
   try{
-    const rows=asArray(await api("dashboard_billing_users"));
-    el("billingUserList").innerHTML=rows.map(u=>{
+    billingUsersData=asArray(await api("dashboard_billing_users"));
+    el("billingUserList").innerHTML=billingUsersData.map(u=>{
       const id=esc(u.id||u.user_id),status=val(u.status||"active");
-      return '<div class="item"><div class="item-head"><div><b>'+esc(u.username||u.email||id)+'</b><div class="item-meta">'+esc(u.display_name||"")+' • '+esc(u.role||"")+'</div></div><span class="pill '+(status==="active"?"good":"bad")+'">'+esc(status.toUpperCase())+'</span></div><div class="item-actions"><button class="small" onclick="updateBillingUser(\''+id+'\',\''+esc(u.username||"")+'\',\''+esc(u.role||"RESELLER_ADMIN")+'\',\''+esc(u.org_id||orgId())+'\',\''+status+'\')">Ubah status</button><button class="small danger" onclick="deleteBillingUser(\''+id+'\',\''+esc(u.username||"")+'\')">Hapus</button></div></div>';
+      return '<div class="item"><div class="item-head"><div><b>'+esc(u.username||u.email||id)+'</b><div class="item-meta">'+esc(u.display_name||"")+' • '+esc(u.role||"")+'</div></div><span class="pill '+(status==="active"?"good":"bad")+'">'+esc(status.toUpperCase())+'</span></div><div class="item-actions"><button class="small" data-id="'+id+'" onclick="updateBillingUser(this.dataset.id)">Ubah status</button><button class="small danger" data-id="'+id+'" onclick="deleteBillingUser(this.dataset.id)">Hapus</button></div></div>';
     }).join("")||'<div class="empty">Belum ada akun Billing/Reseller.</div>';
   }catch(e){el("billingUserList").innerHTML='<div class="msg error">'+esc(e.message)+'</div>';}
 }
@@ -628,15 +631,17 @@ async function saveBillingUser(){
     const r=await api("dashboard_billing_user",a);showJson("reportOutput",r);el("userName").value="";el("userPassword").value="";el("userDisplay").value="";await loadBillingUsers();globalMessage("Akun Admin/Reseller berhasil dibuat.");
   }catch(e){globalMessage("Gagal membuat akun: "+e.message,true);}
 }
-async function updateBillingUser(id,username,role,org,status){
-  const next=prompt("Status baru: active atau disabled",status);if(next===null)return;
+async function updateBillingUser(id){
+  const user=billingUsersData.find(x=>(x.id||x.user_id)===id);if(!user)return globalMessage("Akun tidak ditemukan; refresh daftar.",true);
+  const status=val(user.status||"active"),next=prompt("Status baru: active atau disabled",status);if(next===null)return;
   if(!["active","disabled"].includes(next))return globalMessage("Status tidak valid.",true);
-  try{const r=await api("dashboard_billing_user",{p_action:"update",p_username:username,p_password:null,p_status:next,p_role:role,p_org_id:org,p_display_name:null,p_user_id:id});showJson("reportOutput",r);await loadBillingUsers();globalMessage("Akun diperbarui.");}
+  try{const r=await api("dashboard_billing_user",{p_action:"update",p_username:val(user.username),p_password:null,p_status:next,p_role:val(user.role||"RESELLER_ADMIN"),p_org_id:user.org_id||orgId(),p_display_name:user.display_name||null,p_user_id:id});showJson("reportOutput",r);await loadBillingUsers();globalMessage("Akun diperbarui.");}
   catch(e){globalMessage("Gagal mengubah akun: "+e.message,true);}
 }
-async function deleteBillingUser(id,username){
-  if(!confirm("Hapus akun "+username+"?"))return;
-  try{const r=await api("dashboard_billing_user",{p_action:"delete",p_username:username,p_password:null,p_status:"disabled",p_role:"RESELLER_ADMIN",p_org_id:orgId(),p_display_name:null,p_user_id:id});showJson("reportOutput",r);await loadBillingUsers();globalMessage("Akun dihapus.");}
+async function deleteBillingUser(id){
+  const user=billingUsersData.find(x=>(x.id||x.user_id)===id);if(!user)return globalMessage("Akun tidak ditemukan; refresh daftar.",true);
+  const username=val(user.username||user.email||id);if(!confirm("Hapus akun "+username+"?"))return;
+  try{const r=await api("dashboard_billing_user",{p_action:"delete",p_username:val(user.username),p_password:null,p_status:"disabled",p_role:val(user.role||"RESELLER_ADMIN"),p_org_id:user.org_id||orgId(),p_display_name:user.display_name||null,p_user_id:id});showJson("reportOutput",r);await loadBillingUsers();globalMessage("Akun dihapus.");}
   catch(e){globalMessage("Gagal menghapus akun: "+e.message,true);}
 }
 async function createReseller(){
