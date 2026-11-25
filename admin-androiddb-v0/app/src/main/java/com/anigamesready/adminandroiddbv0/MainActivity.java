@@ -174,26 +174,35 @@ public final class MainActivity extends Activity {
                     path = "/auth/v1/token?grant_type=refresh_token";
                 } else if ("__admin_logout".equals(route)) {
                     path = "/auth/v1/logout";
+                } else if ("__iot_status".equals(route)) {
+                    path = "/iot/status";
+                } else if ("__iot_power".equals(route)) {
+                    path = "/iot/power";
+                } else if ("__gateway_health".equals(route)) {
+                    path = "/_ani_gateway/health";
                 } else {
                     if (!route.matches("[a-z0-9_]{1,80}")) throw new IllegalArgumentException("RPC_NAME_INVALID");
                     path = "/rest/v1/rpc/" + route;
                 }
                 if (body == null || body.length() > 32768) throw new IllegalArgumentException("API_BODY_TOO_LARGE");
+                final String method = ("__iot_status".equals(route) || "__gateway_health".equals(route)) ? "GET" : "POST";
                 connection = (HttpsURLConnection) new URL(API_BASE + path).openConnection();
-                connection.setRequestMethod("POST");
+                connection.setRequestMethod(method);
                 connection.setConnectTimeout(10000);
                 connection.setReadTimeout(18000);
                 connection.setInstanceFollowRedirects(false);
-                connection.setDoOutput(true);
+                connection.setDoOutput(!"GET".equals(method));
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
                 connection.setRequestProperty("Accept", "application/json");
                 if (token != null && !token.trim().isEmpty()) {
                     if (token.length() > 512) throw new IllegalArgumentException("ACCESS_TOKEN_INVALID");
                     connection.setRequestProperty("Authorization", "Bearer " + token.trim());
                 }
-                byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
-                connection.setFixedLengthStreamingMode(bytes.length);
-                try (OutputStream output = connection.getOutputStream()) { output.write(bytes); }
+                if (!"GET".equals(method)) {
+                    byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+                    connection.setFixedLengthStreamingMode(bytes.length);
+                    try (OutputStream output = connection.getOutputStream()) { output.write(bytes); }
+                }
                 int status = connection.getResponseCode();
                 InputStream stream = status >= 200 && status < 400
                     ? connection.getInputStream() : connection.getErrorStream();
@@ -211,7 +220,7 @@ public final class MainActivity extends Activity {
     }
 
     public final class AdminBridge {
-        @JavascriptInterface public String getAppVersion() { return "0.1.0-androiddb-v0"; }
+        @JavascriptInterface public String getAppVersion() { return "0.2.0-full-db"; }
         @JavascriptInterface public String getApiBase() { return API_BASE; }
         @JavascriptInterface public String getSecureValue(String key) { return readSecret(key); }
         @JavascriptInterface public boolean saveSecureValue(String key, String value) {
