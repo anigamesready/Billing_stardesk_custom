@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - feature/androiddb-termux-coin-x100-20261125
+      - feature/remote-auto-url-coin-ui-20261125
     paths:
       - "backend/android-db/migrations/**"
       - "backend/android-db/server/**"
