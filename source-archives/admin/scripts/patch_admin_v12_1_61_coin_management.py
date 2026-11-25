@@ -244,13 +244,9 @@ async function loadCoinAdmin(){
  $('coinTopupRows').innerHTML='<tr><td colspan="7" class="empty">Memuat data dari Android DB…</td></tr>';
  $('coinDeviceRows').innerHTML='<tr><td colspan="6" class="empty">Memuat daftar PC…</td></tr>';
  try{
-  const [overview,rentals]=await Promise.all([
-   rpc('admin_remote_coin_overview',{p_limit:200}),
-   rpc('admin_rental_accounts_global',{p_org_id:currentOrg.id})
-  ]);
-  if(!overview||overview.ok!==true||!Array.isArray(overview.orders)||!Array.isArray(overview.devices)||!overview.summary)throw new Error('Respons Coin Overview dari Android DB tidak lengkap.');
-  if(!Array.isArray(rentals))throw new Error('Daftar akun rental dari Android DB tidak valid.');
-  coinAdminOverview=overview;coinAdminRentalRows=rentals;
+  const overview=await rpc('admin_remote_coin_overview',{p_limit:200});
+  if(!overview||overview.ok!==true||!Array.isArray(overview.orders)||!Array.isArray(overview.devices)||!Array.isArray(overview.rentals)||!overview.summary)throw new Error('Respons Coin Overview dari Android DB tidak lengkap.');
+  coinAdminOverview=overview;coinAdminRentalRows=overview.rentals;
   renderCoinAdmin(overview);
   coinAdminMessage('Data berhasil diperbarui dari Android DB • '+coinAdminDate(overview.server_time),false);
   return overview;
