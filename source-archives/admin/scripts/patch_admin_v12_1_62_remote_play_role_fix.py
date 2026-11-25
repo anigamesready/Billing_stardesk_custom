@@ -49,11 +49,15 @@ for token in (
     'id="remotePlayAdminNav"',
     'id="coinManagementNav"',
     "function applyRemotePlayRoleUI()",
-    "if(id==='remotePlay'&&!isRemotePlayOwner())return;",
+    "function tab(id)",
     "function coinAdminOwner(){return typeof isRemotePlayOwner==='function'&&isRemotePlayOwner()===true;}",
 ):
     if token not in page:
         raise SystemExit("ADMIN_ROLE_WIRING_MISSING:" + token)
+
+tab_block = re.search(r"(?s)function\\s+tab\\s*\\(\\s*id\\s*\\)\\s*\\{(.*?)\\n\\}", page)
+if not tab_block or "remotePlay" not in tab_block.group(1) or "isRemotePlayOwner()" not in tab_block.group(1):
+    raise SystemExit("REMOTE_PLAY_TAB_NOT_GATED_BY_CANONICAL_OWNER_CHECK")
 
 role_resolver = re.search(r"(?s)function isWakeRelayOwner\(\)\s*\{(.*?)\}", page)
 if not role_resolver:
