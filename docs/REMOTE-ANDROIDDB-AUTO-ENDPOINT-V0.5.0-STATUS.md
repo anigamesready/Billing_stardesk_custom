@@ -29,9 +29,9 @@ Before enabling Connect, a real start/stop/heartbeat/watchdog protocol must be c
 
 ## Verification status
 
-- Android build CI run [45585404592](https://github.com/anigamesready/Billing_stardesk_custom/actions/runs/45585404592): **passed**. Static endpoint/UI checks, JavaScript syntax, Gradle clean build, package metadata, APK signature and ZIP integrity all passed.
+- Latest Android build CI run [45586112399](https://github.com/anigamesready/Billing_stardesk_custom/actions/runs/45586112399) at source commit `9d8e9eec79f9cd682f7a9c87be6ce06b92504a06`: **passed**. This build includes the local account-expiry access gate. Static endpoint/UI checks, JavaScript syntax, Gradle clean build, package metadata, APK signature and ZIP integrity all passed.
 - APK package: `com.anigamesready.stardeskclient`; versionCode `5`; versionName `0.5.0-androiddb-auto-endpoint-preview`.
-- APK SHA-256: `be6d9ed28ff3a9ee0322c6137f90d1de2161fc49c29e931480900c3aefdb0999`.
+- APK SHA-256: `3d0186560627223f0e8117c6a5fa3cbf9b6473966e50063c91bb4b22509b1b5e`.
 - Debug signing certificate SHA-256: `cad87dc29e53b09a7aa1db83e3a06edf506f3f0c05f5c6db3f5b2eb807851a1e`.
 - Full PostgreSQL regression run [45585609068](https://github.com/anigamesready/Billing_stardesk_custom/actions/runs/45585609068): **passed**. This covered the core billing regression suite, Remote Play login/pairing/Owner permissions/watchdog, authenticated stream billing clock, coin wallet/top-up/lot expiry/GPU rates/StarDesk mapping, one-time x100 migration reruns, and upgrade from core-only Android DB on disposable PostgreSQL.
 - No active Android DB migration was applied.
