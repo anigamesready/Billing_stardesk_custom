@@ -15,6 +15,7 @@ if [ -f "$HOME/.postgres/postgresql.conf" ]; then PGDATA="$HOME/.postgres"; fi
 OS_DB_USER="$(id -un)"
 NEW_DATABASE=0
 NEW_CLUSTER=0
+ENV_PRESENT=0
 
 log(){ printf '[ANI-ANDROID-DB] %s\n' "$*"; }
 die(){ printf '[ANI-ANDROID-DB] STOP: %s\n' "$*" >&2; exit 1; }
@@ -34,6 +35,7 @@ pkg install -y postgresql nodejs-lts npm termux-services curl openssl procps ter
 mkdir -p "$HOME" "$APP_DIR" "$SERVER_DIR"
 # Preserve an existing API .env and use its local database/port.
 if [ -f "$ENV_FILE" ]; then
+  ENV_PRESENT=1
   set -a
   . "$ENV_FILE"
   set +a
@@ -128,6 +130,29 @@ for candidate in "$OS_DB_USER" postgres; do
   fi
 done
 [ -n "$PG_ADMIN_USER" ] || die "Login superuser lokal gagal. Tidak ada perubahan skema yang dilakukan."
+
+# If there is an existing cluster without this installer .env, select only one DB
+# whose Android rental + Remote Play core signatures match. Ambiguity is a hard stop.
+if [ "$NEW_CLUSTER" != "1" ] && [ "$ENV_PRESENT" != "1" ]; then
+  MATCH_COUNT=0
+  DISCOVERED_DB=""
+  while IFS= read -r candidate; do
+    [[ "$candidate" =~ ^[A-Za-z0-9_]{1,50}$ ]] || continue
+    has_core="$(psql_admin -d "$candidate" -Atqc "SELECT (to_regclass('public.rental_accounts') IS NOT NULL AND to_regclass('public.devices') IS NOT NULL AND to_regclass('remote_play.sessions') IS NOT NULL)::int" 2>/dev/null || printf '0')"
+    if [ "$has_core" = "1" ]; then
+      MATCH_COUNT=$((MATCH_COUNT+1))
+      DISCOVERED_DB="$candidate"
+    fi
+  done < <(psql_admin -d postgres -Atqc "SELECT datname FROM pg_database WHERE datallowconn AND NOT datistemplate AND datname<>'postgres' ORDER BY datname")
+  if [ "$MATCH_COUNT" -eq 1 ]; then
+    DB_NAME="$DISCOVERED_DB"
+    log "Satu database Android DB cocok ditemukan: $DB_NAME"
+  elif [ "$MATCH_COUNT" -gt 1 ]; then
+    die "Ada beberapa database Android DB yang cocok. Tetapkan ANI_DB_NAME secara eksplisit; tidak ada database yang disentuh."
+  else
+    die "Cluster existing tidak memiliki satu database dengan signature rental/device/Remote Play yang dikenali. Tidak akan membuat database baru."
+  fi
+fi
 
 DB_EXISTS="$(psql_admin -d postgres -Atqc "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'")"
 if [ "$DB_EXISTS" != "1" ]; then
