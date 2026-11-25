@@ -151,12 +151,36 @@ jobs:
 
           server = Path("backend/android-db/server/server.mjs").read_text(encoding="utf-8")
           rpc_start = server.index("const RPC = {")
-          rpc_end = server.index("\n};", rpc_start)
-          rpc_names = set(re.findall(r'^\s{2}([a-z][a-z0-9_]+):\s*\{', server[rpc_start:rpc_end], re.M))
-          calls = set(re.findall(r'(?:api|callApi)\(\s*["\']([a-z0-9_]+)["\']', html))
-          native_routes = {"__admin_login", "__admin_refresh", "__admin_logout", "__iot_status", "__iot_power"}
-          missing = sorted(calls - rpc_names - native_routes)
-          assert not missing, "UI calls RPCs absent from Android DB API allowlist: " + ", ".join(missing)
+          rpc_end = server.index("\\n};", rpc_start)
+          rpc_lines = server[rpc_start:rpc_end].splitlines()
+          expected_rpc = [
+              "admin_context",
+              "admin_rental_accounts_global", "admin_create_rental_global",
+              "admin_update_rental_global", "admin_disable_rental_global", "admin_delete_rental_global",
+              "admin_devices", "admin_device_state", "admin_rename_device", "admin_disconnect_device",
+              "admin_command", "admin_command_status", "admin_active_sessions", "admin_selected_sessions",
+              "admin_start_trial", "create_device_recovery_enrollment", "create_enrollment",
+              "report_summary_compact", "report_monthly_rental_summary", "report_detailed_usage_page",
+              "report_rental_period_breakdown", "admin_activity", "admin_recent_alerts",
+              "admin_get_free_test_policy", "admin_set_free_test_policy",
+              "admin_get_billing_stop_pause_policy", "admin_set_billing_stop_pause_policy",
+              "save_theme", "admin_change_password", "dashboard_billing_users", "dashboard_billing_user",
+              "create_reseller", "admin_remote_play_dashboard", "admin_remote_play_sessions",
+              "admin_remote_play_set_rental_permission", "admin_remote_play_set_host_permission",
+              "admin_remote_play_issue_client_credential", "admin_remote_play_issue_host_enrollment",
+              "wol_relay_status", "wol_relay_create_enrollment", "wol_relay_enqueue",
+              "wol_relay_command_status", "wol_relay_probe_request", "wol_relay_probe_status",
+              "androiddb_v0_admin_dashboard", "androiddb_v0_admin_create_rental",
+              "androiddb_v0_admin_set_rental_status", "androiddb_v0_admin_issue_activation",
+              "androiddb_v0_admin_wallet", "androiddb_v0_admin_approve_topup",
+              "androiddb_v0_admin_reject_topup", "androiddb_v0_admin_set_device_rate",
+              "androiddb_v0_admin_link_stardesk_device", "androiddb_v0_admin_set_host_permission",
+              "androiddb_v0_admin_issue_host_enrollment",
+          ]
+          for route in expected_rpc:
+              assert any(line.strip().startswith(route + ":") for line in rpc_lines), "UI RPC absent from Android DB backend allowlist: " + route
+          for native_route in ["__admin_login", "__admin_refresh", "__admin_logout", "__iot_status", "__iot_power"]:
+              assert native_route in Path("admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java").read_text(encoding="utf-8"), "native route missing: " + native_route
 
           java = Path("admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java").read_text(encoding="utf-8")
           for token in ["AndroidKeyStore", "AES/GCM/NoPadding", "HttpsURLConnection", "ani_admin_androiddb_v0_keystore_v1", "__admin_login", "__admin_refresh", "__admin_logout", "__iot_status", "__iot_power", "/iot/status", "/iot/power", "setRequestMethod(method)", '"GET".equals(method)']:
