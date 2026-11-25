@@ -38,7 +38,7 @@ jobs:
           from pathlib import Path
           import re
           h=Path("android-client/app/src/main/assets/index.html").read_text()
-          for token in ["loginForm","apiBase","activationCode","androiddb_v0_remote_login","androiddb_v0_remote_refresh","androiddb_v0_remote_dashboard","androiddb_v0_remote_coin_wallet","androiddb_v0_remote_coin_history","androiddb_v0_remote_coin_create_topup","idempotency_key","stardesk_linked","Koneksi dikunci","6000/8000","Math.round","75 koin","112,5 koin","150 koin","ONLINE_API_BASE","n<300","45","52.5","60"]:
+          for token in ["loginForm","apiBase","activationCode","androiddb_v0_remote_login","androiddb_v0_remote_refresh","androiddb_v0_remote_dashboard","androiddb_v0_remote_coin_wallet","androiddb_v0_remote_coin_history","androiddb_v0_remote_coin_create_topup","idempotency_key","stardesk_linked","Koneksi dikunci","*60/8000","Math.round","75 koin","112,5 koin","150 koin","ONLINE_API_BASE","n<300","45","52.5","60"]:
               assert token.lower() in h.lower(), "missing integration control/contract: "+token
           for forbidden in ["supabase.co","supabase.createclient","functions/v1/stardesk-client-api","PREVIEW-"]:
               assert forbidden.lower() not in h.lower(), "legacy/demo backend reference remains: "+forbidden
