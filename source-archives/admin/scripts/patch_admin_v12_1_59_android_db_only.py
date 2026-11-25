@@ -2,8 +2,9 @@
 """Convert the Admin v12.1.58-derived source to Android DB only.
 
 This script runs AFTER the historical 12.1.58 source patches. It changes only
-the Admin app source in this repo: DB Android is the sole API, all relay RPCs
-go through the Android DB, and the default local service is 127.0.0.1:8787.
+the Admin app source in this repo: Android DB is the sole API. All Admin,
+Blynk and WoL requests use the fixed online HTTPS gateway. The Termux API
+remains private behind the relay and is never a client-side endpoint.
 """
 from __future__ import annotations
 
@@ -24,36 +25,21 @@ for needed in (web / "admin.html", web / "index.html", web / "admin-control.html
     if not needed.is_file():
         raise SystemExit("ADMIN_SOURCE_FILE_MISSING:" + str(needed))
 
-LOCAL_API = "http://127.0.0.1:8787"
-STAGE_GATEWAY = "https://ani-games-db-android-stage-gateway.anigamesready.workers.dev"
+ONLINE_API = "https://ani-games-db-android-stage-gateway.anigamesready.workers.dev"
+STAGE_GATEWAY = ONLINE_API
 STAGE_RELAY = "ani-games-db-android-stage-ws-relay.anigamesready.workers.dev"
 
 api_config = r"""
 const LOCAL_API_KEY='ani_games_ready_db_android_api_url_v1';
-const ONLINE_GATEWAY_URL='http://127.0.0.1:8787';
-const LEGACY_RELAY_HOST='legacy-stage-relay-disabled.invalid';
+const ONLINE_GATEWAY_URL='https://ani-games-db-android-stage-gateway.anigamesready.workers.dev';
+const LEGACY_RELAY_HOST='ani-games-db-android-stage-ws-relay.anigamesready.workers.dev';
 function localApiBase(){
- let saved='';
- try{saved=String(localStorage.getItem(LOCAL_API_KEY)||'').trim()}catch(_){}
- const target=saved||ONLINE_GATEWAY_URL;
- let u;
- try{u=new URL(target)}catch(_){throw new Error('ALAMAT_API_ANDROID_DB_TIDAK_VALID')}
- const host=String(u.hostname||'').toLowerCase();
- const loopback=['127.0.0.1','localhost','::1'].includes(host);
- if(!['http:','https:'].includes(u.protocol)||(!loopback&&u.protocol!=='https:'))
-   throw new Error('API_DI_LUAR_PERANGKAT_WAJIB_HTTPS');
- return u.href.replace(/\/+$/,'');
+  try{localStorage.setItem(LOCAL_API_KEY,ONLINE_GATEWAY_URL)}catch(_){}
+  return ONLINE_GATEWAY_URL;
 }
 function saveLocalApiUrl(){
- try{
-  const value=String($('localApiInput')?.value||'').trim(),u=new URL(value);
-  const loopback=['127.0.0.1','localhost','::1'].includes(u.hostname);
-  if(!['http:','https:'].includes(u.protocol)||(!loopback&&u.protocol!=='https:'))
-    throw new Error('Alamat server di luar perangkat wajib HTTPS.');
-  localStorage.setItem(LOCAL_API_KEY,u.href.replace(/\/+$/,''));
-  if($('localApiInput'))$('localApiInput').value=localApiBase();
-  ensureActiveDbRouteForAuth();
- }catch(e){loginMsg('Alamat API tidak valid: '+String(e?.message||e).slice(0,140))}
+  if($('localApiInput'))$('localApiInput').value='';
+  loginMsg('Gateway Android DB online dikonfigurasi otomatis.');
 }
 """
 
@@ -175,32 +161,45 @@ async function boot(){
 }
 """
 
-auth += "\nasync function startLocalAdmin(){setAdminAuthEnabled(true);await boot()}\n"
+auth += "\nfunction hideAdminApiEditor(){
+ const input=$('localApiInput');if(!input)return;
+ input.value='';
+ let node=input.parentElement;
+ while(node&&node!==$('login')){
+  const inputs=Array.from(node.querySelectorAll('input'));
+  const buttons=Array.from(node.querySelectorAll('button'));
+  const onlyApiInput=inputs.length===1&&inputs[0]===input;
+  const onlyApiButtons=buttons.every(b=>/saveLocalApiUrl|gateway|server|api|simpan/i.test(String(b.textContent||'')+' '+String(b.getAttribute('onclick')||'')));
+  if(onlyApiInput&&onlyApiButtons){
+   const previous=node.previousElementSibling;
+   node.remove();
+   if(previous&&previous.tagName==='LABEL'&&previous.htmlFor==='localApiInput')previous.remove();
+   document.querySelectorAll('label[for="localApiInput"]').forEach(x=>x.remove());
+   return;
+  }
+  node=node.parentElement;
+ }
+ document.querySelectorAll('label[for="localApiInput"]').forEach(x=>x.remove());
+ input.remove();
+}
+async function startLocalAdmin(){hideAdminApiEditor();setAdminAuthEnabled(true);await boot()}\n"
 
 for name in ("admin.html","index.html","admin-control.html"):
     path = web / name
     page = path.read_text(encoding="utf-8")
     # Remove the Supabase SDK include if the upstream baseline has it.
     page = re.sub(r'<script\b[^>]*src=["\']https://cdn\.jsdelivr\.net/npm/@supabase/supabase-js@2[^>]*></script>', '', page, flags=re.I)
-    page = page.replace(STAGE_GATEWAY, LOCAL_API)
+    page = page.replace(STAGE_GATEWAY, ONLINE_API)
     page = page.replace("https://" + STAGE_RELAY, "https://legacy-stage-relay-disabled.invalid")
     # Remove hostnames even when an older patch stored them without a scheme.
-    page = page.replace("ani-games-db-android-stage-gateway.anigamesready.workers.dev", "127.0.0.1:8787")
+    page = page.replace("ani-games-db-android-stage-gateway.anigamesready.workers.dev", ONLINE_API)
     page = page.replace("ani-games-db-android-stage-ws-relay.anigamesready.workers.dev", "legacy-stage-relay-disabled.invalid")
     page = page.replace("Alamat Gateway DB Android", "Alamat API Android DB")
     page = page.replace("ALAMAT GATEWAY DB ANDROID", "ALAMAT API ANDROID DB")
     # The V12.1.58 gateway repair replaced the original API routing guard.
     local_api_base_fn = """function localApiBase(){
- let saved='';
- try{saved=String(localStorage.getItem(LOCAL_API_KEY)||'').trim()}catch(_){}
- const target=saved||ONLINE_GATEWAY_URL;
- let u;
- try{u=new URL(target)}catch(_){throw new Error('ALAMAT_API_ANDROID_DB_TIDAK_VALID')}
- const host=String(u.hostname||'').toLowerCase();
- const loopback=['127.0.0.1','localhost','::1'].includes(host);
- if(!['http:','https:'].includes(u.protocol)||(!loopback&&u.protocol!=='https:'))
-   throw new Error('API_DI_LUAR_PERANGKAT_WAJIB_HTTPS');
- return u.href.replace(/\\/+$/,'');
+ try{localStorage.setItem(LOCAL_API_KEY,ONLINE_GATEWAY_URL)}catch(_){}
+ return ONLINE_GATEWAY_URL;
 }"""
     api_fn = re.compile(r"(?ms)^function localApiBase\\(\\)\\s*\\{.*?^\\}")
     if api_fn.search(page):
@@ -209,7 +208,7 @@ for name in ("admin.html","index.html","admin-control.html"):
             raise SystemExit("LOCAL_API_BASE_REPAIR_FAILED:" + name)
     # Keep the endpoint input useful and give localhost the main Android DB port.
     page = page.replace("value=\"https://ani-games-db-android-stage-gateway.anigamesready.workers.dev\"", "value=\"http://127.0.0.1:8787\"")
-    page = page.replace("https://ani-games-db-android-stage-gateway.anigamesready.workers.dev", LOCAL_API)
+    page = page.replace("https://ani-games-db-android-stage-gateway.anigamesready.workers.dev", ONLINE_API)
     if name == "admin.html":
         # Replace the complete legacy DB1/DB2/Supabase routing config with one local API config.
         start = page.find("const LOCAL_API_KEY=")
@@ -256,15 +255,15 @@ for name in ("admin.html","index.html","admin-control.html"):
 # it can be installed alongside the selected baseline without overwriting it.
 gradle = gradle_path.read_text(encoding="utf-8")
 gradle, n1 = re.subn(r"applicationId\s+['\"][^'\"]+['\"]",
-                     "applicationId 'com.anigames.billingadmin.v159dbonly'", gradle, count=1)
-gradle, n2 = re.subn(r"versionCode\s+\d+", "versionCode 86", gradle, count=1)
-gradle, n3 = re.subn(r"versionName\s+['\"][^'\"]+['\"]", "versionName '12.1.59-DBANDROID'", gradle, count=1)
+                     "applicationId 'com.anigames.billingadmin.v160online'", gradle, count=1)
+gradle, n2 = re.subn(r"versionCode\s+\d+", "versionCode 87", gradle, count=1)
+gradle, n3 = re.subn(r"versionName\s+['\"][^'\"]+['\"]", "versionName '12.1.60-ANDROIDDB-ONLINE'", gradle, count=1)
 if (n1,n2,n3)!=(1,1,1):
     raise SystemExit("ADMIN_VERSION_METADATA_PATCH_FAILED:" + repr((n1,n2,n3)))
 gradle_path.write_text(gradle, encoding="utf-8")
 
 manifest = manifest_path.read_text(encoding="utf-8")
-manifest = re.sub(r'android:label="[^"]+"', 'android:label="AniGames Admin V12.1.59 Android DB"', manifest, count=1)
+manifest = re.sub(r'android:label="[^"]+"', 'android:label="AniGames Admin V12.1.60 Android DB Online"', manifest, count=1)
 manifest_path.write_text(manifest, encoding="utf-8")
 
 # Static release-candidate gates. No Supabase URL/client, stage route, DB1/DB2
@@ -272,7 +271,7 @@ manifest_path.write_text(manifest, encoding="utf-8")
 for name in ("admin.html","index.html","admin-control.html"):
     page=(web/name).read_text(encoding="utf-8")
     lower=page.lower()
-    for forbidden in ("supabase.co","supabase.createclient","sb.schema(","sb.from(","ani-games-db-android-stage","127.0.0.1:8788","DB1_URL","DB2_URL","SB_FUNCTION_URL","SB_KEY"):
+    for forbidden in ("supabase.co","supabase.createclient","sb.schema(","sb.from(","ani-games-db-android-stage-ws-relay","127.0.0.1:8787","127.0.0.1:8788","localhost:8787","DB1_URL","DB2_URL","SB_FUNCTION_URL","SB_KEY"):
         if forbidden.lower() in lower:
             raise SystemExit("FORBIDDEN_ADMIN_BACKEND_REFERENCE:"+name+":"+forbidden)
     if re.search(r"\bsb\.", page, re.I):
@@ -281,8 +280,8 @@ for name in ("admin.html","index.html","admin-control.html"):
     if "DB_TARGET" in page:
         refs=[f"{i+1}:{line.strip()[:220]}" for i,line in enumerate(page.splitlines()) if "DB_TARGET" in line]
         raise SystemExit("LEGACY_DB_TARGET_REFERENCES:"+name+":"+" || ".join(refs[:30]))
-    if "http://127.0.0.1:8787" not in page and "ONLINE_GATEWAY_URL" in page:
-        raise SystemExit("ANDROID_DB_MAIN_PORT_DEFAULT_MISSING:"+name)
+    if ONLINE_API not in page and "ONLINE_GATEWAY_URL" not in page:
+        raise SystemExit("ANDROID_DB_ONLINE_GATEWAY_DEFAULT_MISSING:"+name)
     scripts=re.findall(r'<script\b(?![^>]*\bsrc=)[^>]*>(.*?)</script>',page,re.I|re.S)
     if name=="admin.html":
         if len(scripts)!=1: raise SystemExit("ADMIN_INLINE_SCRIPT_COUNT_INVALID")
@@ -548,7 +547,7 @@ for legacy_name in ("admin.html","admin-control.html","billing.html","index.html
 for name in ("billing.html","admin.html","index.html","admin-control.html"):
     page = (web / name).read_text(encoding="utf-8")
     lower = page.lower()
-    for forbidden in ("supabase.co","supabase.createclient","sb.schema(","sb.from(","sb.rpc(","ani-games-db-android-stage","127.0.0.1:8788","DB1_URL","DB2_URL","DB_TARGET","SB_FUNCTION_URL","SB_KEY"):
+    for forbidden in ("supabase.co","supabase.createclient","sb.schema(","sb.from(","sb.rpc(","ani-games-db-android-stage-ws-relay","127.0.0.1:8787","127.0.0.1:8788","localhost:8787","DB1_URL","DB2_URL","DB_TARGET","SB_FUNCTION_URL","SB_KEY"):
         if forbidden.lower() in lower:
             raise SystemExit("FORBIDDEN_ANDROID_DB_ONLY_HTML_REFERENCE:"+name+":"+forbidden)
 cloud = cloud_js_path.read_text(encoding="utf-8")
@@ -563,4 +562,4 @@ if 'id="v11-api-base"' not in billing_html or "v11SaveAndroidDbApi" not in billi
     raise SystemExit("ANDROID_DB_API_CONFIGURATION_UI_MISSING")
 
 print("PASS: V12.1.58-derived Admin now routes Admin, WoL relay RPC, and Blynk proxy through Android DB only.")
-print("INFO: new app id com.anigames.billingadmin.v159dbonly, versionCode 86, versionName 12.1.59-DBANDROID.")
+print("INFO: new app id com.anigames.billingadmin.v160online, versionCode 87, versionName 12.1.60-ANDROIDDB-ONLINE.")
