@@ -34,14 +34,15 @@ if "V12.1.53-REMOTE-PLAY-SHARED-DB-PORT-8787" not in page:
 if "function isWakeRelayOwner()" not in page:
     raise SystemExit("CANONICAL_MASTER_OWNER_RESOLVER_MISSING")
 
-old = "function isRemotePlayOwner(){return String(ctx?.role||'').trim().toLowerCase()==='owner';}"
 new = "function isRemotePlayOwner(){return typeof isWakeRelayOwner==='function'&&isWakeRelayOwner();}"
-if old in page:
-    if page.count(old) != 1:
-        raise SystemExit("REMOTE_PLAY_OWNER_GUARD_DUPLICATED")
-    page = page.replace(old, new, 1)
-elif new not in page:
-    raise SystemExit("REMOTE_PLAY_OWNER_GUARD_SHAPE_UNRECOGNIZED")
+owner_pattern = re.compile(r"function\\s+isRemotePlayOwner\\s*\\(\\s*\\)\\s*\\{[^}]*\\}")
+matches = list(owner_pattern.finditer(page))
+if len(matches) == 1:
+    page = page[:matches[0].start()] + new + page[matches[0].end():]
+elif len(matches) == 0 and new in page:
+    pass
+else:
+    raise SystemExit("REMOTE_PLAY_OWNER_GUARD_SHAPE_UNRECOGNIZED_OR_DUPLICATED")
 
 # Confirm both the Remote Play tab and the Coin menu inherit the corrected guard.
 for token in (
@@ -60,8 +61,9 @@ if not role_resolver:
 for role in ("owner", "master", "master_owner", "owner_master", "master_admin", "admin_master", "super_admin", "superadmin"):
     if repr(role) not in role_resolver.group(1):
         raise SystemExit("CANONICAL_OWNER_ALIAS_MISSING:" + role)
-if "toLowerCase()==='owner'" in page:
-    raise SystemExit("NARROW_REMOTE_PLAY_OWNER_GUARD_REMAINS")
+owner_helper = owner_pattern.search(page)
+if not owner_helper or "isWakeRelayOwner" not in owner_helper.group(0):
+    raise SystemExit("REMOTE_PLAY_OWNER_HELPER_NOT_DELEGATING_TO_CANONICAL_RESOLVER")
 
 if "com.anigames.billingadmin.v161online" not in gradle:
     raise SystemExit("ADMIN_PACKAGE_ID_MISMATCH")
