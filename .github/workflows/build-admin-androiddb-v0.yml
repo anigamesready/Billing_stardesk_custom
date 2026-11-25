@@ -151,8 +151,7 @@ jobs:
 
           server = Path("backend/android-db/server/server.mjs").read_text(encoding="utf-8")
           rpc_start = server.index("const RPC = {")
-          rpc_end = server.index("\\n};", rpc_start)
-          rpc_lines = server[rpc_start:rpc_end].splitlines()
+          rpc_lines = server[rpc_start:].splitlines()
           expected_rpc = [
               "admin_context",
               "admin_rental_accounts_global", "admin_create_rental_global",
