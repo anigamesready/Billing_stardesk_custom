@@ -5,6 +5,35 @@ export const RELAY_WS_URL = "wss://ani-games-db-android-stage-ws-relay.anigamesr
 export const MAX_REQUEST_BYTES = 2 * 1024 * 1024;
 export const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 
+/*
+ * The operator's XL route returned non-Cloudflare AWS addresses for workers.dev,
+ * producing a certificate-name mismatch. These two Cloudflare anycast IPv4
+ * addresses were independently checked with the original hostname and valid TLS.
+ * Keep hostname/SNI verification enabled; never use rejectUnauthorized=false.
+ */
+export const RELAY_IPV4_ADDRESSES = Object.freeze([
+  "104.18.13.15",
+  "104.18.12.15"
+]);
+
+export function relayLookup(hostname, options, callback) {
+  if (typeof options === "function") {
+    callback = options;
+    options = {};
+  }
+  if (typeof callback !== "function") throw new TypeError("RELAY_LOOKUP_CALLBACK_REQUIRED");
+  const expectedHost = new URL(RELAY_WS_URL).hostname;
+  if (hostname !== expectedHost) {
+    const error = new Error("RELAY_HOSTNAME_NOT_ALLOWED");
+    error.code = "ENOTFOUND";
+    callback(error);
+    return;
+  }
+  const addresses = RELAY_IPV4_ADDRESSES.map(address => ({ address, family: 4 }));
+  if (options && options.all) callback(null, addresses);
+  else callback(null, addresses[0].address, addresses[0].family);
+}
+
 const ALLOWED_EXACT = new Set([
   "/health", "/auth/v1/token", "/auth/v1/user", "/auth/v1/logout", "/iot/status", "/iot/power"
 ]);
