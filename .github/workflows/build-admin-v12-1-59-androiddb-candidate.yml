@@ -1,4 +1,4 @@
-name: Build Ani Games Admin V12.1.61 Android DB Coin Candidate
+name: Build Ani Games Admin V12.1.62 Remote Play Role Fix Candidate
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build-apk:
-    name: Build Ani Games Admin V12.1.60 Android DB Online Candidate
+    name: Build Ani Games Admin V12.1.62 Remote Play Role Fix Candidate
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -616,7 +616,7 @@ jobs:
           role_guard="function isRemotePlayOwner(){return typeof isWakeRelayOwner==='function'&&isWakeRelayOwner();}"
           if role_guard not in admin_role_fix:
               raise SystemExit("Remote Play Admin does not use the canonical Master/Owner role resolver")
-          remote_owner_fn=re.search(r"function isRemotePlayOwner\\s*\\(\\s*\\)\\s*\\{([^}]*)\\}",admin_role_fix)
+          remote_owner_fn=re.search(r"function isRemotePlayOwner\s*\(\s*\)\s*\{([^}]*)\}",admin_role_fix)
           if not remote_owner_fn or "isWakeRelayOwner" not in remote_owner_fn.group(1):
               raise SystemExit("Remote Play role helper does not delegate to the canonical Master/Owner resolver")
           for marker in ("coinManagement", "admin_remote_coin_overview", "admin_remote_coin_wallet", "admin_remote_coin_approve_topup", "admin_remote_coin_reject_topup", "admin_remote_coin_set_device_rate", "admin_remote_coin_link_stardesk_device"):
