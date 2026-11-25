@@ -39,11 +39,18 @@ The Gateway forwards its configured `EDGE_PROXY_SECRET` to the Relay, which comp
 Cloudflare Worker secret values are write-only and cannot be fetched back from the Dashboard/API. The installer therefore:
 
 - preserves an existing local `~/.config/ani-games-relay-agent/agent.env` without changing its secret;
-- when that local file is absent, asks for the **existing** value through a hidden terminal prompt and stores it with file permission 600;
+- when that local file is absent, can read the existing value from a local file passed as `ANI_RELAY_SECRET_FILE`, without printing or copying the value;
+- otherwise falls back to a hidden terminal prompt;
 - refuses to continue if the value is missing/invalid;
 - never generates a replacement and never edits either Worker.
 
-Paste the existing value directly into the Termux hidden prompt, not into ChatGPT or a screenshot. If the original value is not available anywhere locally or in your own password manager/notes, stop here; do not rotate either Worker as part of this repair.
+The historical Relay secret file on the Redmi is expected at `$HOME/ani-games-db-android-stage/relay-worker-shared-secret.txt`. Use it as the local source only if it is the original value currently configured as `RELAY_SHARED_SECRET` on the Relay Worker and the Gateway `EDGE_PROXY_SECRET` uses the same value:
+
+```bash
+ANI_RELAY_SECRET_FILE="$HOME/ani-games-db-android-stage/relay-worker-shared-secret.txt"
+```
+
+The installer reads the file locally and writes the runtime config with file permission 600. It never displays the value. If the file is stale, Agent authentication will be rejected; do not guess another secret or rotate either Worker as part of this repair.
 
 ## Start and verify
 
