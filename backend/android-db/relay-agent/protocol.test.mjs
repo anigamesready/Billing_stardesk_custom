@@ -47,3 +47,28 @@ test("relay envelope is normalized without accepting absolute or network paths",
     type: "request", id: "0e07a2e1-299b-4f8a-9d7a-95b4a41ec772", method: "GET", path: "/setup"
   }), null);
 });
+
+test("Relay Agent pins only the approved relay hostname to verified Cloudflare IPv4 edges", () => {
+  const host = new URL(RELAY_WS_URL).hostname;
+  let allResult;
+  relayLookup(host, { all: true }, (error, addresses) => {
+    assert.equal(error, null);
+    allResult = addresses;
+  });
+  assert.deepEqual(allResult, [
+    { address: "104.18.13.15", family: 4 },
+    { address: "104.18.12.15", family: 4 }
+  ]);
+
+  let singleResult;
+  relayLookup(host, {}, (error, address, family) => {
+    assert.equal(error, null);
+    singleResult = { address, family };
+  });
+  assert.deepEqual(singleResult, { address: "104.18.13.15", family: 4 });
+
+  let rejected;
+  relayLookup("untrusted.example", {}, error => { rejected = error; });
+  assert.equal(rejected?.code, "ENOTFOUND");
+  assert.equal(rejected?.message, "RELAY_HOSTNAME_NOT_ALLOWED");
+});
