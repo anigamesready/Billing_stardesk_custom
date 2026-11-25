@@ -302,12 +302,7 @@ billing_html = billing_html_path.read_text(encoding="utf-8")
 cloud_ui_anchor = '<div class="form-grid">\n                        <div class="form-group" style="grid-column: 1 / -1;">\n                            <label>Kode Pairing / Enrollment PC</label>'
 cloud_api_ui = '''<div class="form-grid">
                         <div class="form-group" style="grid-column: 1 / -1;">
-                            <label>Alamat HTTPS Server Android DB</label>
-                            <input type="url" id="v11-api-base" placeholder="https://alamat-api-android-db" autocomplete="url">
-                            <small class="theme-help">Isi alamat HTTPS Tunnel menuju API Android DB. HTTP hanya diizinkan untuk 127.0.0.1/localhost pada perangkat yang sama.</small>
-                        </div>
-                        <div class="form-group" style="grid-column: 1 / -1;">
-                            <button type="button" class="btn btn-secondary" onclick="v11SaveAndroidDbApi()">💾 Simpan & Cek Server Android DB</button>
+                            <small class="theme-help">Gateway Android DB online dikonfigurasi otomatis. Pairing PC dan sinkronisasi berjalan melalui server online tanpa alamat manual.</small>
                         </div>
                         <div class="form-group" style="grid-column: 1 / -1;">
                             <label>Kode Pairing / Enrollment PC</label>'''
@@ -402,9 +397,9 @@ billing_html_path.write_text(billing_html, encoding="utf-8")
 
 cloud_js = r"""(() => {
   const CLOUD_KEY='billing_v11_cloud_config';
-  const API_BASE_KEY='billing_android_db_api_base';
+  const ONLINE_API_BASE='https://ani-games-db-android-stage-gateway.anigamesready.workers.dev';
   const CLIENT_KEY='billing_v11_client_id';
-  const APP='V11.29.1-ANDROID-DB-ONLY';
+  const APP='V12.1.60-ANDROID-DB-ONLINE';
   let heartbeatTimer=null,syncBusy=false;
   const read=()=>{try{return JSON.parse(localStorage.getItem(CLOUD_KEY)||'{}')}catch(_){return{}}};
   const save=v=>localStorage.setItem(CLOUD_KEY,JSON.stringify(v||{}));
@@ -412,15 +407,7 @@ cloud_js = r"""(() => {
   const queue=()=>{try{return JSON.parse(localStorage.getItem('billing_v11_outbox')||'[]')}catch(_){return[]}};
   const saveQueue=q=>localStorage.setItem('billing_v11_outbox',JSON.stringify(q.slice(-1000)));
   const status=t=>{const e=document.getElementById('v11-cloud-status');if(e)e.textContent=t};
-  function apiBase(){
-    const raw=String(localStorage.getItem(API_BASE_KEY)||window.ANI_GAMES_READY_ANDROID_DB_API||'').trim();
-    if(!raw)throw new Error('ANDROID_DB_API_URL_NOT_CONFIGURED');
-    let u;try{u=new URL(raw)}catch(_){throw new Error('ANDROID_DB_API_URL_INVALID')}
-    const host=String(u.hostname||'').toLowerCase();
-    const loopback=['127.0.0.1','localhost','::1'].includes(host);
-    if(!['http:','https:'].includes(u.protocol)||(!loopback&&u.protocol!=='https:'))throw new Error('ANDROID_DB_REMOTE_API_REQUIRES_HTTPS');
-    return u.href.replace(/\/+$/,'');
-  }
+  function apiBase(){return ONLINE_API_BASE;}
   async function checkApi(){
     const r=await fetch(apiBase()+'/health',{method:'GET',cache:'no-store'});
     const d=await r.json().catch(()=>({}));
@@ -428,16 +415,15 @@ cloud_js = r"""(() => {
     return d;
   }
   async function v11SaveAndroidDbApi(){
-    const input=document.getElementById('v11-api-base'),value=String(input?.value||'').trim();
     try{
-      if(!value)throw new Error('Masukkan alamat HTTPS Android DB terlebih dahulu.');
-      const u=new URL(value),loopback=['127.0.0.1','localhost','::1'].includes(String(u.hostname||'').toLowerCase());
-      if(!['http:','https:'].includes(u.protocol)||(!loopback&&u.protocol!=='https:'))throw new Error('Alamat server luar perangkat wajib HTTPS.');
-      localStorage.setItem(API_BASE_KEY,u.href.replace(/\/+$/,''));
-      const h=await checkApi();status('ANDROID DB ONLINE • API dan database siap • '+apiBase());
-      window.showCustomModal?.('Server Android DB terhubung dan database siap.','ANDROID DB ONLINE',false,'✅');
+      const h=await checkApi();
+      status('ANDROID DB ONLINE • API/database siap • gateway otomatis');
       return h;
-    }catch(e){status('ANDROID DB BELUM SIAP • '+String(e?.message||e));window.showCustomModal?.('Cek server gagal: '+String(e?.message||e),'SERVER ANDROID DB',true,'⚠️');return null}
+    }catch(e){
+      status('ANDROID DB BELUM SIAP • '+String(e?.message||e));
+      window.showCustomModal?.('Cek server gagal: '+String(e?.message||e),'SERVER ANDROID DB',true,'⚠️');
+      return null;
+    }
   }
   function setPcState(state,text){
     const b=document.getElementById('pc-state-badge'),d=document.getElementById('pc-state-dot'),e=document.getElementById('pc-state-text');
@@ -504,7 +490,6 @@ cloud_js = r"""(() => {
     }catch(e){window.showCustomModal?.('Pairing Android DB gagal: '+e.message,'PAIRING GAGAL',true,'⚠️')}
   }
   async function v11CloudStatus(){
-    const input=document.getElementById('v11-api-base');if(input)input.value=String(localStorage.getItem(API_BASE_KEY)||window.ANI_GAMES_READY_ANDROID_DB_API||'');
     const c=read();
     try{await checkApi();status(c.token?'ANDROID DB ONLINE • Pairing tersimpan • '+c.clientId:'ANDROID DB ONLINE • Belum dipairing');setPcState(c.token?'pending':'pending',c.token?'STATUS PC: MENUNGGU HEARTBEAT':'STATUS PC: BELUM TERHUBUNG');if(c.token)heartbeat()}
     catch(e){status('ANDROID DB BELUM SIAP • '+String(e?.message||e));setPcState('offline','STATUS PC: SERVER ANDROID DB TIDAK TERHUBUNG')}
@@ -515,7 +500,6 @@ cloud_js = r"""(() => {
   }
   Object.assign(window,{v11EnrollDevice,v11CloudStatus,v11DisconnectDevice,v11SaveAndroidDbApi});
   window.addEventListener('load',()=>{
-    const input=document.getElementById('v11-api-base'),configured=String(localStorage.getItem(API_BASE_KEY)||window.ANI_GAMES_READY_ANDROID_DB_API||'');
     if(input)input.value=configured;
     const c=read();
     if(c.token){status('Pairing Android DB tersimpan • '+c.clientId);setPcState('pending','STATUS PC: MENUNGGU HEARTBEAT');start()}
@@ -558,7 +542,7 @@ if "https://"+ "x" in cloud or "/device/sync" not in cloud or "/device/heartbeat
     raise SystemExit("ANDROID_DB_DEVICE_API_CONTRACT_MISSING")
 if "v11GetActiveCode" not in billing_html or "v11ApplyRemoteCommand" not in billing_html:
     raise SystemExit("BILLING_REMOTE_COMMAND_BRIDGE_MISSING")
-if 'id="v11-api-base"' not in billing_html or "v11SaveAndroidDbApi" not in billing_html:
+if 'id="v11-api-base"' in billing_html or "v11SaveAndroidDbApi" not in cloud_js:
     raise SystemExit("ANDROID_DB_API_CONFIGURATION_UI_MISSING")
 
 print("PASS: V12.1.58-derived Admin now routes Admin, WoL relay RPC, and Blynk proxy through Android DB only.")
