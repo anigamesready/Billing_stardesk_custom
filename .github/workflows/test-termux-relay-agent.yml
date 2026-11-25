@@ -1,0 +1,68 @@
+name: Test Termux Relay Agent
+
+on:
+  push:
+    branches:
+      - feature/termux-relay-agent-20261125
+      - fix/termux-relay-agent-20261125
+    paths:
+      - "backend/android-db/relay-agent/**"
+      - ".github/workflows/test-termux-relay-agent.yml"
+  pull_request:
+    paths:
+      - "backend/android-db/relay-agent/**"
+      - ".github/workflows/test-termux-relay-agent.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  protocol-and-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install isolated agent dependency
+        working-directory: backend/android-db/relay-agent
+        run: npm install --omit=dev --no-audit --no-fund
+      - name: Check JavaScript and installer syntax
+        working-directory: backend/android-db/relay-agent
+        run: |
+          npm run check
+          bash -n install.sh
+          bash -n setup-existing-termux.sh
+          bash -n recover-termux-service.sh
+          bash -n patch-cloudflare-dns.sh
+      - name: Test relay authentication and route boundary
+        working-directory: backend/android-db/relay-agent
+        run: npm test
+      - name: Test portable Termux secret validator
+        working-directory: backend/android-db/relay-agent
+        run: |
+          sed -n '/^secret_is_valid() {/,/^}/p' install.sh > /tmp/secret-validator.sh
+          sed -n '/^secret_is_valid() {/,/^}/p' setup-existing-termux.sh > /tmp/setup-secret-validator.sh
+          diff -u /tmp/secret-validator.sh /tmp/setup-secret-validator.sh
+          source /tmp/secret-validator.sh
+          valid64="$(printf 'A%.0s' {1..64})"
+          valid_symbols="$(printf 'A-_.~/+=z%.0s' {1..8})"
+          long_value="$(printf 'A%.0s' {1..513})"
+          secret_is_valid "$valid64"
+          secret_is_valid "$valid_symbols"
+          ! secret_is_valid "too-short"
+          ! secret_is_valid "$long_value"
+          ! secret_is_valid "${valid64}!"
+          ! secret_is_valid "${valid64} with-space"
+      - name: Guard installer secret preservation
+        working-directory: backend/android-db/relay-agent
+        run: |
+          grep -q 'protocol.test.mjs' install.sh
+          grep -q 'read -r -s' install.sh
+          grep -q 'ANI_RELAY_SECRET_FILE' install.sh
+          grep -q 'tr -d' install.sh
+          ! grep -q 'openssl rand' install.sh
+          ! grep -q 'wrangler secret' install.sh

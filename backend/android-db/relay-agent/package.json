@@ -1,0 +1,17 @@
+{
+  "name": "ani-games-relay-agent",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node agent.mjs",
+    "check": "node --check agent.mjs && node --check protocol.mjs",
+    "test": "node --test protocol.test.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}
