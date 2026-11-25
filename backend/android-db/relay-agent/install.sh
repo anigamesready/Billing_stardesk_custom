@@ -10,6 +10,15 @@ BASE="https://raw.githubusercontent.com/anigamesready/Billing_stardesk_custom"
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 log() { printf '[Ani Relay Agent] %s\n' "$*"; }
 
+secret_is_valid() {
+  local value="$1" safe
+  [ "${#value}" -ge 32 ] && [ "${#value}" -le 512 ] || return 1
+  # Avoid Bash ERE interval quantifiers: they can behave differently under
+  # some Android/Termux Bash compatibility modes. Use a portable tr allow-list.
+  safe="$(LC_ALL=C printf '%s' "$value" | LC_ALL=C tr -cd 'A-Za-z0-9._~+/=-')"
+  [ "$safe" = "$value" ]
+}
+
 [ "$PREFIX" = "/data/data/com.termux/files/usr" ] || die "Jalankan dari Termux Android."
 [[ "$REF" =~ ^[0-9a-f]{40}$ ]] || die "ANI_RELAY_REF wajib berisi commit SHA 40 karakter, bukan nama branch."
 command -v node >/dev/null 2>&1 || die "Node.js belum terpasang."
@@ -86,7 +95,7 @@ else
 fi
 
 [ "${#SECRET}" -ge 32 ] || die "Secret kosong/terlalu pendek. Tidak ada secret baru yang dibuat."
-[[ "$SECRET" =~ ^[A-Za-z0-9._~+/=-]{32,512}$ ]] || die "Format secret tidak didukung. Gunakan nilai secret lama yang aman untuk file env (32-512 karakter)."
+secret_is_valid "$SECRET" || die "Secret harus 32-512 karakter ASCII aman dalam satu baris. Tidak ada konfigurasi yang ditimpa."
 
 if [ ! -f "$ENV_FILE" ]; then
   ENV_TMP="$CONFIG_DIR/.agent.env.$$"
