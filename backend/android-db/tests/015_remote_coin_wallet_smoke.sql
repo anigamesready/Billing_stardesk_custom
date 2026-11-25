@@ -46,7 +46,7 @@ BEGIN
   PERFORM api.admin_remote_play_set_rental_permission(owner_token,rental_id,true);
 
   rate_result:=api.admin_remote_coin_set_device_rate(owner_token,device_id,'RTX 5060');
-  IF rate_result->>'hourly_rupiah'<>'8000' OR (rate_result->>'hourly_coins')::numeric<>60 THEN
+  IF rate_result->>'hourly_rupiah'<>'8000' OR (rate_result->>'hourly_coins')::numeric<>6000 THEN
     RAISE EXCEPTION 'COIN_RATE_CONFIGURATION_WRONG';
   END IF;
   link_result:=api.admin_remote_coin_link_stardesk_device(owner_token,device_id,'SD-CI-DEVICE-5060',true);
@@ -71,7 +71,7 @@ BEGIN
   order_dup:=api.remote_coin_create_topup(client_token,10000,'coin-ci-idempotency-0001');
   order_id:=(order_one->>'order_id')::uuid;
   IF order_id IS NULL OR (order_dup->>'order_id')::uuid<>order_id
-     OR (order_one->>'coin_amount')::numeric<>75
+     OR (order_one->>'coin_amount')::numeric<>7500
      OR (order_one->>'expiry_days')::integer<>3
      OR order_one->>'status'<>'pending' THEN
     RAISE EXCEPTION 'COIN_TOPUP_CREATE_OR_IDEMPOTENCY_FAILED';
@@ -90,7 +90,7 @@ BEGIN
   END IF;
 
   wallet_result:=api.remote_coin_wallet(client_token);
-  IF (wallet_result->>'balance')::numeric<>75
+  IF (wallet_result->>'balance')::numeric<>7500
      OR jsonb_array_length(wallet_result->'lots')<>1 THEN
     RAISE EXCEPTION 'COIN_TOPUP_CREDIT_OR_LOT_FAILED';
   END IF;
@@ -98,12 +98,12 @@ BEGIN
   -- New-lot expiry tier uses the total valid balance after the credit.
   order_two:=api.remote_coin_create_topup(client_token,40000,'coin-ci-idempotency-0002');
   order_two_id:=(order_two->>'order_id')::uuid;
-  IF (order_two->>'coin_amount')::numeric<>300 OR (order_two->>'expiry_days')::integer<>7 THEN
+  IF (order_two->>'coin_amount')::numeric<>30000 OR (order_two->>'expiry_days')::integer<>7 THEN
     RAISE EXCEPTION 'COIN_EXPIRY_TIER_SNAPSHOT_FAILED';
   END IF;
   PERFORM api.admin_remote_coin_approve_topup(owner_token,order_two_id);
   wallet_result:=api.remote_coin_wallet(client_token);
-  IF (wallet_result->>'balance')::numeric<>375 OR jsonb_array_length(wallet_result->'lots')<>2 THEN
+  IF (wallet_result->>'balance')::numeric<>37500 OR jsonb_array_length(wallet_result->'lots')<>2 THEN
     RAISE EXCEPTION 'COIN_SECOND_TOPUP_FAILED';
   END IF;
 
@@ -132,7 +132,7 @@ BEGIN
   SET expires_at=now()-interval '1 second'
   WHERE source_order_id=order_id;
   wallet_result:=api.remote_coin_wallet(client_token);
-  IF (wallet_result->>'balance')::numeric<>300 THEN
+  IF (wallet_result->>'balance')::numeric<>30000 THEN
     RAISE EXCEPTION 'COIN_EXPIRED_LOT_REMAINS_SPENDABLE';
   END IF;
   IF NOT EXISTS(SELECT 1 FROM remote_play.coin_ledger
@@ -149,7 +149,7 @@ BEGIN
          AND h->>'available'='true'
          AND h->>'rate_configured'='true'
          AND h->>'gpu_class'='RTX 5060'
-         AND (h->>'hourly_coins')::numeric=60
+         AND (h->>'hourly_coins')::numeric=6000
          AND h->>'stardesk_linked'='true'
          AND h->>'stardesk_device_id'='SD-CI-DEVICE-5060') THEN
     RAISE EXCEPTION 'COIN_DASHBOARD_OR_STAR_DESK_MAPPING_INVALID';
