@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/termux-relay-agent-20261125
+      - fix/termux-relay-agent-20261125
     paths:
       - "backend/android-db/relay-agent/**"
       - ".github/workflows/test-termux-relay-agent.yml"
