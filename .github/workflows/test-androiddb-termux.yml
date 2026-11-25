@@ -49,7 +49,7 @@ jobs:
           assert 'CONFIRM" = "APPLY"' in script, "existing DB migration confirmation missing"
           assert "MATCH_COUNT" in script and "MATCH_COUNT\" -gt 1" in script, "ambiguous existing DB must stop"
           assert "NEW_CLUSTER=1" in script and "NEW_CLUSTER\" != \"1\"" in script, "installer may only create DB on fresh cluster"
-          assert "sv-enable ani-games-ready-api" in script and 'sv" down ani-games-ready-api' in script and 'sv" up ani-games-ready-api' in script, "Termux runit lifecycle incomplete"
+          assert 'sv-enable" ani-games-ready-api' in script and 'sv" down ani-games-ready-api' in script and 'sv" up ani-games-ready-api' in script, "Termux runit lifecycle incomplete"
           assert 'ANI_BIND=127.0.0.1' in script and "case \"$ANI_BIND\"" in script, "API must remain loopback-only before tunnel"
           assert "chmod 600 \"$ENV_FILE\"" in script, "secret permissions missing"
           assert "022_coin_unit_scale_100.sql" in script and "021_android_wol_relay.sql" in script, "addon migrations missing"
