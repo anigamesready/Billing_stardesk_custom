@@ -58,7 +58,7 @@ jobs:
           required = [
               "Ani Games Admin Android DB v0",
               "ANDROID DB v0",
-              "admin_login",
+              "__admin_login",
               "admin_context",
               "androiddb_v0_admin_dashboard",
               "androiddb_v0_admin_create_rental",
@@ -103,7 +103,7 @@ jobs:
           Path("/tmp/admin-androiddb-v0.js").write_text(scripts[0], encoding="utf-8")
 
           java = Path("admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java").read_text(encoding="utf-8")
-          for token in ["AndroidKeyStore", "AES/GCM/NoPadding", "HttpsURLConnection", "ani_admin_androiddb_v0_keystore_v1"]:
+          for token in ["AndroidKeyStore", "AES/GCM/NoPadding", "HttpsURLConnection", "ani_admin_androiddb_v0_keystore_v1", "__admin_login", "__admin_refresh", "__admin_logout", "/auth/v1/token?grant_type=password"]:
               assert token in java, "missing native token/network security control: " + token
 
           gradle = Path("admin-androiddb-v0/app/build.gradle").read_text(encoding="utf-8")
