@@ -854,8 +854,13 @@ BEGIN
   VALUES(r.id,p_amount_rupiah,coins,days,p_idempotency_key)
   ON CONFLICT(rental_account_id,idempotency_key) DO NOTHING
   RETURNING * INTO o;
-  IF NOT FOUND THEN SELECT * INTO o FROM androiddb_v0.coin_topup_orders
-    WHERE rental_account_id=r.id AND idempotency_key=p_idempotency_key; END IF;
+  IF NOT FOUND THEN
+    SELECT * INTO o FROM androiddb_v0.coin_topup_orders
+    WHERE rental_account_id=r.id AND idempotency_key=p_idempotency_key;
+    IF o.id IS NULL OR o.amount_rupiah<>p_amount_rupiah THEN
+      RAISE EXCEPTION 'ANDROIDDB_V0_IDEMPOTENCY_CONFLICT';
+    END IF;
+  END IF;
   RETURN jsonb_build_object('ok',true,'order_id',o.id,'amount_rupiah',o.amount_rupiah,'coin_amount',o.coin_amount,
     'expiry_days',o.expiry_days,'status',o.status,'expires_at',o.expires_at,'payment_method',o.payment_method,
     'wallet_balance',current_balance);
