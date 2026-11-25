@@ -53,6 +53,17 @@ if [ -f "$PGDATA/PG_VERSION" ]; then
   [ "$DATA_MAJOR" = "$SERVER_MAJOR" ] || die "Major version PostgreSQL tidak cocok (data=$DATA_MAJOR, binary=$SERVER_MAJOR). Tidak ada package upgrade, initdb, pg_upgrade atau migrasi yang dijalankan."
 fi
 
+# An already-running PostgreSQL process must be managed by the existing runit
+# service before this installer may update or copy any application files.
+if [ "$EXISTING_PG_CLUSTER" = 1 ] && command -v pg_isready >/dev/null 2>&1 \
+   && pg_isready -h "$PREFIX/tmp" -p "$DB_PORT" >/dev/null 2>&1; then
+  export SVDIR="$PREFIX/var/service"
+  if [ ! -x "$PREFIX/bin/sv" ] || [ ! -d "$SVDIR/postgres" ] \
+     || ! "$PREFIX/bin/sv" status postgres 2>&1 | grep -q '^run:'; then
+    die "PostgreSQL sudah aktif tetapi belum dikelola runit. Pengaman berhenti sebelum pkg update, penyalinan source/API, perubahan service, atau migrasi database. Perlu prosedur adopsi service terpisah; jangan jalankan sv up terhadap proses lama."
+  fi
+fi
+
 log "Memasang runtime resmi Termux (Node LTS, npm, service manager)..."
 pkg update -y
 if [ "$EXISTING_PG_CLUSTER" = 1 ]; then
