@@ -29,9 +29,18 @@ jobs:
       - name: Install isolated agent dependency
         working-directory: backend/android-db/relay-agent
         run: npm install --omit=dev --no-audit --no-fund
-      - name: Check JavaScript syntax
+      - name: Check JavaScript and installer syntax
         working-directory: backend/android-db/relay-agent
-        run: npm run check
+        run: |
+          npm run check
+          bash -n install.sh
       - name: Test relay authentication and route boundary
         working-directory: backend/android-db/relay-agent
         run: npm test
+      - name: Guard installer secret preservation
+        working-directory: backend/android-db/relay-agent
+        run: |
+          grep -q 'protocol.test.mjs' install.sh
+          grep -q 'read -r -s' install.sh
+          ! grep -q 'openssl rand' install.sh
+          ! grep -q 'wrangler secret' install.sh
