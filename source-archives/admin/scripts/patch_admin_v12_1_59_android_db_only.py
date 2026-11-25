@@ -161,7 +161,8 @@ async function boot(){
 }
 """
 
-auth += "\nfunction hideAdminApiEditor(){
+auth += r"""
+function hideAdminApiEditor(){
  const input=$('localApiInput');if(!input)return;
  input.value='';
  let node=input.parentElement;
@@ -182,8 +183,8 @@ auth += "\nfunction hideAdminApiEditor(){
  document.querySelectorAll('label[for="localApiInput"]').forEach(x=>x.remove());
  input.remove();
 }
-async function startLocalAdmin(){hideAdminApiEditor();setAdminAuthEnabled(true);await boot()}\n"
-
+async function startLocalAdmin(){hideAdminApiEditor();setAdminAuthEnabled(true);await boot()}
+"""
 for name in ("admin.html","index.html","admin-control.html"):
     path = web / name
     page = path.read_text(encoding="utf-8")
