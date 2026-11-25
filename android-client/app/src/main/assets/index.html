@@ -38,7 +38,7 @@ h1{font-size:24px;line-height:1.15;margin:0;font-weight:950}h1 span{color:#83caf
 
 <section id="dashboard" class="hidden">
 <div class="between"><div class="hello">Halo, <span id="welcome" class="blue">player</span></div><button id="logout">Keluar ↗</button></div>
-<div class="profile"><div><div class="cap">STATUS AKUN RENTAL LAMA</div><div class="val" id="rentalStatus">MEMUAT...</div></div><div><div class="cap">AKSES REMOTE</div><div class="val" id="remoteAccess">MEMUAT...</div></div></div>
+<div class="profile"><div><div class="cap">STATUS AKUN COIN</div><div class="val" id="rentalStatus">MEMUAT...</div></div><div><div class="cap">AKSES REMOTE</div><div class="val" id="remoteAccess">MEMUAT...</div></div></div>
 <div class="wallet"><div class="cap">SALDO DOMPET KOIN • ANDROID DB</div><div class="balance"><span id="balance">0</span> <small>koin</small></div><div class="wallet-note">Saldo hanya berasal dari lot koin yang belum kedaluwarsa.</div></div>
 <div id="walletLock" class="lock hidden"><b>Akses belum siap</b><small id="walletLockText"></small></div>
 <div class="nav"><button data-tab="home" class="active">PC</button><button data-tab="topup">TOP-UP</button><button data-tab="rates">TARIF</button><button data-tab="history">RIWAYAT</button></div>
@@ -46,27 +46,27 @@ h1{font-size:24px;line-height:1.15;margin:0;font-weight:950}h1 span{color:#83caf
 <div class="notice">Status online dan tarif dibaca dari Android DB. Koneksi StarDesk tetap dikunci sampai pemetaan device serta event mulai/berhenti sesi diuji end-to-end.</div></section>
 <section id="tab-topup" class="hidden"><div class="title"><h2>Top-up Koin</h2><span class="muted">QRIS statis</span></div>
 <div class="card"><label class="label">PILIH NOMINAL PEMBAYARAN</label><div class="grid2" id="packages">
-<button type="button" class="package" data-amount="5000"><b>Rp5.000</b><span>3.750 koin</span></button><button type="button" class="package selected" data-amount="10000"><b>Rp10.000</b><span>7.500 koin</span></button><button type="button" class="package" data-amount="15000"><b>Rp15.000</b><span>11.250 koin</span></button><button type="button" class="package" data-amount="20000"><b>Rp20.000</b><span>15.000 koin</span></button></div>
+<button type="button" class="package" data-amount="5000"><b>Rp5.000</b><span>37,5 koin</span></button><button type="button" class="package selected" data-amount="10000"><b>Rp10.000</b><span>75 koin</span></button><button type="button" class="package" data-amount="15000"><b>Rp15.000</b><span>112,5 koin</span></button><button type="button" class="package" data-amount="20000"><b>Rp20.000</b><span>150 koin</span></button></div>
 <div style="margin-top:13px"><label class="label" for="manualAmount">ATAU MASUKKAN NOMINAL SENDIRI (KELIPATAN RP1.000)</label><input id="manualAmount" type="number" min="1000" max="10000000" step="1000" class="field" placeholder="Contoh: 7000"></div>
-<div class="calc"><div class="between"><span class="muted">Koin diterima</span><strong id="coinResult">7.500 koin</strong></div><div class="between" style="margin-top:6px"><span class="muted">Expired lot koin baru</span><b id="expiryResult">3 hari</b></div><div class="between" style="margin-top:6px"><span class="muted">Saldo valid setelah disetujui</span><b id="totalResult">7.500 koin</b></div><div class="muted" style="margin-top:8px">Kurs Rp8.000 = 6.000 koin. Expired lot lama tidak diperpanjang. Masa berlaku dihitung dari saldo valid saat order dibuat.</div></div></div>
+<div class="calc"><div class="between"><span class="muted">Koin diterima</span><strong id="coinResult">7.500 koin</strong></div><div class="between" style="margin-top:6px"><span class="muted">Expired lot koin baru</span><b id="expiryResult">3 hari</b></div><div class="between" style="margin-top:6px"><span class="muted">Saldo valid setelah disetujui</span><b id="totalResult">7.500 koin</b></div><div class="muted" style="margin-top:8px">Kurs Rp8.000 = 60 koin. Expired lot lama tidak diperpanjang. Masa berlaku dihitung dari saldo valid saat order dibuat.</div></div></div>
 <div class="card"><div class="between"><b>QRIS Ani Games Ready</b><span class="muted">Merchant</span></div><div class="qris" id="qrisZoom"><img alt="QRIS Ani Games Ready" src="qris_ani_games.png"></div><div class="caption">Ketuk QR untuk memperbesar. QRIS statis: masukkan nominal sendiri di aplikasi bank/e-wallet.</div><div class="between" style="margin-top:12px"><div><div class="muted">Nominal transfer</div><b id="payAmount">Rp10.000</b></div><button id="copyAmount">Salin nominal</button></div><button id="confirmWa" class="primary full">BUAT ORDER & KONFIRMASI WHATSAPP</button><p class="hint">Order dibuat di Android DB dan menunggu persetujuan Owner. Pembayaran tidak otomatis terverifikasi dari QRIS statis.</p></div></section>
 <section id="tab-rates" class="hidden"><div class="title"><h2>Tarif Remote PC</h2><span class="muted">Server Android DB</span></div><div class="table" id="rateList"></div><div class="notice">Tarif per PC wajib ditetapkan Owner di Android DB. Satuan koin ditagihkan terpisah dari sisa waktu rental lama.</div></section>
 <section id="tab-history" class="hidden"><div class="title"><h2>Riwayat Dompet</h2><span class="muted">Android DB</span></div><div id="lotList" class="table"></div><div id="historyList" class="table" style="margin-top:9px"></div></section>
-<div class="footer">ANI GAMES READY • ANDROID DB EDITION<br>REMOTE WALLET • KOIN ×100 • KONEKSI PC MENUNGGU VALIDASI END-TO-END</div></section></div>
+<div class="footer">ANI GAMES READY • ANDROID DB v0<br>REMOTE WALLET • KOIN • KONEKSI PC MENUNGGU VALIDASI END-TO-END</div></section></div>
 <div id="toast" class="toast"></div><div id="modal" class="modal hidden"><button id="closeModal">Tutup ✕</button><img src="qris_ani_games.png" alt="QRIS Ani Games Ready"></div>
 <script>
 const $=id=>document.getElementById(id);
 const ONLINE_API_BASE="https://ani-games-db-android-stage-gateway.anigamesready.workers.dev";
 const state={apiBase:ONLINE_API_BASE,accessToken:"",refreshToken:"",rentalCode:"",balance:0,account:null,hosts:[],lots:[],ledger:[],orders:[],canStart:false};
 let selectedAmount=10000,pendingOrderKey="";
-const rates=[{gpu:"GTX 1050",rp:6000,coins:4500},{gpu:"GTX 1660",rp:6000,coins:4500},{gpu:"RTX 3060",rp:7000,coins:5250},{gpu:"RTX 5060",rp:8000,coins:6000}];
+const rates=[{gpu:"GTX 1050",rp:6000,coins:45},{gpu:"GTX 1660",rp:6000,coins:45},{gpu:"RTX 3060",rp:7000,coins:52.5},{gpu:"RTX 5060",rp:8000,coins:60}];
 const native=window.AniAndroid||null;
 let requestSequence=0;const pendingApi=new Map();
 function toast(s){const e=$("toast");e.textContent=s;e.style.display="block";clearTimeout(window.__toast);window.__toast=setTimeout(()=>e.style.display="none",3200)}
 function rupiah(n){return "Rp"+Math.round(Number(n)||0).toLocaleString("id-ID")}
 function dec(n){return Number(n||0).toLocaleString("id-ID",{maximumFractionDigits:8})}
 function coinFor(n){return Math.round((Number(n)||0)*6000/8000)}
-function expiryDays(n){if(n<30000)return 3;if(n<60000)return 7;if(n<90000)return 10;if(n<120000)return 14;if(n<150000)return 17;if(n<180000)return 21;if(n<210000)return 24;if(n<240000)return 28;return 30}
+function expiryDays(n){if(n<300)return 3;if(n<600)return 7;if(n<900)return 10;if(n<1200)return 14;if(n<1500)return 17;if(n<1800)return 21;if(n<2100)return 24;if(n<2400)return 28;return 30}
 function randomKey(){if(window.crypto?.getRandomValues){const a=new Uint8Array(16);crypto.getRandomValues(a);return [...a].map(x=>x.toString(16).padStart(2,"0")).join("")}return "id-"+Date.now()+"-"+Math.random().toString(16).slice(2)}
 function nativeRpc(name,payload={},token=""){
  if(!native||typeof native.apiRequest!=="function")return Promise.reject(new Error("ANDROID_NATIVE_BRIDGE_MISSING"));
@@ -134,9 +134,9 @@ function renderHistory(){
 function escapeHtml(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 async function refreshData(){
  const [dashboard,wallet,history]=await Promise.all([
-  nativeRpc("remote_coin_dashboard",{},state.accessToken),
-  nativeRpc("remote_coin_wallet",{},state.accessToken),
-  nativeRpc("remote_coin_history",{p_limit:50},state.accessToken)
+  nativeRpc("androiddb_v0_remote_dashboard",{},state.accessToken),
+  nativeRpc("androiddb_v0_remote_coin_wallet",{},state.accessToken),
+  nativeRpc("androiddb_v0_remote_coin_history",{p_limit:50},state.accessToken)
  ]);
  state.account=dashboard.rental_account||null;state.canStart=!!dashboard.can_start;state.hosts=Array.isArray(dashboard.hosts)?dashboard.hosts:[];
  state.balance=Number(wallet.balance??dashboard.wallet?.balance??0);state.lots=Array.isArray(wallet.lots)?wallet.lots:[];
@@ -145,7 +145,7 @@ async function refreshData(){
  setConnectionBadge("ANDROID DB ONLINE",true);
 }
 async function refreshTokens(refreshToken){
- const result=await nativeRpc("remote_play_refresh",{p_refresh_token:refreshToken},"");
+ const result=await nativeRpc("androiddb_v0_remote_refresh",{p_refresh_token:refreshToken},"");
  if(!result?.access_token||!result?.refresh_token)throw new Error("REMOTE_PLAY_REFRESH_INVALID_RESPONSE");
  state.accessToken=result.access_token;state.refreshToken=result.refresh_token;
  secretSet("remote_access_token",state.accessToken);secretSet("remote_refresh_token",state.refreshToken);
@@ -169,7 +169,7 @@ async function login(e){
    const activation=$("activationCode").value.trim().toUpperCase();
    if(!activation)throw new Error("Masukkan kode aktivasi dari Admin untuk perangkat ini.");
    const clientId=native.getClientId();
-   const result=await nativeRpc("remote_play_login",{p_rental_code:rentalCode,p_activation_code:activation,p_client_install_id:clientId},"");
+   const result=await nativeRpc("androiddb_v0_remote_login",{p_rental_code:rentalCode,p_activation_code:activation,p_client_install_id:clientId},"");
    if(!result?.access_token||!result?.refresh_token)throw new Error("REMOTE_PLAY_LOGIN_RESPONSE_INVALID");
    state.accessToken=result.access_token;state.refreshToken=result.refresh_token;
    secretSet("remote_access_token",state.accessToken);secretSet("remote_refresh_token",state.refreshToken);secretSet("remote_rental_code",rentalCode);
@@ -188,7 +188,7 @@ async function login(e){
  }finally{button.disabled=false;button.textContent="MASUK KE DASHBOARD"}
 }
 async function logout(){
- try{if(state.accessToken)await nativeRpc("remote_play_logout",{},state.accessToken)}catch(_){}
+ try{if(state.accessToken)await nativeRpc("androiddb_v0_remote_logout",{},state.accessToken)}catch(_){}
  ["remote_access_token","remote_refresh_token","remote_rental_code"].forEach(secretClear);
  state.accessToken="";state.refreshToken="";state.rentalCode="";state.account=null;state.hosts=[];state.balance=0;state.lots=[];state.ledger=[];state.orders=[];
  $("dashboard").classList.add("hidden");$("login").classList.remove("hidden");$("uid").value="";$("activationCode").value="";
@@ -200,7 +200,7 @@ async function confirmTopup(){
  $("confirmWa").disabled=true;$("confirmWa").textContent="MEMBUAT ORDER...";
  try{
   if(!pendingOrderKey)pendingOrderKey=randomKey();
-  const order=await nativeRpc("remote_coin_create_topup",{p_amount_rupiah:amount,p_idempotency_key:pendingOrderKey},state.accessToken);
+  const order=await nativeRpc("androiddb_v0_remote_coin_create_topup",{p_amount_rupiah:amount,p_idempotency_key:pendingOrderKey},state.accessToken);
   if(!order?.order_id)throw new Error("ORDER_ID_NOT_RETURNED");
   pendingOrderKey="";
   const message="KONFIRMASI TOP-UP ANI GAMES READY\n\nUser ID: "+state.rentalCode+"\nID Order: "+order.order_id+"\nNominal transfer: "+rupiah(order.amount_rupiah)+"\nKoin: "+dec(order.coin_amount)+"\nMasa berlaku lot baru: "+order.expiry_days+" hari\nStatus: "+String(order.status||"pending").toUpperCase()+"\nMetode: QRIS statis\n\nMohon verifikasi pembayaran dan persetujuan Owner.";
