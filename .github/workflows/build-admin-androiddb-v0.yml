@@ -202,7 +202,7 @@ jobs:
               assert native_route in Path("admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java").read_text(encoding="utf-8"), "native route missing: " + native_route
 
           java = Path("admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java").read_text(encoding="utf-8")
-          for token in ["AndroidKeyStore", "AES/GCM/NoPadding", "HttpsURLConnection", "ani_admin_androiddb_v0_keystore_v1", "__admin_login", "__admin_refresh", "__admin_logout", "__iot_status", "__iot_power", "/iot/status", "/iot/power", "setRequestMethod(method)", '"GET".equals(method)']:
+          for token in ["AndroidKeyStore", "AES/GCM/NoPadding", "HttpsURLConnection", "ani_admin_androiddb_v0_keystore_v1", "__admin_login", "__admin_refresh", "__admin_logout", "__iot_status", "__iot_power", "/iot/status", "/iot/power", "setRequestMethod(method)", '"GET".equals(method)', "WebChromeClient", "onJsAlert", "onJsConfirm", "onJsPrompt", "JsPromptResult", "JsResult"]:
               assert token in java, "missing native token/API/HTTP method control: " + token
 
           gradle = Path("admin-androiddb-v0/app/build.gradle").read_text(encoding="utf-8")
