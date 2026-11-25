@@ -103,6 +103,7 @@ function renderProfile(){
  if(!state.account)reasons.push("Data akun belum tersedia.");
  if(["DISABLED","DELETED","INACTIVE"].includes(status))reasons.push("Akun dinonaktifkan oleh Admin.");
  if(state.balance<=0)reasons.push("Saldo koin belum tersedia. Buat order top-up dan tunggu persetujuan Owner.");
+ if(status==="ACTIVE"&&state.balance>0&&!state.hosts.some(host=>host.available===true))reasons.push("Belum ada PC dengan izin, tarif, mapping StarDesk, dan Host Agent siap.");
  if(!state.account?.status)reasons.push("Status akun belum terbaca.");
  if(reasons.length){$("walletLock").classList.remove("hidden");$("walletLockText").textContent=reasons.join(" ")}
  else $("walletLock").classList.add("hidden");
@@ -111,11 +112,11 @@ function renderPCs(){
  const hosts=state.hosts||[];$("pcSummary").textContent=hosts.length+" PC terdaftar di Android DB. Status diperbarui dari server.";
  if(!hosts.length){$("pcList").innerHTML='<div class="history"><b>Belum ada PC terdaftar</b><small>Belum ada device untuk organisasi User ID ini.</small></div>';return}
  $("pcList").innerHTML=hosts.map(p=>{
-  const online=!!p.online,rate=!!p.rate_configured,linked=!!p.stardesk_linked,available=!!p.available;
-  const stateText=!online?"OFFLINE":!rate?"TARIF BELUM DIATUR":!linked?"STAR DESK BELUM DIPETAKAN":available?"READY • MENUNGGU MODUL SESI":"TIDAK TERSEDIA";
-  const cls=!online?"red":available?"green":"yellow";
+  const billingOnline=!!p.billing_online,agentOnline=!!p.host_agent_online,agentReady=!!p.host_agent_ready,rate=!!p.rate_configured,linked=!!p.stardesk_linked,available=!!p.available;
+  const stateText=!agentOnline?"HOST AGENT OFFLINE":!agentReady?"HOST BELUM SIAP":!p.remote_play_enabled?"IZIN HOST BELUM AKTIF":!rate?"TARIF BELUM DIATUR":!linked?"STAR DESK BELUM DIPETAKAN":available?"STAR DESK SIAP • MODUL SESI TERKUNCI":"PC TIDAK TERSEDIA";
+  const cls=available?"green":agentOnline?"yellow":"red";
   const price=rate?rupiah(p.hourly_rupiah)+"/jam • "+dec(p.hourly_coins)+" koin/jam":"Tarif belum diset Owner";
-  return '<article class="pc"><div class="monitor">🎮</div><div><div class="name">'+escapeHtml(p.device_name||p.client_id||"PC")+'</div><div class="meta">'+escapeHtml(p.gpu_class||"GPU belum diatur")+" • "+price+'</div><div class="state '+cls+'">● '+stateText+'</div></div><button disabled>Koneksi dikunci</button></article>';
+  return '<article class="pc"><div class="monitor">🎮</div><div><div class="name">'+escapeHtml(p.device_name||p.client_id||"PC")+'</div><div class="meta">'+escapeHtml(p.gpu_class||"GPU belum diatur")+" • "+price+'</div><div class="meta">Billing '+(billingOnline?"ONLINE":"OFFLINE")+" • Host Agent "+(agentOnline?"ONLINE":"OFFLINE")+'</div><div class="state '+cls+'">● '+stateText+'</div></div><button disabled>Koneksi dikunci</button></article>';
  }).join("");
 }
 function renderRates(){
@@ -138,7 +139,7 @@ async function refreshData(){
   nativeRpc("androiddb_v0_remote_coin_wallet",{},state.accessToken),
   nativeRpc("androiddb_v0_remote_coin_history",{p_limit:50},state.accessToken)
  ]);
- state.account=dashboard.rental_account||null;state.canStart=!!dashboard.can_start;state.hosts=Array.isArray(dashboard.hosts)?dashboard.hosts:[];
+ state.account=dashboard.rental_account||null;state.hosts=Array.isArray(dashboard.hosts)?dashboard.hosts:[];state.canStart=!!dashboard.can_start&&state.hosts.some(host=>host.available===true);
  state.balance=Number(wallet.balance??dashboard.wallet?.balance??0);state.lots=Array.isArray(wallet.lots)?wallet.lots:[];
  state.ledger=Array.isArray(history.ledger)?history.ledger:[];state.orders=Array.isArray(history.orders)?history.orders:[];
  $("balance").textContent=dec(state.balance);renderProfile();renderPCs();renderRates();renderHistory();updateCalc();
