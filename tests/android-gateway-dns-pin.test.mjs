@@ -26,26 +26,30 @@ for (const app of apps) {
   const helper = readFileSync(app.helper, 'utf8');
   const gradle = readFileSync(app.gradle, 'utf8');
 
-  test(app.name + ': pins only the fixed Android DB Gateway over Cloudflare IPv4', () => {
-    assert.match(main, new RegExp(app.base + '\\s*='));
-    assert.match(main, /openConnection\\(Proxy\\.NO_PROXY\\)/);
-    assert.match(main, /setSSLSocketFactory\\(new GatewayPinnedSocketFactory\\(\\)\\)/);
-    assert.match(main, /GatewayPinnedSocketFactory\\.isGatewayHost\\(hostname\\)/);
-    assert.match(main, /getDefaultHostnameVerifier\\(\\)\\.verify/);
-    assert.match(helper, /104\\.18\\.13\\.15/);
-    assert.match(helper, /104\\.18\\.12\\.15/);
-    assert.match(helper, /SNIHostName\\(GATEWAY_HOST\\)/);
-    assert.match(helper, /delegate\\.createSocket\\(raw, GATEWAY_HOST, port, autoClose\\)/);
-    assert.match(helper, /isPinnedIpv4Address\\(raw\\.getInetAddress\\(\\)\\)/);
-    assert.match(helper, /candidate\\.connect\\(new InetSocketAddress\\(addressFor\\(value\\), HTTPS_PORT\\)/);
-    assert.doesNotMatch(helper, /InetAddress\\.getByName/);
-    assert.doesNotMatch(helper, /X509TrustManager|checkServerTrusted|ALLOW_ALL|trustAll/i);
-    assert.doesNotMatch(main, /setHostnameVerifier\\([^;]*->\\s*true/);
+  test(app.name + ': pins the fixed Android DB Gateway to Cloudflare IPv4', () => {
+    assert.ok(main.includes('private static final String ' + app.base), app.name + ' missing fixed API base');
+    assert.ok(main.includes('openConnection(Proxy.NO_PROXY)'), app.name + ' must connect direct, not through an untrusted proxy');
+    assert.ok(main.includes('setSSLSocketFactory(new GatewayPinnedSocketFactory())'), app.name + ' must use the pinned socket factory');
+    assert.ok(main.includes('GatewayPinnedSocketFactory.isGatewayHost(hostname)'), app.name + ' must restrict the verified hostname');
+    assert.ok(main.includes('getDefaultHostnameVerifier().verify'), app.name + ' must retain platform hostname verification');
+    for (const token of [
+      '104.18.13.15',
+      '104.18.12.15',
+      'SNIHostName(GATEWAY_HOST)',
+      'delegate.createSocket(raw, GATEWAY_HOST, port, autoClose)',
+      'isPinnedIpv4Address(raw.getInetAddress())',
+      'candidate.connect(new InetSocketAddress(addressFor(value), HTTPS_PORT)',
+    ]) assert.ok(helper.includes(token), app.name + ' missing TLS pin control: ' + token);
+    assert.ok(!helper.includes('InetAddress.getByName'), app.name + ' must not resolve the broken Gateway hostname');
+    for (const forbidden of ['X509TrustManager', 'checkServerTrusted', 'ALLOW_ALL', 'trustAll']) {
+      assert.ok(!helper.includes(forbidden), app.name + ' contains forbidden trust bypass: ' + forbidden);
+    }
+    assert.ok(!main.includes('setHostnameVerifier((hostname, session) -> true)'), app.name + ' must not disable hostname verification');
   });
 
-  test(app.name + ': keeps HTTPS hostname and uses a fresh package version', () => {
-    assert.match(main, /ani-games-db-android-stage-gateway\\.anigamesready\\.workers\\.dev/);
+  test(app.name + ': preserves Gateway HTTPS hostname and uses a new APK version', () => {
+    assert.ok(main.includes('ani-games-db-android-stage-gateway.anigamesready.workers.dev'));
     for (const item of app.version) assert.ok(gradle.includes(item), app.name + ' missing ' + item);
-    assert.match(main, /setHostnameVerifier\\(\\(hostname, session\\) ->/);
+    assert.ok(main.includes('setHostnameVerifier((hostname, session) ->'));
   });
 }
