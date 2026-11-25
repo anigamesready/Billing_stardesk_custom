@@ -1,27 +1,55 @@
-# Ani Games Ready Remote — Android DB v0 / Coin Preview 0.6.0
+# Ani Games Ready Remote — Android DB v0 Coin Preview 0.6.0
 
-This isolated branch previews the Remote Play client interface and basic local controls. It is NOT a production-connected client.
+This source is the isolated Remote Android DB v0 client for the Ani Games Ready Coin domain.
 
-## Included
-- User ID entry; a sample expired rental can still enter the dashboard.
-- Coin wallet example, top-up presets Rp5k/Rp10k/Rp15k/Rp20k and manual rupiah amount.
-- Conversion at Rp8,000 = 60 coins, and new-lot expiry preview using the agreed total-balance tiers.
-- Ani Games Ready static QRIS, zoom, copy nominal and WhatsApp handoff to 082298316902.
-- WhatsApp message explicitly says PREVIEW / DO NOT PROCESS; no order is created and no wallet is credited.
-- Approved rates and sample PCs for GTX 1050, GTX 1660, RTX 3060, RTX 5060.
-- Navigation, refresh sample list, and logout.
+## Build identity
+- Application ID: `com.anigamesready.stardeskclient`
+- Version: `0.6.0-androiddb-v0-coin`
+- Version code: `6`
+- Remote source: `android-client/`
+- Repository: `anigamesready/Billing_stardesk_custom`
 
-## Not active in this preview
-- All displayed account balance, expiry state, PC state and history are demonstration data.
-- No Supabase endpoint, API key or second database is included.
-- No Android DB login, top-up order, payment approval, coin mutation or live PC list.
-- PC selection only displays a notice; it does not start StarDesk.
-- QRIS is static; payer must enter amount manually.
+## Backend contract
+The client talks only to the fixed HTTPS Android DB gateway via the native Android bridge. It does not expose an editable URL field.
 
-## Build
-Branch: `stardesk-androiddb-preview-v2`
-Application ID: `com.anigamesready.stardeskclient`
-Version: `0.2.0-preview`, versionCode 2
-Artifact name: `Ani-Games-Ready-Remote-AndroidDB-Preview-v0.2.0`
+All new Coin account and wallet operations use the separate `androiddb_v0_*` API family:
+- First activation: `androiddb_v0_remote_login`
+- Refresh: `androiddb_v0_remote_refresh`
+- Logout: `androiddb_v0_remote_logout`
+- Dashboard/PC availability: `androiddb_v0_remote_dashboard`
+- Wallet lots: `androiddb_v0_remote_coin_wallet`
+- History: `androiddb_v0_remote_coin_history`
+- QRIS static top-up order: `androiddb_v0_remote_coin_create_topup`
 
-See `docs/ANDROID-DB-INTEGRATION-AUDIT.md` and `docs/ANDROID-DB-COIN-MODULE-DRAFT.md` before live integration.
+Access and refresh tokens are stored using AES-GCM backed by Android Keystore. The app keeps no raw token in WebView localStorage.
+
+## Coin rules
+- Rp8.000 = 60 Coin.
+- GPU hourly rates are configured by Owner in Admin Android DB v0.
+- Coin is stored as wallet lots and each approved lot has its own expiry.
+- The account itself has no legacy rental time balance or account expiry.
+- QRIS is static. The client creates a pending order; Owner must verify the transfer and approve it before any Coin is credited.
+- Top-up creation and approval have database idempotency protections.
+
+## Not enabled
+- PC selection currently displays availability/status only.
+- Connect/stream start is intentionally disabled.
+- Production Windows Host Agent is not yet built and accepted on a real StarDesk PC.
+- No Coin session reserve/debit/settle lifecycle is exposed yet.
+- No old rental seconds/timer settlement is reused.
+- The public StarDesk integration interface has not yet provided verified start/stop streaming callbacks; process detection alone is not proof of a real stream.
+
+## Database deployment
+Migration `025_admin_androiddb_v0_coin_domain.sql` creates a separate `androiddb_v0` schema. It is additive and is not applied to the active Android DB by this source build. For an existing Termux database, the installer requires a validated backup and explicit typed `APPLY` before installing the new schema. Do not apply the migration to a different Supabase project or the old rental DB.
+
+## Tests
+The PostgreSQL workflow applies the full Android DB migration chain to disposable PostgreSQL and checks:
+- separate v0 rental creation and activation/login/refresh,
+- top-up idempotency, approval/rejection, Coin lot and ledger,
+- GPU tariff and StarDesk mapping,
+- Host enrollment/heartbeat readiness,
+- Admin/Remote v0 dashboard,
+- runtime function grants and table isolation,
+- legacy rental seconds and expiry unchanged.
+
+A passing CI build does not confirm live Termux DB state or real-device streaming. This APK remains SAFE-TEST until live gateway/database verification and physical Android/PC acceptance tests are complete.
