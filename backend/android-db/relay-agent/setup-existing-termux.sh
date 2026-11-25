@@ -14,6 +14,15 @@ BASE_RAW="https://raw.githubusercontent.com/anigamesready/Billing_stardesk_custo
 say() { printf '%s\n' "$*" | tee -a "$REPORT"; }
 fail() { say "STATUS: GAGAL"; say "PENYEBAB: $*"; say "Laporan: $REPORT"; exit 1; }
 
+secret_is_valid() {
+  local value="$1" safe
+  [ "${#value}" -ge 32 ] && [ "${#value}" -le 512 ] || return 1
+  # Avoid Bash ERE interval quantifiers: they can behave differently under
+  # some Android/Termux Bash compatibility modes. Use a portable tr allow-list.
+  safe="$(LC_ALL=C printf '%s' "$value" | LC_ALL=C tr -cd 'A-Za-z0-9._~+/=-')"
+  [ "$safe" = "$value" ]
+}
+
 [ "$PREFIX" = "/data/data/com.termux/files/usr" ] || { printf 'Jalankan dari Termux Android.\n'; exit 1; }
 [[ "$REF" =~ ^[0-9a-f]{40}$ ]] || { printf 'ANI_RELAY_REF SHA tidak valid.\n'; exit 1; }
 [ -d "$DOWNLOADS" ] && [ -w "$DOWNLOADS" ] || { printf 'Akses Download belum aktif. Jalankan termux-setup-storage lalu ulangi.\n'; exit 1; }
@@ -26,7 +35,7 @@ say "Nilai secret tidak ditampilkan atau ditulis ke laporan."
 
 [ -s "$SECRET_FILE" ] || fail "File secret Relay lokal tidak ditemukan: $SECRET_FILE"
 SECRET_VALUE="$(tr -d '\r\n' < "$SECRET_FILE")"
-[[ "$SECRET_VALUE" =~ ^[A-Za-z0-9._~+/=-]{32,512}$ ]] || fail "Format file secret Relay lokal tidak valid."
+secret_is_valid "$SECRET_VALUE" || fail "File secret harus berisi 32-512 karakter ASCII aman dalam satu baris. Nilai tidak ditampilkan."
 say "Sumber secret Relay lokal: ADA (isi dirahasiakan)"
 say "Panjang secret: ${#SECRET_VALUE} karakter"
 CONFIG_DIR="$HOME/.config/ani-games-relay-agent"
