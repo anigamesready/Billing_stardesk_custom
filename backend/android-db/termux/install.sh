@@ -242,7 +242,7 @@ if [ "$NEW_DATABASE" = 1 ]; then
     019_remote_play_session_connected.sql \
     020_remote_coin_wallet.sql \
     021_android_wol_relay.sql \
-    022_coin_unit_scale_100.sql \\
+    022_coin_unit_scale_100.sql \
       024_remote_coin_expiry_guard.sql; do
     apply_file "$file"
   done
@@ -353,7 +353,7 @@ else
       019_remote_play_session_connected.sql \
       020_remote_coin_wallet.sql \
       021_android_wol_relay.sql \
-      022_coin_unit_scale_100.sql \\
+      022_coin_unit_scale_100.sql \
       024_remote_coin_expiry_guard.sql; do
       apply_file "$file"
     done
