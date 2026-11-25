@@ -36,6 +36,7 @@ jobs:
           npm run check
           bash -n install.sh
           bash -n setup-existing-termux.sh
+          bash -n recover-termux-service.sh
       - name: Test relay authentication and route boundary
         working-directory: backend/android-db/relay-agent
         run: npm test
