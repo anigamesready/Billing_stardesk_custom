@@ -648,7 +648,7 @@ jobs:
           test -s "$APK_OUT"
           "$AAPT" dump badging "$APK_OUT" | tee "$GITHUB_WORKSPACE/output/apk-badging.txt"
           grep -q "package: name='com.anigames.billingadmin.v160online' versionCode='87' versionName='12.1.60-ANDROIDDB-ONLINE'" "$GITHUB_WORKSPACE/output/apk-badging.txt"
-          grep -q "application-label:'AniGames Admin V12.1.60 Android DB'" "$GITHUB_WORKSPACE/output/apk-badging.txt"
+          grep -q "application-label:'AniGames Admin V12.1.60 Android DB Online'" "$GITHUB_WORKSPACE/output/apk-badging.txt"
           "$APKSIGNER" verify --verbose "$APK_OUT"
           "$APKSIGNER" verify --print-certs "$APK_OUT"
           sha256sum "$APK_OUT" | tee "$GITHUB_WORKSPACE/output/SHA256SUMS.txt"
