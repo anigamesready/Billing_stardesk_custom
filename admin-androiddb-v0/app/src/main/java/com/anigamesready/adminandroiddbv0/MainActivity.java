@@ -29,6 +29,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URL;
+import java.net.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.util.concurrent.ExecutorService;
@@ -233,7 +234,12 @@ public final class MainActivity extends Activity {
                 }
                 if (body == null || body.length() > 32768) throw new IllegalArgumentException("API_BODY_TOO_LARGE");
                 final String method = ("__iot_status".equals(route) || "__gateway_health".equals(route)) ? "GET" : "POST";
-                connection = (HttpsURLConnection) new URL(API_BASE + path).openConnection();
+                connection = (HttpsURLConnection) new URL(API_BASE + path).openConnection(Proxy.NO_PROXY);
+                connection.setSSLSocketFactory(new GatewayPinnedSocketFactory());
+                connection.setHostnameVerifier((hostname, session) ->
+                    GatewayPinnedSocketFactory.isGatewayHost(hostname)
+                        && HttpsURLConnection.getDefaultHostnameVerifier().verify(
+                            GatewayPinnedSocketFactory.GATEWAY_HOST, session));
                 connection.setRequestMethod(method);
                 connection.setConnectTimeout(10000);
                 connection.setReadTimeout(18000);
