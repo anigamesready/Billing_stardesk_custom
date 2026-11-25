@@ -46,6 +46,9 @@ if [ -f "$ENV_FILE" ]; then
     process.stdout.write([u.hostname,u.port || "5432",db].join("|"));
   ')"
   IFS='|' read -r DB_HOST DB_PORT DB_NAME <<< "$DB_INFO"
+  if [ -z "$ANI_BIND" ]; then ANI_BIND="127.0.0.1"; fi
+  case "$ANI_BIND" in 127.0.0.1|localhost|::1) ;; *) die "ANI_BIND harus loopback sebelum proses migrasi database."; esac
+  if [ -z "$PORT" ]; then PORT="8787"; fi
   case "$DB_HOST" in 127.0.0.1|localhost|::1) ;; *) die "DATABASE_URL bukan database lokal Termux. Host luar tidak disentuh."; esac
 else
   DB_HOST="127.0.0.1"
@@ -231,9 +234,33 @@ else
       (SELECT count(*) FROM unnest(ARRAY[
         to_regclass('remote_play.wol_relay_enrollments'),to_regclass('remote_play.wol_relay_devices'),
         to_regclass('remote_play.wol_relay_commands'),to_regclass('remote_play.wol_relay_probes')
+      ]) AS u(name) WHERE u.name IS NOT NULL),
+      (SELECT count(*) FROM unnest(ARRAY[
+        to_regprocedure('api.remote_coin_wallet(text)'),
+        to_regprocedure('api.remote_coin_create_topup(text,bigint,text)'),
+        to_regprocedure('api.remote_coin_history(text,integer)'),
+        to_regprocedure('api.remote_coin_dashboard(text)'),
+        to_regprocedure('api.admin_remote_coin_topups(text,integer)'),
+        to_regprocedure('api.admin_remote_coin_approve_topup(text,uuid)'),
+        to_regprocedure('api.admin_remote_coin_reject_topup(text,uuid,text)'),
+        to_regprocedure('api.admin_remote_coin_set_device_rate(text,uuid,text)'),
+        to_regprocedure('api.admin_remote_coin_link_stardesk_device(text,uuid,text,boolean)')
+      ]) AS u(name) WHERE u.name IS NOT NULL),
+      (SELECT count(*) FROM unnest(ARRAY[
+        to_regprocedure('api.wol_relay_create_enrollment(text)'),
+        to_regprocedure('api.wol_relay_status(text)'),
+        to_regprocedure('api.wol_relay_enqueue(text,uuid)'),
+        to_regprocedure('api.wol_relay_command_status(text,uuid)'),
+        to_regprocedure('api.wol_relay_register(text,text,text,text,text)'),
+        to_regprocedure('api.wol_relay_heartbeat(text,jsonb)'),
+        to_regprocedure('api.wol_relay_poll(text)'),
+        to_regprocedure('api.wol_relay_ack(text,uuid,text,jsonb)'),
+        to_regprocedure('api.wol_relay_probe_request(text)'),
+        to_regprocedure('api.wol_relay_probe_status(text,uuid)'),
+        to_regprocedure('api.wol_relay_probe_ack(text,uuid,uuid,jsonb)')
       ]) AS u(name) WHERE u.name IS NOT NULL)
   ")"
-  IFS='|' read -r CORE_RENTALS CORE_DEVICES RP_SESSIONS RP_LOGIN RP_ADMIN RP_CLIENT RP_ADMIN_HELPER TABLE_COUNT COIN_TABLES WOL_TABLES <<< "$DB_STATE"
+  IFS='|' read -r CORE_RENTALS CORE_DEVICES RP_SESSIONS RP_LOGIN RP_ADMIN RP_CLIENT RP_ADMIN_HELPER TABLE_COUNT COIN_TABLES WOL_TABLES COIN_API_COUNT WOL_API_COUNT <<< "$DB_STATE"
   COIN_SCALE=0
   if [ "$COIN_TABLES" = 6 ]; then
     if [ "$(psql_admin -d "$DB_NAME" -Atqc "SELECT to_regclass('remote_play.coin_unit_config') IS NOT NULL")" = "t" ]; then
@@ -273,6 +300,12 @@ else
     [ "$RP_SESSIONS" = 1 ] && [ "$RP_LOGIN" = 1 ] && [ "$RP_ADMIN" = 1 ] && [ "$RP_CLIENT" = 1 ] && [ "$RP_ADMIN_HELPER" = 1 ] || die "Core DB ditemukan, tetapi Remote Play 013-019 belum lengkap. Tidak akan menerka urutan migrasi."
     [ "$COIN_TABLES" = 0 ] || [ "$COIN_TABLES" = 6 ] || die "Tabel coin terpasang sebagian ($COIN_TABLES/6); hentikan untuk audit."
     [ "$WOL_TABLES" = 0 ] || [ "$WOL_TABLES" = 4 ] || die "Tabel WoL terpasang sebagian ($WOL_TABLES/4); hentikan untuk audit."
+    if [ "$COIN_TABLES" = 6 ] && [ "$COIN_API_COUNT" != 9 ]; then
+      die "Coin table sudah ada tetapi kontrak API tidak lengkap ($COIN_API_COUNT/9). Tidak ada migrasi otomatis."
+    fi
+    if [ "$WOL_TABLES" = 4 ] && [ "$WOL_API_COUNT" != 11 ]; then
+      die "WoL table sudah ada tetapi kontrak API tidak lengkap ($WOL_API_COUNT/11). Tidak ada migrasi otomatis."
+    fi
     NEEDS_UPDATE=0
     [ "$COIN_TABLES" = 6 ] || NEEDS_UPDATE=1
     [ "$WOL_TABLES" = 4 ] || NEEDS_UPDATE=1
