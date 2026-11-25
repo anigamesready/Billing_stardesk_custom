@@ -148,13 +148,14 @@ jobs:
           scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
           assert len(scripts) == 1, "expected one inline UI script"
           # Every inline button handler must resolve to a real JS function.
-          onclick_bodies = re.findall(r"\\bonclick\\s*=\\s*['\\\"]([^'\\\"]+)['\\\"]", html, re.I)
+          onclick_bodies = re.findall(r'onclick="([^"]+)"', html, re.I)
+          onclick_bodies += re.findall(r"onclick='([^']+)'", html, re.I)
           handler_names = set()
           for body in onclick_bodies:
-              match = re.match(r"\\s*([A-Za-z_$][\\w$]*)\\s*\\(", body)
+              match = re.match(r"\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*\(", body)
               if match:
                   handler_names.add(match.group(1))
-          defined_functions = set(re.findall(r"\\bfunction\\s+([A-Za-z_$][\\w$]*)\\s*\\(", scripts[0]))
+          defined_functions = set(re.findall(r"function\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(", scripts[0]))
           missing_handlers = sorted(handler_names - defined_functions)
           assert not missing_handlers, "Admin button handler missing JS function: " + ", ".join(missing_handlers)
           Path("/tmp/admin-androiddb-v0.js").write_text(scripts[0], encoding="utf-8")
