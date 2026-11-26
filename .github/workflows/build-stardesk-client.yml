@@ -6,9 +6,13 @@ on:
       - feature/admin-androiddb-v0-isolated-20261125
       - feature/admin-androiddb-v0-full-db-20261126
       - feature/coin-x100-agent-pairing-20261126
+      - feature/remote-userid-only-login-20261126
     paths:
       - "android-client/**"
       - "backend/android-db/migrations/026_androiddb_v0_coin_x100.sql"
+      - "backend/android-db/migrations/027_androiddb_v0_remote_userid_only_login.sql"
+      - "backend/android-db/tests/020_androiddb_v0_coin_x100_smoke.sql"
+      - "tests/remote-userid-only-login.test.mjs"
       - "backend/android-db/tests/020_androiddb_v0_coin_x100_smoke.sql"
       - "tests/android-gateway-dns-pin.test.mjs"
       - ".github/workflows/build-stardesk-client.yml"
@@ -43,9 +47,9 @@ jobs:
           from pathlib import Path
           import re
           h=Path("android-client/app/src/main/assets/index.html").read_text()
-          for token in ["loginForm","apiBase","activationCode","androiddb_v0_remote_login","androiddb_v0_remote_refresh","androiddb_v0_remote_dashboard","androiddb_v0_remote_coin_wallet","androiddb_v0_remote_coin_history","androiddb_v0_remote_coin_create_topup","idempotency_key","stardesk_linked","Koneksi dikunci","*6000/8000","Math.round","3.750 koin","7.500 koin","11.250 koin","15.000 koin","ONLINE_API_BASE","n<30000","4500","5250","6000","coin_unit_scale","100"]:
+          for token in ["loginForm","apiBase","androiddb_v0_remote_login","androiddb_v0_remote_refresh","androiddb_v0_remote_dashboard","androiddb_v0_remote_coin_wallet","androiddb_v0_remote_coin_history","androiddb_v0_remote_coin_create_topup","idempotency_key","stardesk_linked","Koneksi dikunci","*6000/8000","Math.round","3.750 koin","7.500 koin","11.250 koin","15.000 koin","ONLINE_API_BASE","n<30000","4500","5250","6000","coin_unit_scale","100"]:
               assert token.lower() in h.lower(), "missing integration control/contract: "+token
-          for forbidden in ["supabase.co","supabase.createclient","functions/v1/stardesk-client-api","PREVIEW-"]:
+          for forbidden in ["supabase.co","supabase.createclient","functions/v1/stardesk-client-api","PREVIEW-","activationCode","p_activation_code","Kode Aktivasi","Kode dari Admin"]:
               assert forbidden.lower() not in h.lower(), "legacy/demo backend reference remains: "+forbidden
           assert "localStorage.setItem('remote_access_token'" not in h
           for legacy_rpc in ["remote_play_login","remote_play_refresh","remote_play_logout","remote_coin_dashboard","remote_coin_wallet","remote_coin_history","remote_coin_create_topup"]:
@@ -72,14 +76,15 @@ jobs:
           assert "InetAddress.getByName" not in tls and "X509TrustManager" not in tls, "DNS/trust bypass detected in pinned gateway socket factory"
           gradle=Path("android-client/app/build.gradle").read_text()
           assert 'applicationId "com.anigamesready.stardeskclient.coinx100preview"' in gradle
-          assert 'versionCode 11' in gradle and 'versionName "0.6.5-coin-x100"' in gradle
+          assert 'versionCode 12' in gradle and 'versionName "0.6.6-userid-only-login"' in gradle
           manifest=Path("android-client/app/src/main/AndroidManifest.xml").read_text()
-          assert 'android:label="Ani Games Ready Remote Coin x100 Preview 0.6.5"' in manifest
+          assert 'android:label="Ani Games Ready Remote User ID Only 0.6.6"' in manifest
           assert 'android:usesCleartextTraffic="false"' in manifest
           assert '<uses-permission android:name="android.permission.INTERNET"' in manifest
           PY
           node --check /tmp/remote-androiddb.js
           node --test tests/android-gateway-dns-pin.test.mjs
+          node --test tests/remote-userid-only-login.test.mjs
           test -s android-client/app/src/main/assets/qris_ani_games.png
       - name: Build debug APK
         working-directory: android-client
@@ -92,15 +97,15 @@ jobs:
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
           "$AAPT" dump badging "$APK" | tee /tmp/remote-badging.txt
-          grep -q "package: name='com.anigamesready.stardeskclient.coinx100preview' versionCode='11' versionName='0.6.5-coin-x100'" /tmp/remote-badging.txt
-          grep -q "application-label:'Ani Games Ready Remote Coin x100 Preview 0.6.5'" /tmp/remote-badging.txt
+          grep -q "package: name='com.anigamesready.stardeskclient.coinx100preview' versionCode='12' versionName='0.6.6-userid-only-login'" /tmp/remote-badging.txt
+          grep -q "application-label:'Ani Games Ready Remote User ID Only 0.6.6'" /tmp/remote-badging.txt
           "$APKSIGNER" verify --verbose "$APK"
           "$APKSIGNER" verify --print-certs "$APK"
           sha256sum "$APK" | tee SHA256SUMS-REMOTE-ANDROIDDB.txt
           unzip -t "$APK"
       - uses: actions/upload-artifact@v4
         with:
-          name: Ani-Games-Ready-Remote-Coin-x100-Preview-0.6.5
+          name: Ani-Games-Ready-Remote-UserID-Only-0.6.6
           path: |
             android-client/app/build/outputs/apk/debug/app-debug.apk
             SHA256SUMS-REMOTE-ANDROIDDB.txt
