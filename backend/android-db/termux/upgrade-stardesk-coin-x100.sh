@@ -26,7 +26,7 @@ for bin in psql pg_isready pg_dump pg_restore curl sha256sum readlink date sed; 
   command -v "$bin" >/dev/null 2>&1 || die "$bin belum tersedia. Tidak ada perubahan database."
 done
 [[ "$SOURCE_REF" =~ ^[0-9a-fA-F]{40}$ ]] || die "ANI_STARDESK_SOURCE_REF wajib berisi SHA commit 40 karakter yang benar."
-[ -f "$PGDATA/PG_VERSION" ] || die "Cluster PostgreSQL Termux tidak ditemukan; script tidak akan initdb atau menyalakan service."
+[ -f "$PGDATA/PG_VERSION" ] || die "Cluster PostgreSQL Termux tidak ditemukan; script tidak akan membuat atau menyalakan cluster."
 pg_isready -h "$PREFIX/tmp" -p "$DB_PORT" >/dev/null 2>&1 || die "PostgreSQL existing belum siap pada socket Termux. Script tidak akan restart PostgreSQL."
 
 # Select only the already-running Termux cluster and prove server/data directory identity.
