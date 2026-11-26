@@ -4,7 +4,9 @@ A standalone Android Owner/Admin app built only from this repository. Package id
 
 ## Identity
 
-- Package: `com.anigames.billingadmin.androiddbv0`
+- Package: `com.anigames.billingadmin.coinpreview`
+- App label: `Ani Games Admin Coin Preview 0.2.5`
+- Install mode: side-by-side with the previous `com.anigames.billingadmin.androiddbv0` app
 - Namespace: `com.anigamesready.adminandroiddbv0`
 - Version: `0.2.5-coin-first-pc-control`, versionCode `7`
 - Source root: `admin-androiddb-v0/`
