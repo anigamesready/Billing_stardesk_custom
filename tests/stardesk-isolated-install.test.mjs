@@ -1,0 +1,92 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const installer = readFileSync('backend/android-db/termux/install-stardesk-custom-v0.sh', 'utf8');
+const agentInstaller = readFileSync('backend/android-db/relay-agent/install-stardesk-agent.sh', 'utf8');
+const migrationRoot = 'backend/android-db/migrations/';
+const migrations = [
+  '000_prerequisites.sql',
+  '002_core_business_schema.sql',
+  '003_pc_device_api_functions.sql',
+  '004_billing_reseller_api.sql',
+  '005_runtime_privileges.sql',
+  '006_admin_local_auth_and_rpc.sql',
+  '007_billing_control_commands.sql',
+  '008_local_business_triggers.sql',
+  '009_admin_business_routines.sql',
+  '010_billing_reseller_refresh_and_devices.sql',
+  '011_billing_control_android_rpcs.sql',
+  '012_billing_stop_pause_policy.sql',
+  '013_remote_play.sql',
+  '014_remote_play_pairing.sql',
+  '015_remote_play_admin_controls.sql',
+  '016_remote_play_cloudflare_mesh.sql',
+  '017_remote_play_dashboard_cooldown.sql',
+  '018_remote_play_server_watchdog.sql',
+  '019_remote_play_session_connected.sql',
+  '020_remote_coin_wallet.sql',
+  '021_android_wol_relay.sql',
+  '022_coin_unit_scale_100.sql',
+  '023_admin_coin_management_read_api.sql',
+  '025_admin_androiddb_v0_coin_domain.sql',
+];
+
+test('StarDesk installer uses dedicated DB, roles, API port, directory and service', () => {
+  for (const token of [
+    'stardesk_custom_v0',
+    'stardesk_v0_owner',
+    'stardesk_v0_runtime',
+    'stardesk_v0_login',
+    'ani-games-stardesk-custom-v0',
+    '8789',
+    'stardesk-custom-v0-api',
+    'ANI_STARDESK_SOURCE_REF',
+    'androiddb_v0_admin_dashboard',
+    'androiddb_v0_remote_login',
+  ]) assert.ok(installer.includes(token), 'missing isolation identifier: ' + token);
+});
+
+test('StarDesk installer is fail-closed and does not target legacy DB/API/service', () => {
+  for (const forbidden of [
+    'ani_games_ready_stage',
+    'ani-games-db-android-stage',
+    'ani-games-ready-api',
+    'ANI_DB_NAME',
+    'PORT=8788',
+    'DROP DATABASE',
+    'DROP ROLE',
+    'sv down ani-games-ready-api',
+    'restart ani-games-ready-api',
+  ]) assert.ok(!installer.includes(forbidden), 'legacy/destructive path present: ' + forbidden);
+  for (const guard of [
+    'DB_EXISTS',
+    'OWNER_EXISTS',
+    'RUNTIME_EXISTS',
+    'LOGIN_EXISTS',
+    'SERVICE_DIR',
+    '/dev/tcp/127.0.0.1/$API_PORT',
+    'pg_isready',
+    'sv status postgres',
+  ]) assert.ok(installer.includes(guard), 'missing fail-closed guard: ' + guard);
+});
+
+test('migration bundle is complete and rewrites the NOLOGIN API runtime role', () => {
+  assert.equal(migrations.length, 24);
+  assert.ok(installer.includes('sed "s/ani_api_runtime/$RUNTIME_ROLE/g"'));
+  for (const name of migrations) {
+    const sql = readFileSync(migrationRoot + name, 'utf8');
+    assert.ok(sql.length > 100, 'migration empty: ' + name);
+    const isolated = sql.replaceAll('ani_api_runtime', 'stardesk_v0_runtime');
+    assert.ok(!isolated.includes('ani_api_runtime'), 'legacy runtime reference remains after transformation: ' + name);
+  }
+});
+
+test('StarDesk relay installer targets API 8789 and the dedicated relay route/service', () => {
+  assert.ok(agentInstaller.includes('http://127.0.0.1:8789'));
+  assert.ok(agentInstaller.includes('/agent/connect/stardesk'));
+  assert.ok(agentInstaller.includes('ani-games-stardesk-relay-agent'));
+  assert.ok(!agentInstaller.includes('sv down ani-games-relay-agent'));
+  assert.ok(!agentInstaller.includes('sv down ani-games-ready-api'));
+  assert.ok(!agentInstaller.includes('openssl rand'));
+});
