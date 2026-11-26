@@ -1,10 +1,12 @@
-# Ani Games Ready Remote — Android DB v0 Coin Candidate 0.6.3
+# Ani Games Ready Remote — Coin x100 Preview 0.6.5
 
 This source is the isolated Remote Android DB v0 client for the Ani Games Ready Coin domain.
 
 ## Build identity
 - Application ID: `com.anigamesready.stardeskclient`
-- Version: `0.6.4-route-and-login-limit-guidance`
+- Package: `com.anigamesready.stardeskclient.coinx100preview`
+- Version: `0.6.5-coin-x100`, versionCode `11`
+- Install mode: side-by-side with the earlier Remote 0.6.4
 - Version code: `9`
 - Remote source: `android-client/`
 - Repository: `anigamesready/Billing_stardesk_custom`
@@ -27,9 +29,11 @@ Access and refresh tokens are stored using AES-GCM backed by Android Keystore. T
 The native HTTPS bridge pins TCP to the tested Cloudflare edge IPv4 addresses `104.18.13.15` and `104.18.12.15` for the fixed Gateway hostname. The HTTPS URL uses the dedicated `/stardesk` route while Host header, SNI and Android's default certificate trust/hostname verification continue to use `ani-games-db-android-stage-gateway.anigamesready.workers.dev`. No trust-all certificate callback or cleartext fallback is used.
 
 ## Coin rules
-- Rp8.000 = 60 Coin.
+- Rp8.000 = 6,000 Coin (x100 denomination).
+- Rp5.000 = 3,750 Coin; Rp10.000 = 7,500; Rp15.000 = 11,250; Rp20.000 = 15,000.
+- Hourly rates: GTX 1050 / GTX 1660 = 4,500 Coin; RTX 3060 = 5,250; RTX 5060 = 6,000. Rupiah prices do not change.
 - GPU hourly rates are configured by Owner in Admin Android DB v0.
-- Coin is stored as wallet lots and each approved lot has its own expiry.
+- Coin is stored as wallet lots in x100 units and each approved lot has its own expiry. Existing Android DB v0 balances, orders, lots, ledger and GPU rates are converted by migration 026 exactly once.
 - The account itself has no legacy rental time balance or account expiry.
 - QRIS is static. The client creates a pending order; Owner must verify the transfer and approve it before any Coin is credited.
 - Top-up creation and approval have database idempotency protections.
