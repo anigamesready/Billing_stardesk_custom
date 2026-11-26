@@ -9,8 +9,8 @@ DECLARE
   legacy_rental_id uuid;
   v0_rental_id uuid;
   create_result jsonb;
-  activation_result jsonb;
   remote_login jsonb;
+  second_remote_login jsonb;
   refresh_result jsonb;
   topup_result jsonb;
   topup_duplicate jsonb;
@@ -29,7 +29,6 @@ DECLARE
   heartbeat_result jsonb;
   access_token text;
   refresh_token text;
-  activation_code text;
   host_token text;
   order_id uuid;
   rejected_order_id uuid;
@@ -75,17 +74,45 @@ BEGIN
     RAISE EXCEPTION 'ANDROIDDB_V0_RENTAL_NOT_STORED_IN_V0_SCHEMA';
   END IF;
 
-  activation_result:=api.androiddb_v0_admin_issue_activation(owner_token,v0_rental_id);
-  activation_code:=activation_result->>'activation_code';
-  IF length(coalesce(activation_code,''))<>16 THEN
-    RAISE EXCEPTION 'ANDROIDDB_V0_ACTIVATION_CODE_INVALID';
+  -- User ID alone authenticates a rental on a new device; no Admin-issued activation is created.
+  IF EXISTS(SELECT 1 FROM androiddb_v0.client_credentials WHERE rental_account_id=v0_rental_id) THEN
+    RAISE EXCEPTION 'ANDROIDDB_V0_TEST_FIXTURE_UNEXPECTED_ACTIVATION_CREDENTIAL';
   END IF;
-  remote_login:=api.androiddb_v0_remote_login('V0-CI-MEMBER',activation_code,'v0-android-test-device-0001');
+  remote_login:=api.androiddb_v0_remote_login('V0-CI-MEMBER','v0-android-test-device-0001');
   access_token:=remote_login->>'access_token';
   refresh_token:=remote_login->>'refresh_token';
-  IF length(coalesce(access_token,''))<>64 OR length(coalesce(refresh_token,''))<>64 THEN
-    RAISE EXCEPTION 'ANDROIDDB_V0_REMOTE_LOGIN_FAILED';
+  IF length(coalesce(access_token,''))<>64 OR length(coalesce(refresh_token,''))<>64
+     OR remote_login->>'auth_method'<>'user_id_only' THEN
+    RAISE EXCEPTION 'ANDROIDDB_V0_REMOTE_USERID_LOGIN_FAILED';
   END IF;
+
+  -- A second phone using the same User ID rotates the sole active session.
+  second_remote_login:=api.androiddb_v0_remote_login('V0-CI-MEMBER','v0-android-test-device-0002');
+  IF second_remote_login->>'client_session_id' IS DISTINCT FROM remote_login->>'client_session_id'
+     OR (SELECT count(*) FROM androiddb_v0.client_sessions
+         WHERE rental_account_id=v0_rental_id AND revoked_at IS NULL)<>1
+     OR NOT EXISTS(SELECT 1 FROM androiddb_v0.client_sessions
+       WHERE rental_account_id=v0_rental_id AND revoked_at IS NULL
+         AND client_install_id='v0-android-test-device-0002') THEN
+    RAISE EXCEPTION 'ANDROIDDB_V0_SINGLE_ACTIVE_SESSION_ROTATION_FAILED';
+  END IF;
+  BEGIN
+    PERFORM api.androiddb_v0_remote_coin_wallet(access_token);
+    RAISE EXCEPTION 'ANDROIDDB_V0_OLD_ACCESS_TOKEN_REMAINED_VALID';
+  EXCEPTION WHEN SQLSTATE 'P0001' THEN
+    GET STACKED DIAGNOSTICS error_text=MESSAGE_TEXT;
+    IF error_text<>'ANDROIDDB_V0_CLIENT_SESSION_EXPIRED' THEN RAISE; END IF;
+  END;
+  BEGIN
+    PERFORM api.androiddb_v0_remote_refresh(refresh_token);
+    RAISE EXCEPTION 'ANDROIDDB_V0_OLD_REFRESH_TOKEN_REMAINED_VALID';
+  EXCEPTION WHEN SQLSTATE 'P0001' THEN
+    GET STACKED DIAGNOSTICS error_text=MESSAGE_TEXT;
+    IF error_text<>'ANDROIDDB_V0_REFRESH_EXPIRED' THEN RAISE; END IF;
+  END;
+  access_token:=second_remote_login->>'access_token';
+  refresh_token:=second_remote_login->>'refresh_token';
+
   refresh_result:=api.androiddb_v0_remote_refresh(refresh_token);
   access_token:=refresh_result->>'access_token';
   refresh_token:=refresh_result->>'refresh_token';
@@ -189,7 +216,7 @@ BEGIN
   END IF;
   admin_dashboard:=api.androiddb_v0_admin_dashboard(owner_token,100);
   IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(admin_dashboard->'rental_accounts') r
-      WHERE r->>'id'=v0_rental_id::text AND r->>'activation_issued'='true'
+      WHERE r->>'id'=v0_rental_id::text AND r->>'activation_issued'='false'
         AND (r->>'coin_balance')::numeric=60) THEN
     RAISE EXCEPTION 'ANDROIDDB_V0_ADMIN_RENTAL_OVERVIEW_FAILED';
   END IF;
@@ -242,8 +269,10 @@ BEGIN
   END IF;
   IF NOT has_function_privilege('ani_api_runtime','api.androiddb_v0_admin_dashboard(text,integer)','EXECUTE')
      OR NOT has_function_privilege('ani_api_runtime','api.androiddb_v0_remote_dashboard(text)','EXECUTE')
-     OR NOT has_function_privilege('ani_api_runtime','api.androiddb_v0_remote_login(text,text,text)','EXECUTE') THEN
-    RAISE EXCEPTION 'ANDROIDDB_V0_RUNTIME_FUNCTION_GRANT_MISSING';
+     OR NOT has_function_privilege('ani_api_runtime','api.androiddb_v0_remote_login(text,text)','EXECUTE')
+     OR has_function_privilege('ani_api_runtime','api.androiddb_v0_remote_login(text,text,text)','EXECUTE')
+     OR to_regprocedure('api.androiddb_v0_remote_login(text,text,text)') IS NOT NULL THEN
+    RAISE EXCEPTION 'ANDROIDDB_V0_RUNTIME_USERID_LOGIN_GRANTS_INVALID';
   END IF;
 END;
 $$;
