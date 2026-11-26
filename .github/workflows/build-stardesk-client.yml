@@ -5,8 +5,13 @@ on:
       - feature/androiddb-online-remote-admin-20261125
       - feature/admin-androiddb-v0-isolated-20261125
       - feature/admin-androiddb-v0-full-db-20261126
+      - fix/admin-session-refresh-remote-userid-only-20261126
     paths:
       - "android-client/**"
+      - "backend/android-db/server/server.mjs"
+      - "backend/android-db/migrations/026_androiddb_v0_userid_only_remote_login.sql"
+      - "backend/android-db/termux/install.sh"
+      - "tests/edge-cloudflare-online-gateway.test.mjs"
       - "tests/android-gateway-dns-pin.test.mjs"
       - ".github/workflows/build-stardesk-client.yml"
   workflow_dispatch:
@@ -40,11 +45,24 @@ jobs:
           from pathlib import Path
           import re
           h=Path("android-client/app/src/main/assets/index.html").read_text()
-          for token in ["loginForm","apiBase","activationCode","androiddb_v0_remote_login","androiddb_v0_remote_refresh","androiddb_v0_remote_dashboard","androiddb_v0_remote_coin_wallet","androiddb_v0_remote_coin_history","androiddb_v0_remote_coin_create_topup","idempotency_key","stardesk_linked","Koneksi dikunci","*60/8000","Math.round","75 koin","112,5 koin","150 koin","ONLINE_API_BASE","n<300","45","52.5","60"]:
+          for token in ["loginForm","apiBase","registerButton","Daftar via WhatsApp","remote_rental_code","p_client_install_id","androiddb_v0_remote_login","androiddb_v0_remote_refresh","androiddb_v0_remote_dashboard","androiddb_v0_remote_coin_wallet","androiddb_v0_remote_coin_history","androiddb_v0_remote_coin_create_topup","idempotency_key","stardesk_linked","Koneksi dikunci","*60/8000","Math.round","75 koin","112,5 koin","150 koin","ONLINE_API_BASE","n<300","45","52.5","60"]:
               assert token.lower() in h.lower(), "missing integration control/contract: "+token
-          for forbidden in ["supabase.co","supabase.createclient","functions/v1/stardesk-client-api","PREVIEW-"]:
+          for forbidden in ["supabase.co","supabase.createclient","functions/v1/stardesk-client-api","PREVIEW-","activationCode","p_activation_code"]:
               assert forbidden.lower() not in h.lower(), "legacy/demo backend reference remains: "+forbidden
           assert "localStorage.setItem('remote_access_token'" not in h
+          assert "activationCode" not in h and "p_activation_code" not in h, "Admin activation flow must not appear in Remote login"
+          assert 'nativeRpc("androiddb_v0_remote_login",{p_rental_code:rentalCode,p_client_install_id:clientId},"")' in h
+          logout=re.search(r"async function logout\(\)\s*\{([\s\S]*?)\n\}",h)
+          assert logout, "Remote logout handler missing"
+          assert 'secretClear("remote_access_token")' in logout.group(1)
+          assert 'secretClear("remote_refresh_token")' not in logout.group(1)
+          assert 'secretClear("remote_rental_code")' not in logout.group(1)
+          assert "androiddb_v0_remote_logout" not in logout.group(1), "local logout must preserve the registered device session"
+          server=Path("backend/android-db/server/server.mjs").read_text()
+          assert 'SELECT api.androiddb_v0_remote_login($1::text,$2::text) AS result' in server
+          migration=Path("backend/android-db/migrations/026_androiddb_v0_userid_only_remote_login.sql").read_text()
+          assert "p_rental_code text" in migration and "p_client_install_id text" in migration
+          assert "p_activation_code" not in migration
           for legacy_rpc in ["remote_play_login","remote_play_refresh","remote_play_logout","remote_coin_dashboard","remote_coin_wallet","remote_coin_history","remote_coin_create_topup"]:
               assert 'nativeRpc("'+legacy_rpc+'"' not in h, "legacy RPC call remains: "+legacy_rpc
           assert "STATUS AKUN COIN" in h and "STATUS AKUN RENTAL LAMA" not in h
@@ -59,14 +77,14 @@ jobs:
           assert len(scripts)==1, "expected one inline JS block"
           Path("/tmp/remote-androiddb.js").write_text(scripts[0])
           java=Path("android-client/app/src/main/java/com/anigamesready/stardeskclient/MainActivity.java").read_text()
-          for token in ["AndroidKeyStore","AES/GCM/NoPadding","apiRequest","HttpsURLConnection","getSecureValue","saveSecureValue","Proxy.NO_PROXY","GatewayPinnedSocketFactory","setSSLSocketFactory","setHostnameVerifier","getDefaultHostnameVerifier"]:
+          for token in ["AndroidKeyStore","AES/GCM/NoPadding","apiRequest","HttpsURLConnection","getSecureValue","saveSecureValue","0.6.2-androiddb-v0-userid-only","wa.me/6282298316902","Proxy.NO_PROXY","GatewayPinnedSocketFactory","setSSLSocketFactory","setHostnameVerifier","getDefaultHostnameVerifier"]:
               assert token in java, "missing native security/API bridge: "+token
           tls=Path("android-client/app/src/main/java/com/anigamesready/stardeskclient/GatewayPinnedSocketFactory.java").read_text()
           for token in ["104.18.13.15", "104.18.12.15", "SNIHostName", "delegate.createSocket(raw, GATEWAY_HOST, port, autoClose)", "isPinnedIpv4Address(raw.getInetAddress())"]:
               assert token in tls, "missing pinned Cloudflare TLS control: "+token
           assert "InetAddress.getByName" not in tls and "X509TrustManager" not in tls, "DNS/trust bypass detected in pinned gateway socket factory"
           gradle=Path("android-client/app/build.gradle").read_text()
-          assert 'versionCode 7' in gradle and 'versionName "0.6.1-androiddb-v0-coin-gateway-pin"' in gradle
+          assert 'versionCode 8' in gradle and 'versionName "0.6.2-androiddb-v0-userid-only"' in gradle
           manifest=Path("android-client/app/src/main/AndroidManifest.xml").read_text()
           assert 'android:usesCleartextTraffic="false"' in manifest
           assert '<uses-permission android:name="android.permission.INTERNET"' in manifest
@@ -74,6 +92,8 @@ jobs:
           node --check /tmp/remote-androiddb.js
           node --test tests/android-gateway-dns-pin.test.mjs
           test -s android-client/app/src/main/assets/qris_ani_games.png
+      - name: Test Gateway Bearer header forwarding
+        run: node --test tests/edge-cloudflare-online-gateway.test.mjs
       - name: Build debug APK
         working-directory: android-client
         run: gradle --no-daemon clean assembleDebug
@@ -85,14 +105,14 @@ jobs:
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
           "$AAPT" dump badging "$APK" | tee /tmp/remote-badging.txt
-          grep -q "package: name='com.anigamesready.stardeskclient' versionCode='7' versionName='0.6.1-androiddb-v0-coin-gateway-pin'" /tmp/remote-badging.txt
+          grep -q "package: name='com.anigamesready.stardeskclient' versionCode='8' versionName='0.6.2-androiddb-v0-userid-only'" /tmp/remote-badging.txt
           "$APKSIGNER" verify --verbose "$APK"
           "$APKSIGNER" verify --print-certs "$APK"
           sha256sum "$APK" | tee SHA256SUMS-REMOTE-ANDROIDDB.txt
           unzip -t "$APK"
       - uses: actions/upload-artifact@v4
         with:
-          name: Ani-Games-Ready-Remote-AndroidDB-v0-Coin-v0.6.1-Gateway-Pin
+          name: Ani-Games-Ready-Remote-AndroidDB-v0-UserID-Only-v0.6.2
           path: |
             android-client/app/build/outputs/apk/debug/app-debug.apk
             SHA256SUMS-REMOTE-ANDROIDDB.txt
