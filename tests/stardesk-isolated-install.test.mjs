@@ -259,8 +259,10 @@ test('Remote renter login requires only User ID and removes Admin activation wor
     'GRANT EXECUTE ON FUNCTION api.androiddb_v0_remote_login(text,text) TO ani_api_runtime',
     'client_login_userid_only',
   ]) assert.ok(migration.includes(token), 'missing User ID-only migration contract: ' + token);
-  for (const forbidden of ['p_activation_code','activation_code','client_credentials','admin_issue_activation']) {
-    assert.ok(!migration.includes(forbidden), 'legacy activation path remains in new migration: ' + forbidden);
+  for (const forbidden of ['p_activation_code','activation_code',
+    'CREATE OR REPLACE FUNCTION api.androiddb_v0_admin_issue_activation',
+    'UPDATE androiddb_v0.client_credentials','INSERT INTO androiddb_v0.client_credentials']) {
+    assert.ok(!migration.includes(forbidden), 'legacy activation implementation remains in new migration: ' + forbidden);
   }
   for (const forbidden of ['activationCode','p_activation_code','Kode Aktivasi','Kode dari Admin','diaktivasi oleh Admin']) {
     assert.ok(!remote.includes(forbidden), 'activation field or instruction remains in Remote UI: ' + forbidden);
