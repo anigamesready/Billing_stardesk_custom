@@ -9,7 +9,7 @@ const apps = [
     helper: 'admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/GatewayPinnedSocketFactory.java',
     gradle: 'admin-androiddb-v0/app/build.gradle',
     base: 'API_BASE',
-    version: ['versionCode 4', 'versionName "0.2.2-isolated-stardesk-db"'],
+    version: ['versionCode 5', 'versionName "0.2.3-gateway-diagnostics"'],
   },
   {
     name: 'Remote Android',
