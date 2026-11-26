@@ -1,17 +1,9 @@
 -- StarDesk Custom v0 — User ID-only renter authentication.
--- This migration applies only inside stardesk_custom_v0. It replaces the old
--- activation-code login contract; Admin-issued host enrollment remains separate.
--- The API applies IP + User ID rate limiting before calling this RPC.
+-- This additive migration creates the User ID-only API overload inside
+-- stardesk_custom_v0. The former activation-code overload stays available for
+-- older test clients but the new Remote app and Node route no longer call it.
+-- The Node API rate-limits attempts by IP + User ID before calling this RPC.
 BEGIN;
-
-DO $drop_activation_login$
-BEGIN
-  IF to_regprocedure('api.androiddb_v0_remote_login(text,text,text)') IS NOT NULL THEN
-    EXECUTE 'REVOKE ALL ON FUNCTION api.androiddb_v0_remote_login(text,text,text) FROM PUBLIC, ani_api_runtime';
-    EXECUTE 'DROP FUNCTION api.androiddb_v0_remote_login(text,text,text)';
-  END IF;
-END;
-$drop_activation_login$;
 
 CREATE OR REPLACE FUNCTION api.androiddb_v0_remote_login(
   p_rental_code text,
@@ -106,6 +98,6 @@ $function$;
 REVOKE ALL ON FUNCTION api.androiddb_v0_remote_login(text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION api.androiddb_v0_remote_login(text,text) TO ani_api_runtime;
 COMMENT ON FUNCTION api.androiddb_v0_remote_login(text,text)
-  IS 'StarDesk Custom v0 renter login using User ID only; one active session, 5 attempts/IP+UserID enforced by the Node API.';
+  IS 'StarDesk Custom v0 renter login using User ID only; one active session, 5 attempts/IP+UserID enforced by the Node API. Additive two-argument overload.';
 
 COMMIT;
