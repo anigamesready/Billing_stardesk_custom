@@ -173,7 +173,9 @@ test('Termux quick-control menu keeps DBs separate and defaults SQL sessions to 
     'ani-games-ready-api','stardesk-custom-v0-api','ani-games-relay-agent',
     'ani-games-stardesk-relay-agent','default_transaction_read_only=on',
     '/stardesk/_ani_gateway/health']) assert.ok(dbControl.includes(token), 'missing item: '+token);
-  assert.match(dbControl, /case "\$service" in[\s\S]*stardesk-custom-v0-api[\s\S]*ani-games-stardesk-relay-agent/);
+  assert.ok(dbControl.includes('case "$service" in "$STAR_API_SERVICE"|"$STAR_RELAY_SERVICE")'));
+  assert.ok(dbControl.includes('readonly STAR_API_SERVICE="stardesk-custom-v0-api"'));
+  assert.ok(dbControl.includes('readonly STAR_RELAY_SERVICE="ani-games-stardesk-relay-agent"'));
   assert.doesNotMatch(dbControl, /\bsv\s+(?:up|down|restart|start|stop)\s+(?:postgres|ani-games-ready-api|ani-games-relay-agent)\b/);
   assert.doesNotMatch(dbControl, /\b(?:DROP\s+DATABASE|DROP\s+ROLE|TRUNCATE\s+TABLE|DELETE\s+FROM|pg_ctl|initdb)\b/i);
   assert.doesNotMatch(dbControl, /\\\\\$\\{/i, "shell variable expansion must not contain a literal escape");
