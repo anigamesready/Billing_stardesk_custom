@@ -4,6 +4,7 @@ on:
     branches:
       - feature/remote-auto-url-coin-ui-20261125
       - feature/remote-data-plane-expiry-guard-20261126
+      - feature/remote-userid-login-register-wa-20261126
     paths:
       - "android-client/**"
       - ".github/workflows/build-stardesk-client.yml"
@@ -38,7 +39,7 @@ jobs:
           from pathlib import Path
           import re
           h=Path("android-client/app/src/main/assets/index.html").read_text()
-          for token in ["loginForm","retryGateway","activationCode","remote_play_login","remote_play_refresh","remote_coin_dashboard","remote_coin_wallet","remote_coin_history","remote_coin_create_topup","idempotency_key","stardesk_linked","ONLINE • STAR DESK BELUM DIVERIFIKASI","HP hanya mengelola akun","Video tetap dibuka melalui StarDesk Engine secara langsung","n*6000/8000","n<30000","4500","5250","6000","3.750 koin","7.500 koin","11.250 koin","15.000 koin","accountExpiryValid","Masa aktif akun rental sudah berakhir."]:
+          for token in ["loginForm","retryGateway","activationCode","remote_play_login","remote_play_refresh","remote_coin_dashboard","remote_coin_wallet","remote_coin_history","remote_coin_create_topup","idempotency_key","stardesk_linked","ONLINE • STAR DESK BELUM DIVERIFIKASI","HP hanya mengelola akun","Video tetap dibuka melalui StarDesk Engine secara langsung","n*6000/8000","n<30000","4500","5250","6000","3.750 koin","7.500 koin","11.250 koin","15.000 koin","accountExpiryValid","Masa aktif akun rental sudah berakhir.","activationWrap","registerButton","Daftar via WhatsApp","Perangkat berikutnya cukup memakai User ID.","Perangkat ini belum terdaftar.","toggleActivation"]:
               assert token.lower() in h.lower(), "missing integration control/contract: "+token
           for forbidden in ["supabase.co","supabase.createclient","functions/v1/stardesk-client-api","PREVIEW-","id=\"apiBase\"","setApiBase","ALAMAT HTTPS SERVER ANDROID DB"]:
               assert forbidden.lower() not in h.lower(), "legacy/demo backend reference remains: "+forbidden
@@ -47,10 +48,16 @@ jobs:
           assert len(scripts)==1, "expected one inline JS block"
           Path("/tmp/remote-androiddb.js").write_text(scripts[0])
           java=Path("android-client/app/src/main/java/com/anigamesready/stardeskclient/MainActivity.java").read_text()
-          for token in ["AndroidKeyStore","AES/GCM/NoPadding","apiRequest","checkGateway","/_ani_gateway/health","ani-games-db-android-stage-gateway.anigamesready.workers.dev","HttpsURLConnection","getSecureValue","saveSecureValue","0.6.0-direct-stardesk-data-plane-preview"]:
+          for token in ["AndroidKeyStore","AES/GCM/NoPadding","apiRequest","checkGateway","/_ani_gateway/health","ani-games-db-android-stage-gateway.anigamesready.workers.dev","HttpsURLConnection","getSecureValue","saveSecureValue","0.6.1-userid-login-wa-register","wa.me/6282298316902"]:
               assert token in java, "missing native security/API bridge: "+token
           gradle=Path("android-client/app/build.gradle").read_text()
-          assert 'versionCode 6' in gradle and 'versionName "0.6.0-direct-stardesk-data-plane-preview"' in gradle
+          assert 'versionCode 7' in gradle and 'versionName "0.6.1-userid-login-wa-register"' in gradle
+          logout=re.search(r"async function logout\\(\\)\\s*\\{([\\s\\S]*?)\\n\\}",h)
+          assert logout, "logout handler missing"
+          assert 'secretClear("remote_access_token")' in logout.group(1)
+          assert 'secretClear("remote_refresh_token")' not in logout.group(1)
+          assert 'secretClear("remote_rental_code")' not in logout.group(1)
+          assert 'remote_play_logout' not in logout.group(1), "local sign-out must preserve refresh registration"
           manifest=Path("android-client/app/src/main/AndroidManifest.xml").read_text()
           assert 'android:usesCleartextTraffic="false"' in manifest
           assert '<uses-permission android:name="android.permission.INTERNET"' in manifest
@@ -68,14 +75,14 @@ jobs:
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
           "$AAPT" dump badging "$APK" | tee /tmp/remote-badging.txt
-          grep -q "package: name='com.anigamesready.stardeskclient' versionCode='6' versionName='0.6.0-direct-stardesk-data-plane-preview'" /tmp/remote-badging.txt
+          grep -q "package: name='com.anigamesready.stardeskclient' versionCode='7' versionName='0.6.1-userid-login-wa-register'" /tmp/remote-badging.txt
           "$APKSIGNER" verify --verbose "$APK"
           "$APKSIGNER" verify --print-certs "$APK"
           sha256sum "$APK" | tee SHA256SUMS-REMOTE-ANDROIDDB.txt
           unzip -t "$APK"
       - uses: actions/upload-artifact@v4
         with:
-          name: Ani-Games-Ready-Remote-AndroidDB-Auto-Endpoint-Preview-v0.6.0
+          name: Ani-Games-Ready-Remote-AndroidDB-UserID-Login-WA-v0.6.1
           path: |
             android-client/app/build/outputs/apk/debug/app-debug.apk
             SHA256SUMS-REMOTE-ANDROIDDB.txt
