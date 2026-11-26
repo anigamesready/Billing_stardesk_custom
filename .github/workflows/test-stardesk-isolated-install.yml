@@ -123,7 +123,7 @@ jobs:
             021_android_wol_relay.sql \
             022_coin_unit_scale_100.sql \
             023_admin_coin_management_read_api.sql \
-            025_admin_androiddb_v0_coin_domain.sql \\
+            025_admin_androiddb_v0_coin_domain.sql \
             026_androiddb_v0_userid_only_remote_login.sql; do
             { printf 'SET ROLE stardesk_v0_owner;\n'; sed 's/ani_api_runtime/stardesk_v0_runtime/g' "backend/android-db/migrations/$migration"; } |
               psql -v ON_ERROR_STOP=1 -d stardesk_custom_v0
