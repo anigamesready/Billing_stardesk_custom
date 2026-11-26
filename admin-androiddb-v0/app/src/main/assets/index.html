@@ -34,7 +34,7 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
 </head>
 <body>
 <section id="loginScreen" class="login-wrap">
-  <div class="top"><div><div class="brand">ANI GAMES <span>ADMIN</span></div><div class="sub">ANDROID DB • ADMIN OWNER</div></div><div class="version">v0.2.2</div></div>
+  <div class="top"><div><div class="brand">ANI GAMES <span>ADMIN</span></div><div class="sub">ANDROID DB • ADMIN OWNER</div></div><div class="version">v0.2.4</div></div>
   <div class="card">
     <div class="login-title">Admin <b>Android DB v0</b></div>
     <p class="hint">Panel terpisah untuk rental Coin, top-up, wallet, PC Host, dan pemetaan StarDesk. Login memakai akun Owner Android DB yang sudah ada.</p>
@@ -50,7 +50,7 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
 <main id="appScreen" class="hidden">
   <header class="top">
     <div><div class="brand">ANI GAMES <span>ADMIN DB v0</span></div><div class="sub" id="who">Owner • Android DB</div></div>
-    <div class="row"><select id="orgSelect" aria-label="Pilih organisasi" style="width:150px;padding:8px;font-size:11px" onchange="changeOrg()"></select><div class="version">v0.2.2</div><button class="small" onclick="logout()">Keluar</button></div>
+    <div class="row"><select id="orgSelect" aria-label="Pilih organisasi" style="width:150px;padding:8px;font-size:11px" onchange="changeOrg()"></select><div class="version">v0.2.4</div><button class="small" onclick="logout()">Keluar</button></div>
   </header>
   <div id="globalMessage" class="msg">Menunggu data dari Android DB.</div>
   <nav class="tabs">
@@ -259,7 +259,7 @@ const pendingRequests=new Map();
 window.__adminV0Result=function(id,data){
   const callbacks=pendingRequests.get(id);if(!callbacks)return;
   clearTimeout(callbacks.timer);pendingRequests.delete(id);
-  if(data&&data.http_status>=400&&callbacks.route!=="__gateway_health"){const error=new Error(data.message||data.error||("HTTP "+data.http_status));error.code=data.error||data.message||"API_ERROR";callbacks.reject(error);return;}
+  if(data&&data.http_status>=400&&callbacks.route!=="__gateway_health"){const error=new Error(data.message||data.error||("HTTP "+data.http_status));error.code=data.error||data.message||"API_ERROR";error.retryAfterSeconds=Number(data.retry_after_seconds)||0;callbacks.reject(error);return;}
   if(data&&data.ok===false&&callbacks.route!=="__gateway_health"){const error=new Error(data.message||data.error||"Permintaan gagal");error.code=data.error||data.message||"API_ERROR";callbacks.reject(error);return;}
   callbacks.resolve(data);
 };
@@ -311,7 +311,14 @@ async function login(){
     accessToken=result.access_token;refreshToken=result.refresh_token;saveRefreshToken();
     setMessage("loginMessage","Tahap 2/2 • Memeriksa hak akses Owner dan organisasi StarDesk…");
     await finishLogin(result.user);
-  }catch(error){accessToken="";refreshToken="";setMessage("loginMessage",error.message||error,true);}
+  }catch(error){
+    accessToken="";refreshToken="";
+    if(error&&error.code==="LOGIN_RATE_LIMITED"){
+      const seconds=Math.max(1,Math.min(900,Number(error.retryAfterSeconds)||900));
+      const minutes=Math.ceil(seconds/60);
+      setMessage("loginMessage","Percobaan login terlalu banyak. Login dikunci sementara. Coba lagi dalam sekitar "+minutes+" menit; jangan ulangi sebelum waktunya habis.",true);
+    }else setMessage("loginMessage",error.message||error,true);
+  }
   finally{button.disabled=false;}
 }
 async function restoreSession(){
