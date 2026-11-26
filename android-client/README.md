@@ -4,7 +4,7 @@ This source is the isolated Remote Android DB v0 client for the Ani Games Ready 
 
 ## Build identity
 - Application ID: `com.anigamesready.stardeskclient`
-- Version: `0.6.3-isolated-stardesk-route-fix`
+- Version: `0.6.4-route-and-login-limit-guidance`
 - Version code: `9`
 - Remote source: `android-client/`
 - Repository: `anigamesready/Billing_stardesk_custom`
