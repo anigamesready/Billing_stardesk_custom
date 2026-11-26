@@ -8,6 +8,7 @@ on:
     paths:
       - "admin-androiddb-v0/**"
       - "tests/android-gateway-dns-pin.test.mjs"
+      - "tests/stardesk-isolated-install.test.mjs"
       - "backend/android-db/server/server.mjs"
       - "backend/android-db/migrations/006_admin_local_auth_and_rpc.sql"
       - "backend/android-db/migrations/009_admin_business_routines.sql"
@@ -221,6 +222,7 @@ jobs:
           PY
           node --check /tmp/admin-androiddb-v0.js
           node --test tests/android-gateway-dns-pin.test.mjs
+          node --test tests/stardesk-isolated-install.test.mjs
 
       - name: Build isolated Admin APK
         shell: bash
