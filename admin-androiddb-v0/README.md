@@ -6,7 +6,7 @@ A standalone Android Owner/Admin app built only from this repository. Package id
 
 - Package: `com.anigames.billingadmin.coinx100preview`
 - App label: `Ani Games Admin Coin x100 0.2.7`
-- Install mode: side-by-side with the previous `com.anigames.billingadmin.coinpreview` (Admin 0.2.5) app
+- Install mode: updates Admin Coin x100 0.2.6 in place; the older Admin 0.2.5 package can remain installed separately
 - Namespace: `com.anigamesready.adminandroiddbv0`
 - Version: `0.2.7-userid-only-remote-login`, versionCode `9`
 - Source root: `admin-androiddb-v0/`
