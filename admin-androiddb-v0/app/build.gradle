@@ -4,11 +4,11 @@ android {
     namespace "com.anigamesready.adminandroiddbv0"
     compileSdk 35
     defaultConfig {
-        applicationId "com.anigames.billingadmin.coinpreview"
+        applicationId "com.anigames.billingadmin.coinx100preview"
         minSdk 26
         targetSdk 35
-        versionCode 7
-        versionName "0.2.5-coin-first-pc-control"
+        versionCode 8
+        versionName "0.2.6-coin-x100"
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
