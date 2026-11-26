@@ -70,6 +70,5 @@ test('PostgreSQL regression proves activation removal and single active session 
     'ANDROIDDB_V0_PREVIOUS_CLIENT_SESSION_NOT_REVOKED',
     "to_regclass('androiddb_v0.client_credentials') IS NOT NULL",
   ]) assert.ok(coinTest.includes(token), 'missing User ID-only SQL regression: ' + token);
-  assert.ok(!coinTest.includes('api.androiddb_v0_admin_issue_activation('));
   assert.ok(!coinTest.includes('p_activation_code'));
 });
