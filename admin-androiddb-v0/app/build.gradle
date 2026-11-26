@@ -4,7 +4,7 @@ android {
     namespace "com.anigamesready.adminandroiddbv0"
     compileSdk 35
     defaultConfig {
-        applicationId "com.anigames.billingadmin.androiddbv0"
+        applicationId "com.anigames.billingadmin.coinpreview"
         minSdk 26
         targetSdk 35
         versionCode 7
