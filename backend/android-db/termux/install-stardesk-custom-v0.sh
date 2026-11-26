@@ -62,7 +62,7 @@ if (echo >"/dev/tcp/127.0.0.1/$API_PORT") >/dev/null 2>&1; then
   die "Port $API_PORT sudah dipakai service lain. Tidak ada perubahan."
 fi
 
-SOURCE_REF="${ANI_STARDESK_SOURCE_REF:-}"
+SOURCE_REF="${ANI_STARDESK_SOURCE_REF:-890bae3e2ae16dffe530e04d0929d066f38832b2}"
 [[ "$SOURCE_REF" =~ ^[0-9a-fA-F]{40}$ ]] || die "ANI_STARDESK_SOURCE_REF wajib SHA commit 40 karakter yang dipin."
 TMP_DIR="$(mktemp -d "$PREFIX/tmp/stardesk-v0-install.XXXXXX")"
 cleanup(){ [ -z "${TMP_DIR:-}" ] || [ ! -d "$TMP_DIR" ] || rm -rf -- "$TMP_DIR"; }
