@@ -270,7 +270,6 @@ BEGIN
   IF NOT has_function_privilege('ani_api_runtime','api.androiddb_v0_admin_dashboard(text,integer)','EXECUTE')
      OR NOT has_function_privilege('ani_api_runtime','api.androiddb_v0_remote_dashboard(text)','EXECUTE')
      OR NOT has_function_privilege('ani_api_runtime','api.androiddb_v0_remote_login(text,text)','EXECUTE')
-     OR has_function_privilege('ani_api_runtime','api.androiddb_v0_remote_login(text,text,text)','EXECUTE')
      OR to_regprocedure('api.androiddb_v0_remote_login(text,text,text)') IS NOT NULL THEN
     RAISE EXCEPTION 'ANDROIDDB_V0_RUNTIME_USERID_LOGIN_GRANTS_INVALID';
   END IF;
