@@ -1,35 +1,67 @@
-# Ani Games Admin Android DB v0 — Preview 0.2.4
+# StarDesk Custom Admin — Coin-first PC Control Preview 0.2.5
 
-A standalone Android Owner/Admin app in this repository. It does not patch, replace, or share the package identity of Admin V12.x.
+A standalone Android Owner/Admin app built only from this repository. Package identity remains separate from Admin V12.x. This preview is intended for functional review, not production deployment.
 
 ## Identity
+
 - Package: `com.anigames.billingadmin.androiddbv0`
 - Namespace: `com.anigamesready.adminandroiddbv0`
-- Version: `0.2.4-login-limit-guidance`, versionCode 6
-- Project root: `admin-androiddb-v0/`
+- Version: `0.2.5-coin-first-pc-control`, versionCode `7`
+- Source root: `admin-androiddb-v0/`
+- Admin UI: `app/src/main/assets/index.html`
 
-## Android DB integration
-The app uses the dedicated StarDesk route on the Android DB HTTPS Gateway and a separate PostgreSQL database (`stardesk_custom_v0`) through its own local API on port `8789`. Owner login, sessions, rental timer domain, Coin wallet, top-ups, Host records and Remote records belong only to StarDesk Custom. It does not use the Ani Games Ready legacy database/API (`ani_games_ready_stage`, port `8788`), does not import or sync its records, and does not connect directly to SQL tables from Android.
+## Admin navigation
 
-The UI contains:
-- Core Owner overview and organization selection.
-- Legacy rental timer account CRUD, kept in the existing core rental schema and its normal RPC rules.
-- PC inventory, device state, rename/disconnect, active sessions, command queue/status, free test and recovery/enrollment.
-- Reports: compact, monthly, detailed paged usage, rental period breakdown and Admin activity.
-- Billing policies, organization theme and Owner password change.
-- Billing Admin/Reseller user management and reseller creation.
-- Remote Host permissions/enrollment, Remote overview, WoL relay/probe/command status and Blynk momentary power pulse.
-- Independent Coin-rental v0 account, activation, wallet, top-up approval/rejection, lots/ledger, GPU rates, StarDesk mapping and Host Agent enrollment.
+- **Ringkasan** — Coin summary, Host Agent readiness, top-up queue, and PC heartbeat overview. It no longer requests or displays old timer-rental counts.
+- **Pairing PC** — creates a one-time PC Billing enrollment code using the existing `create_enrollment` RPC. Host Agent enrollment is a separate action scoped to a selected registered PC; it uses `androiddb_v0_admin_issue_host_enrollment`.
+- **PC Aktif** — lists devices by the current `admin_devices` heartbeat state and separates online from offline PCs.
+- **Windows Control** — refresh/restart Billing, logout Billing, pause/resume/stop an active Billing session, Windows logoff, restart and shutdown. Pause/resume/stop now include the selected active `session_id`. A command is only shown as successful after the PC reports terminal `completed` status through the command ACK route; queued or acknowledged commands remain pending.
+- **User Billing Control** — retains the existing Admin/Reseller account management and reseller creation screens.
+- **Chat ke Windows** — visible but deliberately disabled. The reference Admin issues `show_admin_message`, while the PC client receiver for that command was not present in the verifiable bundled PC source. Sending it from this Admin would risk a command that queues but never displays. Enable only after a PC-side receiver is added and tested with a completed ACK.
+- **FREE TEST 10 MENIT** — Free Test policy and PC selection are separated from general settings. The Admin waits for the PC's command ACK before displaying success. Compatibility of the actual PC client with the `start_trial` command still needs a real-PC test.
+- **WoL Android Relay** — retains Relay enrollment, probe, WoL command status and Blynk momentary pulse controls.
+- **Data User Coin** — creates and lists Coin member accounts, status, activation, balances and wallet details (lots, ledger and orders).
+- **PC Host & Tarif** — GPU class/hourly tariff, StarDesk device mapping, Host permission and Host Agent readiness/enrollment.
+- **Top-up** — approve/reject pending top-ups and inspect wallet details.
+- **Pengaturan** — stop/pause policy and Owner password change only. Organization Theme controls were removed.
 
-## Data separation
-StarDesk Custom and the existing Ani Games Ready rental-timer system are two separate installations with different PostgreSQL databases, database roles, API credentials, local API ports, service names and app build identities. StarDesk uses `stardesk_custom_v0` / API `8789`; the old Ani Games Ready installation retains `ani_games_ready_stage` / API `8788`. There is no DB selector that changes an app between them, no data copy, synchronization, fallback or dual-write.
+## Coin domain
 
-Inside the StarDesk database, its own Admin/Owner core tables provide organization and PC administration while the `androiddb_v0` schema keeps Coin wallet/lots/ledger/top-ups and Coin rental records separate from StarDesk's timer-style rental records. None of these StarDesk tables or credentials are shared with the old Ani Games Ready database. The Android app uses only token-bound RPCs and never reads tables directly.
+The visible Admin rental/member workflow uses only the `androiddb_v0` Coin domain:
 
-## Gateway DNS/TLS compatibility
-The native HTTPS bridge pins TCP to the tested Cloudflare edge IPv4 addresses `104.18.13.15` and `104.18.12.15` for the fixed Gateway hostname. The HTTPS URL, Host header, SNI and default Android certificate trust/hostname verification continue to use `ani-games-db-android-stage-gateway.anigamesready.workers.dev`. No trust-all certificate callback or cleartext fallback is used. This is specifically for resolver environments that returned an unrelated AWS certificate for the Gateway hostname.
+- One member wallet balance is shared across supported PCs.
+- Coin expiry belongs to each top-up lot, not to an account timer.
+- Top-up approval creates a Coin lot and ledger entry; repeated approval is idempotent.
+- PC tariff is configured by GPU class and mapped StarDesk device.
+- Host Agent readiness requires permission, tariff, StarDesk mapping and a recent Host Agent heartbeat; a PC Billing heartbeat alone does not make a PC StarDesk-ready.
 
-## Safety and release status
-This is a debug preview, not a production/release-signed APK. Do not merge into the stable Admin app. Live Redmi DB migration state is not inferred from CI: migration 025 must be independently verified against the live database. On an existing PostgreSQL cluster, migration 025 is gated by a validated database/roles backup and explicit `APPLY`. Do not restart or reinitialize a running PostgreSQL service to install this preview.
+The current Coin Admin scope provides account creation/listing, enable/disable, activation credentials, wallet/lots/ledger, top-up approval/rejection and per-PC tariff/mapping. The Admin source does not yet expose rental member edit/delete operations because matching `androiddb_v0` RPCs are not in the current migration contract.
 
-Remote video transport and Coin session billing are not enabled by this Admin integration scope.
+**Coin session charging/settlement is not claimed as enabled by this Admin UI.** Wallet/lot/ledger and pricing administration do not by themselves prove reservation, per-minute debit, expiry settlement, refund or concurrency-safe session accounting. Those require their own backend implementation and integration tests.
+
+## Data and isolation
+
+- StarDesk custom uses its own database `stardesk_custom_v0`, API login, local API port `8789`, Cloudflare `/stardesk` route and service identity.
+- This Admin UI no longer calls the old timer rental CRUD APIs and does not show the old timer rental list or old timer rental permission controls.
+- Existing legacy timer tables, APIs and historical data are **not deleted** by this UI change. They remain untouched for data preservation and rollback; there is no cross-database copy, fallback, dual-write or synchronization.
+- The original Ani Games Ready installation (`ani_games_ready_stage`, local API `8788`) and its services are not changed by this branch.
+- No live database migration or destructive SQL is included in this UI-only update.
+
+## Verification status
+
+Static source checks on the feature branch:
+- 46 distinct HTML click handlers were matched to declared JavaScript functions.
+- Admin UI contains 40 literal RPC calls, each of which must match the Android DB server allowlist in CI.
+- Old timer rental list/CRUD, old timer count, Theme editor/save function and old timer-based Remote permission controls are removed from the visible Admin source.
+- Windows pause/resume/stop now resolve the active session and include `session_id`.
+- Windows Control and Free Test poll command status and do not display success without PC `completed` ACK.
+- Chat remains disabled until the PC-side `show_admin_message` receiver is verified.
+- The build workflow checks JavaScript syntax, click handlers, backend RPC allowlists, no old timer/Theme UI, isolated gateway/TLS behavior, Android package/version and APK signature.
+
+A successful CI build is not the same as a real Android/PC runtime test. Before production use, install this new APK on the target Android device and test Owner login, each menu/action, actual PC enrollment/heartbeat, Windows commands on an online PC, Free Test on a supported PC client, WoL Relay, Coin account/top-up/wallet reads and writes, network/offline errors, and the StarDesk Host connection flow. Record the Android version and actual PC Billing/Host Agent versions. Until those tests pass, this remains a **preview candidate**, not a production-ready release.
+
+## Build and rollback
+
+- Build workflow: `.github/workflows/build-admin-androiddb-v0.yml`
+- Expected output: `Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk`
+- Previous Admin 0.2.4 build remains an artifact/reference. No PR merge or production replacement is authorized by this change.
