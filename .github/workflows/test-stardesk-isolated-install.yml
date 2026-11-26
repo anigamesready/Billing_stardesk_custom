@@ -4,10 +4,13 @@ on:
   push:
     branches:
       - feature/admin-androiddb-v0-full-db-20261126
+      - feature/remote-userid-only-login-20261126
       - feature/coin-x100-agent-pairing-20261126
       - feature/coin-x100-agent-pairing-20261126
     paths:
       - "backend/android-db/termux/install-stardesk-custom-v0.sh"
+      - "backend/android-db/migrations/027_androiddb_v0_remote_userid_only_login.sql"
+      - "backend/android-db/server/server.mjs"
       - "backend/android-db/termux/upgrade-stardesk-coin-x100.sh"
       - "backend/android-db/termux/stardesk-db-control.sh"
       - "backend/android-db/relay-agent/**"
@@ -128,7 +131,8 @@ jobs:
             022_coin_unit_scale_100.sql \
             023_admin_coin_management_read_api.sql \
             025_admin_androiddb_v0_coin_domain.sql \
-            026_androiddb_v0_coin_x100.sql; do
+            026_androiddb_v0_coin_x100.sql \
+            027_androiddb_v0_remote_userid_only_login.sql; do
             { printf 'SET ROLE stardesk_v0_owner;\n'; sed 's/ani_api_runtime/stardesk_v0_runtime/g' "backend/android-db/migrations/$migration"; } |
               psql -v ON_ERROR_STOP=1 -d stardesk_custom_v0
           done
@@ -137,7 +141,7 @@ jobs:
           GRANT stardesk_v0_runtime TO stardesk_v0_login;
           GRANT CONNECT ON DATABASE stardesk_custom_v0 TO stardesk_v0_login;
           SQL
-          ISOLATION_OK="$(psql -At -d stardesk_custom_v0 -c "SELECT (current_database()='stardesk_custom_v0' AND to_regnamespace('androiddb_v0') IS NOT NULL AND to_regprocedure('api.androiddb_v0_admin_dashboard(text,integer)') IS NOT NULL AND to_regprocedure('api.androiddb_v0_remote_login(text,text,text)') IS NOT NULL AND NOT pg_has_role('stardesk_v0_login','ani_api_runtime','MEMBER') AND pg_has_role('stardesk_v0_login','stardesk_v0_runtime','MEMBER') AND NOT has_table_privilege('stardesk_v0_login','public.devices','SELECT') AND (SELECT pg_get_userbyid(proowner)='stardesk_v0_owner' FROM pg_proc WHERE oid='api.admin_bootstrap_owner(text,text,text,text)'::regprocedure) AND (SELECT NOT rolsuper AND NOT rolcanlogin FROM pg_roles WHERE rolname='stardesk_v0_owner'))::int")"
+          ISOLATION_OK="$(psql -At -d stardesk_custom_v0 -c "SELECT (current_database()='stardesk_custom_v0' AND to_regnamespace('androiddb_v0') IS NOT NULL AND to_regprocedure('api.androiddb_v0_admin_dashboard(text,integer)') IS NOT NULL AND to_regprocedure('api.androiddb_v0_remote_login(text,text)') IS NOT NULL AND to_regprocedure('api.androiddb_v0_remote_login(text,text,text)') IS NULL AND to_regprocedure('api.androiddb_v0_admin_issue_activation(text,uuid)') IS NULL AND to_regclass('androiddb_v0.client_credentials') IS NULL AND NOT pg_has_role('stardesk_v0_login','ani_api_runtime','MEMBER') AND pg_has_role('stardesk_v0_login','stardesk_v0_runtime','MEMBER') AND NOT has_table_privilege('stardesk_v0_login','public.devices','SELECT') AND (SELECT pg_get_userbyid(proowner)='stardesk_v0_owner' FROM pg_proc WHERE oid='api.admin_bootstrap_owner(text,text,text,text)'::regprocedure) AND (SELECT NOT rolsuper AND NOT rolcanlogin FROM pg_roles WHERE rolname='stardesk_v0_owner'))::int")"
           test "$ISOLATION_OK" = "1"
           LOGIN_OK="$(PGPASSWORD=test-only-password psql -h 127.0.0.1 -U stardesk_v0_login -d stardesk_custom_v0 -Atc "SELECT current_user='stardesk_v0_login' AND has_function_privilege(current_user,'api.admin_bootstrap_owner(text,text,text,text)','EXECUTE') AND NOT has_table_privilege(current_user,'public.devices','SELECT')")"
           test "$LOGIN_OK" = "t"
