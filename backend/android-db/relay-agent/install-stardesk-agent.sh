@@ -51,7 +51,7 @@ cleanup(){
 }
 trap cleanup EXIT
 
-for file in agent.mjs protocol.mjs package.json protocol.test.mjs; do
+for file in agent.mjs protocol.mjs reconnect.mjs package.json protocol.test.mjs; do
   curl --fail --silent --show-error --location "$BASE/$REF/backend/android-db/relay-agent/$file" -o "$TMP/$file"
   [ -s "$TMP/$file" ] || die "Download $file kosong."
 done
@@ -78,7 +78,7 @@ secret_is_valid "$SECRET" || die "Secret lama tidak valid. Tidak ada secret baru
 
 mkdir -p "$AGENT_DIR"
 chmod 700 "$AGENT_DIR"
-cp "$TMP/agent.mjs" "$TMP/protocol.mjs" "$TMP/package.json" "$TMP/protocol.test.mjs" "$AGENT_DIR/"
+cp "$TMP/agent.mjs" "$TMP/protocol.mjs" "$TMP/reconnect.mjs" "$TMP/package.json" "$TMP/protocol.test.mjs" "$AGENT_DIR/"
 cp -R "$TMP/node_modules" "$AGENT_DIR/"
 cat > "$ENV_FILE.tmp" <<EOF
 RELAY_SHARED_SECRET=$SECRET
