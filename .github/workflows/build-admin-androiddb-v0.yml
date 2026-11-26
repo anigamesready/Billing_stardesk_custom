@@ -205,7 +205,7 @@ jobs:
           for route in sorted(ui_rpc_routes - native_routes):
               assert any(line.strip().startswith(route + ":") for line in rpc_lines), "UI RPC call has no Android DB backend allowlist entry: " + route
 
-          for forbidden in ["id=\\"legacy\\"", 'data-tab="legacy"', "Rental Lama", "admin_rental_accounts_global", "admin_create_rental_global", "admin_update_rental_global", "admin_disable_rental_global", "admin_delete_rental_global", "Izin Remote Rental Lama", "admin_remote_play_dashboard", "admin_remote_play_set_rental_permission", "saveOrgTheme", "save_theme", "Tampilan / Theme organisasi", 'id="themeName"']:
+          for forbidden in ["legacy", 'data-tab="legacy"', "Rental Lama", "admin_rental_accounts_global", "admin_create_rental_global", "admin_update_rental_global", "admin_disable_rental_global", "admin_delete_rental_global", "Izin Remote Rental Lama", "admin_remote_play_dashboard", "admin_remote_play_set_rental_permission", "saveOrgTheme", "save_theme", "Tampilan / Theme organisasi", 'id="themeName"']:
               assert forbidden.lower() not in html.lower(), "obsolete timer/theme UI remains in Admin: " + forbidden
           assert all(token in html for token in ['data-tab="pairing"', 'data-tab="active"', 'data-tab="devices"', 'data-tab="chat"', 'data-tab="free"']), "required Admin navigation tab missing"
           assert "payload.session_id=session.id" in html, "Pause/Resume/Stop must send the active session ID"
