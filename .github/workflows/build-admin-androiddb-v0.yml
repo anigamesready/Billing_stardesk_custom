@@ -243,7 +243,7 @@ jobs:
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
           test -n "$AAPT" && test -n "$APKSIGNER"
           "$AAPT" dump badging output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.4.apk | tee output/apk-badging.txt
-          grep -q "package: name='com.anigames.billingadmin.androiddbv0' versionCode='5' versionName='0.2.3-gateway-diagnostics'" output/apk-badging.txt
+          grep -q "package: name='com.anigames.billingadmin.androiddbv0' versionCode='6' versionName='0.2.4-login-limit-guidance'" output/apk-badging.txt
           grep -q "application-label:'Ani Games Admin Android DB v0'" output/apk-badging.txt
           "$APKSIGNER" verify --verbose output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.4.apk
           "$APKSIGNER" verify --print-certs output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.4.apk
