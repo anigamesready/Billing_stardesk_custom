@@ -1,10 +1,11 @@
-name: Build Ani Games Admin Coin Preview 0.2.5 Coin-first PC Control Preview
+name: Build Ani Games Admin Coin x100 Preview 0.2.6
 
 on:
   push:
     branches:
       - feature/admin-androiddb-v0-isolated-20261125
       - feature/admin-androiddb-v0-full-db-20261126
+      - feature/coin-x100-agent-pairing-20261126
     paths:
       - "admin-androiddb-v0/**"
       - "tests/android-gateway-dns-pin.test.mjs"
@@ -13,6 +14,7 @@ on:
       - "backend/android-db/migrations/006_admin_local_auth_and_rpc.sql"
       - "backend/android-db/migrations/009_admin_business_routines.sql"
       - "backend/android-db/migrations/011_billing_control_android_rpcs.sql"
+      - "backend/android-db/migrations/026_androiddb_v0_coin_x100.sql"
       - ".github/workflows/test-androiddb-remote-play.yml"
       - ".github/workflows/build-admin-androiddb-v0.yml"
   workflow_dispatch:
@@ -22,7 +24,7 @@ permissions:
 
 jobs:
   build-admin-androiddb-v0:
-    name: Build Admin Android DB v0 0.2.5
+    name: Build Admin Android DB v0 0.2.6
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -64,7 +66,7 @@ jobs:
 
           html = Path("admin-androiddb-v0/app/src/main/assets/index.html").read_text(encoding="utf-8")
           required = [
-              "Ani Games Admin Coin Preview 0.2.5",
+              "Ani Games Admin Coin x100 Preview 0.2.6",
               "ANDROID DB",
               "admin_context",
               "admin_devices",
@@ -228,12 +230,19 @@ jobs:
           for token in ["104.18.13.15", "104.18.12.15", "SNIHostName", "delegate.createSocket(raw, GATEWAY_HOST, port, autoClose)", "isPinnedIpv4Address(raw.getInetAddress())"]:
               assert token in tls, "missing pinned Cloudflare TLS control: " + token
           assert "InetAddress.getByName" not in tls and "X509TrustManager" not in tls, "DNS/trust bypass detected in pinned gateway socket factory"
+          coin_migration = Path("backend/android-db/migrations/026_androiddb_v0_coin_x100.sql").read_text(encoding="utf-8")
+          for token in ["coin_scale IN (1,100)", "balance=balance*100", "coin_amount=coin_amount*100", "hourly_coins=hourly_coins*100", "p_amount_rupiah::numeric*60*unit_scale/8000"]:
+              assert token in coin_migration, "Android DB v0 x100 migration missing: " + token
+          coin_test = Path("backend/android-db/tests/020_androiddb_v0_coin_x100_smoke.sql").read_text(encoding="utf-8")
+          for token in ["3750", "7500", "11250", "15000", "4500", "5250", "6000"]:
+              assert token in coin_test, "Android DB v0 x100 regression fixture missing: " + token
+          assert "Ringkasan AniCoin ×100" in html, "Admin must identify the x100 Coin denomination"
           gradle = Path("admin-androiddb-v0/app/build.gradle").read_text(encoding="utf-8")
-          for token in ['applicationId "com.anigames.billingadmin.coinpreview"', "versionCode 7", 'versionName "0.2.5-coin-first-pc-control"']:
+          for token in ['applicationId "com.anigames.billingadmin.coinx100preview"', "versionCode 8", 'versionName "0.2.6-coin-x100"']:
               assert token in gradle, "Admin Android DB v0 build identity mismatch: " + token
 
           manifest = Path("admin-androiddb-v0/app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
-          assert 'android:label="Ani Games Admin Coin Preview 0.2.5"' in manifest
+          assert 'android:label="Ani Games Admin Coin x100 Preview 0.2.6"' in manifest
           assert 'android:usesCleartextTraffic="false"' in manifest
           PY
           node --check /tmp/admin-androiddb-v0.js
@@ -248,23 +257,23 @@ jobs:
           APK="admin-androiddb-v0/app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
           mkdir -p output
-          cp "$APK" output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk
+          cp "$APK" output/Ani-Games-Admin-Coin-x100-Preview-0.2.6.apk
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
           test -n "$AAPT" && test -n "$APKSIGNER"
-          "$AAPT" dump badging output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk | tee output/apk-badging.txt
-          grep -q "package: name='com.anigames.billingadmin.coinpreview' versionCode='7' versionName='0.2.5-coin-first-pc-control'" output/apk-badging.txt
-          grep -q "application-label:'Ani Games Admin Coin Preview 0.2.5'" output/apk-badging.txt
-          "$APKSIGNER" verify --verbose output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk
-          "$APKSIGNER" verify --print-certs output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk
-          sha256sum output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk | tee output/SHA256SUMS.txt
-          unzip -t output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk
-          ls -lh output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk
+          "$AAPT" dump badging output/Ani-Games-Admin-Coin-x100-Preview-0.2.6.apk | tee output/apk-badging.txt
+          grep -q "package: name='com.anigames.billingadmin.coinx100preview' versionCode='7' versionName='0.2.6-coin-x100'" output/apk-badging.txt
+          grep -q "application-label:'Ani Games Admin Coin x100 Preview 0.2.6'" output/apk-badging.txt
+          "$APKSIGNER" verify --verbose output/Ani-Games-Admin-Coin-x100-Preview-0.2.6.apk
+          "$APKSIGNER" verify --print-certs output/Ani-Games-Admin-Coin-x100-Preview-0.2.6.apk
+          sha256sum output/Ani-Games-Admin-Coin-x100-Preview-0.2.6.apk | tee output/SHA256SUMS.txt
+          unzip -t output/Ani-Games-Admin-Coin-x100-Preview-0.2.6.apk
+          ls -lh output/Ani-Games-Admin-Coin-x100-Preview-0.2.6.apk
 
       - name: Upload isolated Admin Android DB v0 coin-first PC control preview
         uses: actions/upload-artifact@v4
         with:
-          name: Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5
+          name: Ani-Games-Admin-Coin-x100-Preview-0.2.6
           path: output/*
           if-no-files-found: error
           retention-days: 30
