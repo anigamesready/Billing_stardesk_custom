@@ -9,6 +9,7 @@ on:
       - feature/admin-androiddb-v0-isolated-20261125
       - feature/admin-androiddb-v0-full-db-20261126
       - feature/coin-x100-agent-pairing-20261126
+      - feature/remote-userid-only-login-20261126
     paths:
       - "backend/android-db/migrations/**"
       - "backend/android-db/server/**"
@@ -27,6 +28,8 @@ on:
       - "backend/android-db/migrations/025_admin_androiddb_v0_coin_domain.sql"
       - "backend/android-db/tests/019_admin_androiddb_v0_coin_isolation_smoke.sql"
       - "backend/android-db/migrations/026_androiddb_v0_coin_x100.sql"
+      - "backend/android-db/migrations/027_androiddb_v0_remote_userid_only_login.sql"
+      - "tests/remote-userid-only-login.test.mjs"
       - "backend/android-db/tests/020_androiddb_v0_coin_x100_smoke.sql"
       - ".github/workflows/test-androiddb-remote-play.yml"
   workflow_dispatch:
@@ -187,7 +190,10 @@ jobs:
             echo "Applying Android DB v0 x100 migration pass $pass"
             psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/migrations/026_androiddb_v0_coin_x100.sql
           done
+          echo "Removing Admin activation and switching to User ID-only Remote login"
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/migrations/027_androiddb_v0_remote_userid_only_login.sql
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_remote_play_test -v ON_ERROR_STOP=1 -f backend/android-db/tests/020_androiddb_v0_coin_x100_smoke.sql
+          node --test tests/remote-userid-only-login.test.mjs
 
       - name: Test Admin Coin overview and per-rental wallet detail APIs
         env:
@@ -268,7 +274,9 @@ jobs:
             echo "Applying x100 Android DB v0 migration pass $pass"
             psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_core_upgrade_test -v ON_ERROR_STOP=1 -f backend/android-db/migrations/026_androiddb_v0_coin_x100.sql
           done
+          psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_core_upgrade_test -v ON_ERROR_STOP=1 -f backend/android-db/migrations/027_androiddb_v0_remote_userid_only_login.sql
           psql -X -h 127.0.0.1 -p 5432 -U postgres -d ani_games_core_upgrade_test -v ON_ERROR_STOP=1 -f backend/android-db/tests/020_androiddb_v0_coin_x100_smoke.sql
+          node --test tests/remote-userid-only-login.test.mjs
 
       - name: Install Node dependency and syntax-check DB Android API gateway
         uses: actions/setup-node@v4
