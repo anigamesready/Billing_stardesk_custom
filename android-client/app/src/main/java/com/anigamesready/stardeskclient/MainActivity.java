@@ -43,7 +43,7 @@ import android.security.keystore.KeyProperties;
 import javax.net.ssl.HttpsURLConnection;
 
 public class MainActivity extends Activity {
-    private static final String ONLINE_API_BASE = "https://ani-games-db-android-stage-gateway.anigamesready.workers.dev";
+    private static final String ONLINE_API_BASE = "https://ani-games-db-android-stage-gateway.anigamesready.workers.dev/stardesk";
     private static final String PREFS = "stardesk_remote_settings";
     private static final String SECURE_PREFS = "stardesk_remote_secure";
     private static final String KEY_ALIAS = "ani_stardesk_remote_tokens_v1";
