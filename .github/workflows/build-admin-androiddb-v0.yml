@@ -1,11 +1,19 @@
-name: Build Ani Games Admin Android DB v0 Coin Candidate
+name: Build Ani Games Admin Coin Preview 0.2.5 Coin-first PC Control Preview
 
 on:
   push:
     branches:
       - feature/admin-androiddb-v0-isolated-20261125
+      - feature/admin-androiddb-v0-full-db-20261126
     paths:
       - "admin-androiddb-v0/**"
+      - "tests/android-gateway-dns-pin.test.mjs"
+      - "tests/stardesk-isolated-install.test.mjs"
+      - "backend/android-db/server/server.mjs"
+      - "backend/android-db/migrations/006_admin_local_auth_and_rpc.sql"
+      - "backend/android-db/migrations/009_admin_business_routines.sql"
+      - "backend/android-db/migrations/011_billing_control_android_rpcs.sql"
+      - ".github/workflows/test-androiddb-remote-play.yml"
       - ".github/workflows/build-admin-androiddb-v0.yml"
   workflow_dispatch:
 
@@ -14,7 +22,7 @@ permissions:
 
 jobs:
   build-admin-androiddb-v0:
-    name: Build Admin Android DB v0 0.1.0
+    name: Build Admin Android DB v0 0.2.5
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -56,13 +64,62 @@ jobs:
 
           html = Path("admin-androiddb-v0/app/src/main/assets/index.html").read_text(encoding="utf-8")
           required = [
-              "Ani Games Admin Android DB v0",
-              "ANDROID DB v0",
-              "__admin_login",
+              "Ani Games Admin Coin Preview 0.2.5",
+              "ANDROID DB",
               "admin_context",
+              "admin_devices",
+              "admin_device_state",
+              "admin_rename_device",
+              "admin_disconnect_device",
+              "admin_command",
+              "admin_command_status",
+              "admin_selected_sessions",
+              "admin_start_trial",
+              "create_device_recovery_enrollment",
+              "create_enrollment",
+              "report_summary_compact",
+              "report_monthly_rental_summary",
+              "report_detailed_usage_page",
+              "report_rental_period_breakdown",
+              "admin_activity",
+              "admin_recent_alerts",
+              "admin_get_free_test_policy",
+              "admin_set_free_test_policy",
+              "admin_get_billing_stop_pause_policy",
+              "admin_set_billing_stop_pause_policy",
+              "admin_change_password",
+              "Pairing PC",
+              "PC Aktif",
+              "Windows Control",
+              "User Billing Control",
+              "Chat ke Windows",
+              "FREE TEST 10 MENIT",
+              "WoL Android Relay",
+              "Data User Coin",
+              "generatePcPairingCode",
+              "loadActivePCs",
+              "startSelectedFreeTest",
+              "loadFreeTest",
+              "waitDeviceCommand",
+              "populateHostPairingSelect",
+              "admin_selected_sessions",
+              "admin_command_status",
+              "androiddb_v0_admin_issue_host_enrollment",
+              "dashboard_billing_users",
+              "dashboard_billing_user",
+              "create_reseller",
+              "checkGatewayConnection",
+              "__gateway_health",
+              "wol_relay_status",
+              "wol_relay_create_enrollment",
+              "wol_relay_enqueue",
+              "wol_relay_command_status",
+              "wol_relay_probe_request",
+              "wol_relay_probe_status",
+              "__iot_status",
+              "__iot_power",
               "androiddb_v0_admin_dashboard",
               "androiddb_v0_admin_create_rental",
-              "androiddb_v0_admin_set_rental_status",
               "androiddb_v0_admin_issue_activation",
               "androiddb_v0_admin_wallet",
               "androiddb_v0_admin_approve_topup",
@@ -71,50 +128,117 @@ jobs:
               "androiddb_v0_admin_link_stardesk_device",
               "androiddb_v0_admin_set_host_permission",
               "androiddb_v0_admin_issue_host_enrollment",
-              "androiddb_v0_admin_approve_topup",
-              "androiddb_v0_admin_reject_topup",
-              "walletRental",
-              "activation_code",
-              "enrollment_code",
-              "Lot Coin",
+              "AniCoin",
+              "androiddb_v0",
+              "reportOutput",
+              "orgSelect",
           ]
           for token in required:
-              assert token in html, "missing Admin Android DB v0 UI/API contract: " + token
+              assert token.lower() in html.lower(), "missing Admin Android DB full integration contract: " + token
           for forbidden in [
-              "remaining_seconds",
-              "expiry_at",
-              "public.rental_accounts",
-              "admin_create_rental_global",
-              "remote_play_login",
-              "remote_coin_dashboard",
-              "remote_coin_wallet",
-              "admin_remote_play_dashboard",
+              "supabase.co",
+              "functions/v1/stardesk-client-api",
+              "id=\"apiBase\"",
+              "id=\"serverUrl\"",
               "DB1",
               "DB2",
               "schedule_shutdown",
+              "CREATE TABLE",
+              "DROP TABLE",
+              "TRUNCATE TABLE",
+              "localStorage.setItem",
           ]:
-              assert forbidden.lower() not in html.lower(), "legacy rental or other-project API leaked into v0 UI: " + forbidden
-          assert "https://ani-games-db-android-stage-gateway.anigamesready.workers.dev" not in html, "UI must call the native bridge, not expose a gateway field"
-          assert 'id="apiBase"' not in html and 'id="serverUrl"' not in html, "manual gateway field is forbidden"
+              assert forbidden.lower() not in html.lower(), "forbidden backend or manual database path in v0 UI: " + forbidden
           assert "AniAdminV0.apiRequest" in html, "native Android DB HTTPS bridge missing"
-          assert "OWNER_ONLY" in html and 'role||"").toLowerCase()==="owner"' in html, "Owner-only UI guard missing"
+          assert "https://ani-games-db-android-stage-gateway.anigamesready.workers.dev" not in html, "gateway URL must stay hidden inside native bridge"
+          assert "OWNER_ONLY" in html and 'ctx.role||"").toLowerCase()==="owner"' in html, "Owner-only UI guard missing"
           scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
           assert len(scripts) == 1, "expected one inline UI script"
+          # Every inline button handler must resolve to a real JS function.
+          onclick_bodies = re.findall(r'onclick="([^"]+)"', html, re.I)
+          onclick_bodies += re.findall(r"onclick='([^']+)'", html, re.I)
+          handler_names = set()
+          for body in onclick_bodies:
+              match = re.match(r"\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*\(", body)
+              if match:
+                  handler_names.add(match.group(1))
+          defined_functions = set(re.findall(r"function\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(", scripts[0]))
+          missing_handlers = sorted(handler_names - defined_functions)
+          assert not missing_handlers, "Admin button handler missing JS function: " + ", ".join(missing_handlers)
           Path("/tmp/admin-androiddb-v0.js").write_text(scripts[0], encoding="utf-8")
 
-          java = Path("admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java").read_text(encoding="utf-8")
-          for token in ["AndroidKeyStore", "AES/GCM/NoPadding", "HttpsURLConnection", "ani_admin_androiddb_v0_keystore_v1", "__admin_login", "__admin_refresh", "__admin_logout", "/auth/v1/token?grant_type=password"]:
-              assert token in java, "missing native token/network security control: " + token
+          server = Path("backend/android-db/server/server.mjs").read_text(encoding="utf-8")
+          rpc_start = server.index("const RPC = {")
+          rpc_lines = server[rpc_start:].splitlines()
+          expected_rpc = [
+              "admin_context",
+              "admin_rental_accounts_global", "admin_create_rental_global",
+              "admin_update_rental_global", "admin_disable_rental_global", "admin_delete_rental_global",
+              "admin_devices", "admin_device_state", "admin_rename_device", "admin_disconnect_device",
+              "admin_command", "admin_command_status", "admin_active_sessions", "admin_selected_sessions",
+              "admin_start_trial", "create_device_recovery_enrollment", "create_enrollment",
+              "report_summary_compact", "report_monthly_rental_summary", "report_detailed_usage_page",
+              "report_rental_period_breakdown", "admin_activity", "admin_recent_alerts",
+              "admin_get_free_test_policy", "admin_set_free_test_policy",
+              "admin_get_billing_stop_pause_policy", "admin_set_billing_stop_pause_policy",
+              "save_theme", "admin_change_password", "dashboard_billing_users", "dashboard_billing_user",
+              "create_reseller", "admin_remote_play_dashboard", "admin_remote_play_sessions",
+              "admin_remote_play_set_rental_permission", "admin_remote_play_set_host_permission",
+              "admin_remote_play_issue_client_credential", "admin_remote_play_issue_host_enrollment",
+              "wol_relay_status", "wol_relay_create_enrollment", "wol_relay_enqueue",
+              "wol_relay_command_status", "wol_relay_probe_request", "wol_relay_probe_status",
+              "androiddb_v0_admin_dashboard", "androiddb_v0_admin_create_rental",
+              "androiddb_v0_admin_set_rental_status", "androiddb_v0_admin_issue_activation",
+              "androiddb_v0_admin_wallet", "androiddb_v0_admin_approve_topup",
+              "androiddb_v0_admin_reject_topup", "androiddb_v0_admin_set_device_rate",
+              "androiddb_v0_admin_link_stardesk_device", "androiddb_v0_admin_set_host_permission",
+              "androiddb_v0_admin_issue_host_enrollment",
+          ]
+          for route in expected_rpc:
+              assert any(line.strip().startswith(route + ":") for line in rpc_lines), "UI RPC absent from Android DB backend allowlist: " + route
+          # Check every literal RPC actually called by the UI, not just a hand-maintained list.
+          ui_rpc_routes = set(re.findall(r"\bapi\(\s*'([^']+)'", html))
+          ui_rpc_routes.update(re.findall(r'\bapi\(\s*"([^"]+)"', html))
+          ui_rpc_routes.update(["admin_set_free_test_policy", "admin_set_billing_stop_pause_policy"])
+          native_routes = {"__admin_login", "__admin_refresh", "__admin_logout", "__iot_status", "__iot_power", "__gateway_health"}
+          assert len(ui_rpc_routes) >= 40, "Admin v0 UI RPC coverage unexpectedly shrank"
+          for route in sorted(ui_rpc_routes - native_routes):
+              assert any(line.strip().startswith(route + ":") for line in rpc_lines), "UI RPC call has no Android DB backend allowlist entry: " + route
 
+          for forbidden in ["legacy", 'data-tab="legacy"', "Rental Lama", "admin_rental_accounts_global", "admin_create_rental_global", "admin_update_rental_global", "admin_disable_rental_global", "admin_delete_rental_global", "Izin Remote Rental Lama", "admin_remote_play_dashboard", "admin_remote_play_set_rental_permission", "saveOrgTheme", "save_theme", "Tampilan / Theme organisasi", 'id="themeName"']:
+              assert forbidden.lower() not in html.lower(), "obsolete timer/theme UI remains in Admin: " + forbidden
+          assert all(token in html for token in ['data-tab="pairing"', 'data-tab="active"', 'data-tab="devices"', 'data-tab="chat"', 'data-tab="free"']), "required Admin navigation tab missing"
+          assert "payload.session_id=session.id" in html, "Pause/Resume/Stop must send the active session ID"
+          assert "waitDeviceCommand(cid,24000)" in html, "Windows controls must wait for PC command ACK"
+          assert "waitDeviceCommand(request.command_id,24000)" in html, "Free Test must wait for PC command ACK"
+          assert "BELUM TERHUBUNG KE RECEIVER PC" in html and "disabled" in html, "Chat Windows must not claim delivery without a verified PC receiver"
+          for native_route in ["__admin_login", "__admin_refresh", "__admin_logout", "__iot_status", "__iot_power", "__gateway_health"]:
+              assert native_route in Path("admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java").read_text(encoding="utf-8"), "native route missing: " + native_route
+
+          java = Path("admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java").read_text(encoding="utf-8")
+          assert "/stardesk" in java, "Admin native API base must target the isolated StarDesk database prefix"
+          assert 'connection.setReadTimeout("__gateway_health".equals(route) ? 15000 : 40000);' in java, "Admin native timeout must exceed the Relay request deadline"
+          assert "GATEWAY_TIMEOUT: Gateway/Relay" in java, "Admin timeout error must be actionable"
+          assert 'connection.getHeaderField("Retry-After")' in java, "Admin native bridge must preserve rate-limit retry timing"
+          assert "retryAfterSeconds" in html and "LOGIN_RATE_LIMITED" in html, "Admin UI must show actionable login cooldown guidance"
+          tls = Path("admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/GatewayPinnedSocketFactory.java").read_text(encoding="utf-8")
+          for token in ["Proxy.NO_PROXY", "GatewayPinnedSocketFactory", "setSSLSocketFactory", "setHostnameVerifier", "getDefaultHostnameVerifier", "AndroidKeyStore", "AES/GCM/NoPadding", "HttpsURLConnection", "ani_admin_androiddb_v0_keystore_v1", "__admin_login", "__admin_refresh", "__admin_logout", "__iot_status", "__iot_power", "/iot/status", "/iot/power", "setRequestMethod(method)", '"GET".equals(method)', "WebChromeClient", "onJsAlert", "onJsConfirm", "onJsPrompt", "JsPromptResult", "JsResult"]:
+              assert token in java, "missing native token/API/HTTP method control: " + token
+
+          for token in ["104.18.13.15", "104.18.12.15", "SNIHostName", "delegate.createSocket(raw, GATEWAY_HOST, port, autoClose)", "isPinnedIpv4Address(raw.getInetAddress())"]:
+              assert token in tls, "missing pinned Cloudflare TLS control: " + token
+          assert "InetAddress.getByName" not in tls and "X509TrustManager" not in tls, "DNS/trust bypass detected in pinned gateway socket factory"
           gradle = Path("admin-androiddb-v0/app/build.gradle").read_text(encoding="utf-8")
-          for token in ['applicationId "com.anigames.billingadmin.androiddbv0"', "versionCode 1", 'versionName "0.1.0-androiddb-v0"']:
+          for token in ['applicationId "com.anigames.billingadmin.coinpreview"', "versionCode 7", 'versionName "0.2.5-coin-first-pc-control"']:
               assert token in gradle, "Admin Android DB v0 build identity mismatch: " + token
 
           manifest = Path("admin-androiddb-v0/app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
-          assert 'android:label="Ani Games Admin Android DB v0"' in manifest
+          assert 'android:label="Ani Games Admin Coin Preview 0.2.5"' in manifest
           assert 'android:usesCleartextTraffic="false"' in manifest
           PY
           node --check /tmp/admin-androiddb-v0.js
+          node --test tests/android-gateway-dns-pin.test.mjs
+          node --test tests/stardesk-isolated-install.test.mjs
 
       - name: Build isolated Admin APK
         shell: bash
@@ -124,23 +248,23 @@ jobs:
           APK="admin-androiddb-v0/app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
           mkdir -p output
-          cp "$APK" output/Ani-Games-Admin-Android-DB-v0-Preview-0.1.0.apk
+          cp "$APK" output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
           test -n "$AAPT" && test -n "$APKSIGNER"
-          "$AAPT" dump badging output/Ani-Games-Admin-Android-DB-v0-Preview-0.1.0.apk | tee output/apk-badging.txt
-          grep -q "package: name='com.anigames.billingadmin.androiddbv0' versionCode='1' versionName='0.1.0-androiddb-v0'" output/apk-badging.txt
-          grep -q "application-label:'Ani Games Admin Android DB v0'" output/apk-badging.txt
-          "$APKSIGNER" verify --verbose output/Ani-Games-Admin-Android-DB-v0-Preview-0.1.0.apk
-          "$APKSIGNER" verify --print-certs output/Ani-Games-Admin-Android-DB-v0-Preview-0.1.0.apk
-          sha256sum output/Ani-Games-Admin-Android-DB-v0-Preview-0.1.0.apk | tee output/SHA256SUMS.txt
-          unzip -t output/Ani-Games-Admin-Android-DB-v0-Preview-0.1.0.apk
-          ls -lh output/Ani-Games-Admin-Android-DB-v0-Preview-0.1.0.apk
+          "$AAPT" dump badging output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk | tee output/apk-badging.txt
+          grep -q "package: name='com.anigames.billingadmin.coinpreview' versionCode='7' versionName='0.2.5-coin-first-pc-control'" output/apk-badging.txt
+          grep -q "application-label:'Ani Games Admin Coin Preview 0.2.5'" output/apk-badging.txt
+          "$APKSIGNER" verify --verbose output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk
+          "$APKSIGNER" verify --print-certs output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk
+          sha256sum output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk | tee output/SHA256SUMS.txt
+          unzip -t output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk
+          ls -lh output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk
 
-      - name: Upload isolated Admin Android DB v0 preview
+      - name: Upload isolated Admin Android DB v0 coin-first PC control preview
         uses: actions/upload-artifact@v4
         with:
-          name: Ani-Games-Admin-Android-DB-v0-Preview-0.1.0
+          name: Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5
           path: output/*
           if-no-files-found: error
           retention-days: 30

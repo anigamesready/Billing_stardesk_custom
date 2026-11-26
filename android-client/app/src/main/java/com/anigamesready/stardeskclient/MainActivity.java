@@ -27,6 +27,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URL;
+import java.net.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.util.concurrent.ExecutorService;
@@ -42,7 +43,7 @@ import android.security.keystore.KeyProperties;
 import javax.net.ssl.HttpsURLConnection;
 
 public class MainActivity extends Activity {
-    private static final String ONLINE_API_BASE = "https://ani-games-db-android-stage-gateway.anigamesready.workers.dev";
+    private static final String ONLINE_API_BASE = "https://ani-games-db-android-stage-gateway.anigamesready.workers.dev/stardesk";
     private static final String PREFS = "stardesk_remote_settings";
     private static final String SECURE_PREFS = "stardesk_remote_secure";
     private static final String KEY_ALIAS = "ani_stardesk_remote_tokens_v1";
@@ -180,7 +181,12 @@ public class MainActivity extends Activity {
                 if(body==null||body.length()>32768) throw new IllegalArgumentException("API_BODY_TOO_LARGE");
                 String root=base.trim().replaceAll("/+$","");
                 URL url=new URL(root+"/rest/v1/rpc/"+rpc);
-                connection=(HttpsURLConnection)url.openConnection();
+                connection=(HttpsURLConnection)url.openConnection(Proxy.NO_PROXY);
+                connection.setSSLSocketFactory(new GatewayPinnedSocketFactory());
+                connection.setHostnameVerifier((hostname, session) ->
+                        GatewayPinnedSocketFactory.isGatewayHost(hostname)
+                                && HttpsURLConnection.getDefaultHostnameVerifier().verify(
+                                        GatewayPinnedSocketFactory.GATEWAY_HOST, session));
                 connection.setRequestMethod("POST");
                 connection.setConnectTimeout(10000);
                 connection.setReadTimeout(15000);
@@ -201,6 +207,13 @@ public class MainActivity extends Activity {
                 JSONObject parsed;
                 try{parsed=parseJson(response);}catch(Exception ignored){parsed=errorJson("API_RESPONSE_INVALID",response);}
                 parsed.put("http_status",status);
+                String retryAfterHeader=connection.getHeaderField("Retry-After");
+                if(retryAfterHeader!=null){
+                    try{
+                        int retryAfterSeconds=Integer.parseInt(retryAfterHeader.trim());
+                        if(retryAfterSeconds>0) parsed.put("retry_after_seconds",Math.min(900,retryAfterSeconds));
+                    }catch(NumberFormatException ignored){}
+                }
                 if(status<200||status>=300) parsed.put("ok",false);
                 deliverApiResult(requestId,parsed);
             }catch(Exception e){
@@ -229,7 +242,7 @@ public class MainActivity extends Activity {
             String b=android.os.Build.MODEL==null?"Android":android.os.Build.MODEL;
             return (a+" "+b).trim();
         }
-        @JavascriptInterface public String getAppVersion(){return "0.6.0-androiddb-v0-coin";}
+        @JavascriptInterface public String getAppVersion(){return "0.6.4-route-and-login-limit-guidance";}
         @JavascriptInterface public String getApiBase(){return ONLINE_API_BASE;}
         @JavascriptInterface public boolean setApiBase(String value){
             // The client has one approved public API route. Ignore stale/manual loopback preferences.

@@ -1,0 +1,31 @@
+name: Test isolated StarDesk Cloudflare gateway and relay routing
+
+on:
+  push:
+    branches:
+      - feature/admin-androiddb-v0-full-db-20261126
+    paths:
+      - "edge/cloudflare/ani-games-db-android-stage-gateway.mjs"
+      - "edge/cloudflare/ani-games-db-android-stage-ws-relay.mjs"
+      - "tests/edge-cloudflare-online-gateway.test.mjs"
+      - ".github/workflows/test-edge-cloudflare-gateway.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  edge-routing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate worker syntax
+        run: |
+          node --check edge/cloudflare/ani-games-db-android-stage-gateway.mjs
+          node --check edge/cloudflare/ani-games-db-android-stage-ws-relay.mjs
+      - name: Test legacy and isolated StarDesk routes
+        run: node --test tests/edge-cloudflare-online-gateway.test.mjs

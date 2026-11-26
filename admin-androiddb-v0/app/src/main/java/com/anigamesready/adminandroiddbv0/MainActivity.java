@@ -1,6 +1,7 @@
 package com.anigamesready.adminandroiddbv0;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -9,10 +10,15 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Base64;
 import android.webkit.JavascriptInterface;
+import android.webkit.JsPromptResult;
+import android.webkit.JsResult;
+import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.EditText;
 import android.widget.Toast;
+import android.text.InputType;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -23,6 +29,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URL;
+import java.net.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.util.concurrent.ExecutorService;
@@ -38,7 +45,7 @@ import android.security.keystore.KeyProperties;
 
 public final class MainActivity extends Activity {
     private static final String API_BASE =
-        "https://ani-games-db-android-stage-gateway.anigamesready.workers.dev";
+        "https://ani-games-db-android-stage-gateway.anigamesready.workers.dev/stardesk";
     private static final String KEY_ALIAS = "ani_admin_androiddb_v0_keystore_v1";
     private static final String SECURE_PREFS = "ani_admin_androiddb_v0_secure";
     private static final int MAX_RESPONSE_BYTES = 1024 * 1024;
@@ -62,6 +69,47 @@ public final class MainActivity extends Activity {
         webView.addJavascriptInterface(new AdminBridge(), "AniAdminV0");
         webView.setWebViewClient(new WebViewClient() {
             @Override public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return true;
+            }
+        });
+        // Admin UI relies on confirm()/prompt() for destructive and financial actions.
+        // Handle JavaScript dialogs natively so these actions remain usable inside WebView.
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override public boolean onJsAlert(WebView view, String url, String message, JsResult result) {
+                new AlertDialog.Builder(MainActivity.this)
+                    .setTitle("Ani Games Admin")
+                    .setMessage(message == null ? "" : message)
+                    .setPositiveButton("OK", (dialog, which) -> result.confirm())
+                    .setOnCancelListener(dialog -> result.cancel())
+                    .show();
+                return true;
+            }
+
+            @Override public boolean onJsConfirm(WebView view, String url, String message, JsResult result) {
+                new AlertDialog.Builder(MainActivity.this)
+                    .setTitle("Konfirmasi Admin")
+                    .setMessage(message == null ? "" : message)
+                    .setPositiveButton("Lanjutkan", (dialog, which) -> result.confirm())
+                    .setNegativeButton("Batal", (dialog, which) -> result.cancel())
+                    .setOnCancelListener(dialog -> result.cancel())
+                    .show();
+                return true;
+            }
+
+            @Override public boolean onJsPrompt(WebView view, String url, String message,
+                                                String defaultValue, JsPromptResult result) {
+                EditText input = new EditText(MainActivity.this);
+                input.setSingleLine(true);
+                input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+                if (defaultValue != null) input.setText(defaultValue);
+                new AlertDialog.Builder(MainActivity.this)
+                    .setTitle("Input Admin")
+                    .setMessage(message == null ? "" : message)
+                    .setView(input)
+                    .setPositiveButton("Simpan", (dialog, which) -> result.confirm(input.getText().toString()))
+                    .setNegativeButton("Batal", (dialog, which) -> result.cancel())
+                    .setOnCancelListener(dialog -> result.cancel())
+                    .show();
                 return true;
             }
         });
@@ -174,35 +222,58 @@ public final class MainActivity extends Activity {
                     path = "/auth/v1/token?grant_type=refresh_token";
                 } else if ("__admin_logout".equals(route)) {
                     path = "/auth/v1/logout";
+                } else if ("__iot_status".equals(route)) {
+                    path = "/iot/status";
+                } else if ("__iot_power".equals(route)) {
+                    path = "/iot/power";
+                } else if ("__gateway_health".equals(route)) {
+                    path = "/_ani_gateway/health";
                 } else {
                     if (!route.matches("[a-z0-9_]{1,80}")) throw new IllegalArgumentException("RPC_NAME_INVALID");
                     path = "/rest/v1/rpc/" + route;
                 }
                 if (body == null || body.length() > 32768) throw new IllegalArgumentException("API_BODY_TOO_LARGE");
-                connection = (HttpsURLConnection) new URL(API_BASE + path).openConnection();
-                connection.setRequestMethod("POST");
+                final String method = ("__iot_status".equals(route) || "__gateway_health".equals(route)) ? "GET" : "POST";
+                connection = (HttpsURLConnection) new URL(API_BASE + path).openConnection(Proxy.NO_PROXY);
+                connection.setSSLSocketFactory(new GatewayPinnedSocketFactory());
+                connection.setHostnameVerifier((hostname, session) ->
+                    GatewayPinnedSocketFactory.isGatewayHost(hostname)
+                        && HttpsURLConnection.getDefaultHostnameVerifier().verify(
+                            GatewayPinnedSocketFactory.GATEWAY_HOST, session));
+                connection.setRequestMethod(method);
                 connection.setConnectTimeout(10000);
-                connection.setReadTimeout(18000);
+                connection.setReadTimeout("__gateway_health".equals(route) ? 15000 : 40000);
                 connection.setInstanceFollowRedirects(false);
-                connection.setDoOutput(true);
+                connection.setDoOutput(!"GET".equals(method));
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
                 connection.setRequestProperty("Accept", "application/json");
                 if (token != null && !token.trim().isEmpty()) {
                     if (token.length() > 512) throw new IllegalArgumentException("ACCESS_TOKEN_INVALID");
                     connection.setRequestProperty("Authorization", "Bearer " + token.trim());
                 }
-                byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
-                connection.setFixedLengthStreamingMode(bytes.length);
-                try (OutputStream output = connection.getOutputStream()) { output.write(bytes); }
+                if (!"GET".equals(method)) {
+                    byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+                    connection.setFixedLengthStreamingMode(bytes.length);
+                    try (OutputStream output = connection.getOutputStream()) { output.write(bytes); }
+                }
                 int status = connection.getResponseCode();
                 InputStream stream = status >= 200 && status < 400
                     ? connection.getInputStream() : connection.getErrorStream();
                 JSONObject result = parseResponse(readBounded(stream));
                 result.put("http_status", status);
+                String retryAfterHeader = connection.getHeaderField("Retry-After");
+                if (retryAfterHeader != null) {
+                    try {
+                        int retryAfterSeconds = Integer.parseInt(retryAfterHeader.trim());
+                        if (retryAfterSeconds > 0) result.put("retry_after_seconds", Math.min(900, retryAfterSeconds));
+                    } catch (NumberFormatException ignored) { }
+                }
                 if (status < 200 || status >= 300) result.put("ok", false);
                 deliver(requestId, result);
             } catch (Exception ex) {
-                String message = ex.getMessage() == null ? "ANDROID_DB_API_ERROR" : ex.getMessage();
+                String message = ex instanceof java.net.SocketTimeoutException
+                    ? "GATEWAY_TIMEOUT: Gateway/Relay tidak memberi jawaban dalam batas waktu."
+                    : (ex.getMessage() == null ? "ANDROID_DB_API_ERROR" : ex.getMessage());
                 deliver(requestId, error(message, message));
             } finally {
                 if (connection != null) connection.disconnect();
@@ -211,7 +282,7 @@ public final class MainActivity extends Activity {
     }
 
     public final class AdminBridge {
-        @JavascriptInterface public String getAppVersion() { return "0.1.0-androiddb-v0"; }
+        @JavascriptInterface public String getAppVersion() { return "0.2.5-coin-first-pc-control"; }
         @JavascriptInterface public String getApiBase() { return API_BASE; }
         @JavascriptInterface public String getSecureValue(String key) { return readSecret(key); }
         @JavascriptInterface public boolean saveSecureValue(String key, String value) {

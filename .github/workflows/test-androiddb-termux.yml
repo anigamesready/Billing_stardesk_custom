@@ -4,12 +4,16 @@ on:
   push:
     branches:
       - feature/androiddb-termux-coin-x100-20261125
+      - feature/admin-androiddb-v0-full-db-20261126
     paths:
       - "backend/android-db/termux/**"
       - "backend/android-db/server/**"
       - "backend/android-db/migrations/020_remote_coin_wallet.sql"
       - "backend/android-db/migrations/021_android_wol_relay.sql"
       - "backend/android-db/migrations/022_coin_unit_scale_100.sql"
+      - "tests/stardesk-isolated-install.test.mjs"
+      - "docs/STARDESK_CUSTOM_ISOLATION_POLICY.md"
+      - ".agents/skills/stardesk-custom/LOCAL_OVERRIDES.md"
       - ".github/workflows/test-androiddb-termux.yml"
   workflow_dispatch:
 
@@ -28,11 +32,45 @@ jobs:
           set -euo pipefail
           bash -n backend/android-db/termux/install.sh
 
-      - name: ShellCheck installer errors
+      - name: Validate dedicated StarDesk Custom installer and Relay Agent syntax
+        run: |
+          set -euo pipefail
+          bash -n backend/android-db/termux/install-stardesk-custom-v0.sh
+          bash -n backend/android-db/relay-agent/install-stardesk-agent.sh
+          node --test tests/stardesk-isolated-install.test.mjs
+
+      - name: Validate guarded Admin v0 live API repair syntax
+        run: |
+          set -euo pipefail
+          bash -n backend/android-db/termux/repair-admin-v0-live-api.sh
+      - name: Validate isolated StarDesk database installer syntax
+        run: |
+          set -euo pipefail
+          bash -n backend/android-db/termux/install-stardesk-isolated.sh
+      - name: Validate read-only Admin v0 live DB audit
+        run: |
+          set -euo pipefail
+          bash -n backend/android-db/termux/audit-admin-v0-live-db.sh
+
+      - name: ShellCheck installer and Admin repair scripts
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck
-          shellcheck --severity=error backend/android-db/termux/install.sh
+          shellcheck --severity=error backend/android-db/termux/install.sh backend/android-db/termux/repair-admin-v0-live-api.sh backend/android-db/termux/audit-admin-v0-live-db.sh backend/android-db/termux/install-stardesk-isolated.sh backend/android-db/termux/install-stardesk-custom-v0.sh backend/android-db/relay-agent/install-stardesk-agent.sh
+      - name: Validate embedded Node repair controllers
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          source = Path("backend/android-db/termux/repair-admin-v0-live-api.sh").read_text()
+          blocks = re.findall(r"<<'NODE'\n([\s\S]*?)\nNODE", source)
+          assert len(blocks) == 3, f"expected 3 embedded Node controllers, found {len(blocks)}"
+          for index, block in enumerate(blocks, start=1):
+              Path(f"/tmp/admin-repair-node-{index}.mjs").write_text(block)
+          PY
+          for file in /tmp/admin-repair-node-*.mjs; do node --check "$file"; done
+
 
       - name: Verify install safety gates and release contents
         run: |
@@ -54,7 +92,7 @@ jobs:
           assert "chmod 600 \"$ENV_FILE\"" in script, "secret permissions missing"
           assert "022_coin_unit_scale_100.sql" in script and "021_android_wol_relay.sql" in script, "addon migrations missing"
           assert not re.search(r'(?im)^\s*(DROP\s+DATABASE|DROP\s+TABLE|TRUNCATE\b|DELETE\s+FROM\s+public\.)',script), "destructive core DB command found"
-          assert "sv down ani-games-ready-api" in readme and "pg_restore --list" in readme, "operator documentation incomplete"
+          assert "do not use for stardesk" in readme.lower() and "8788" in readme, "operator documentation must distinguish the legacy API from StarDesk"
           assert "coin_wallets" in migration and "coin_topup_orders" in migration and "coin_lots" in migration and "coin_ledger" in migration and "pc_coin_rates" in migration
           for klass,coins in [("GTX 1050",4500),("GTX 1660",4500),("RTX 3060",5250),("RTX 5060",6000)]:
               assert re.search(rf"WHEN '{re.escape(klass)}'.*?v_coins:={coins};",migration), f"wrong x100 rate for {klass}"
@@ -64,6 +102,31 @@ jobs:
           assert "CORE_ADDON_READY" in script and "RP_SCHEMA" in script, "existing core DB upgrade detection missing"
           assert "EXISTING_PG_CLUSTER" in script and 'PG_VERSION' in script and 'SERVER_MAJOR' in script, "existing PostgreSQL major-version guard missing"
           assert script.index("Fail closed before pkg install") < script.index('pkg update -y'), "unknown-cluster guard must run before package changes"
+          assert "Pengaman berhenti sebelum pkg update" in script, "active unmanaged PostgreSQL must fail closed before any install changes"
+          assert 'APP_DIR="$HOME/ani-games-db-android-stage"' in script and 'DB_DEFAULT="ani_games_ready_stage"' in script, "installer must reuse the active Android DB stage instead of creating a parallel database"
+          assert 'PORT="8788"' in script and "PORT=8788" in script, "new API install must preserve the existing Cloudflare relay target port"
+          isolated = Path("backend/android-db/termux/install-stardesk-isolated.sh").read_text()
+          assert 'DB_NAME="ani_games_stardesk_custom"' in isolated and 'OLD_DB_NAME="ani_games_ready_stage"' in isolated, "StarDesk needs its own database name, not the existing stage DB"
+          assert 'API_PORT="8789"' in isolated and 'PORT=$API_PORT' in isolated, "StarDesk API must use a separate port"
+          assert "ani_stardesk_api_runtime" in isolated and "ani_stardesk_api_login" in isolated, "StarDesk API DB roles must be isolated"
+          assert "sed 's/ani_api_runtime/ani_stardesk_api_runtime/g" in isolated, "migrations must use the dedicated StarDesk runtime role"
+          assert "024_remote_coin_expiry_guard.sql" in isolated and "025_admin_androiddb_v0_coin_domain.sql" in isolated, "Remote expiry guard and Coin v0 migrations must both be applied"
+          assert "private.admin_bootstrap_control" in isolated and "extensions.digest(:'bootstrap_token'" in isolated, "new Owner bootstrap control hash must be provisioned"
+          assert "OWNER_LOGIN_SMOKE_FAILED" in isolated and "OWNER_CONTEXT_EMPTY" in isolated and "COIN_V0_DASHBOARD_SMOKE_FAILED" in isolated, "first Owner login/context/Coin dashboard must be tested before success"
+          assert "ani_games_ready_stage" in isolated and "ANI_API_PEPPER" in isolated and "BLYNK_AUTH_TOKEN" in isolated, "independent project and protected app environment missing"
+          for forbidden in ["DROP DATABASE", "TRUNCATE TABLE", "sv down postgres", "sv up postgres", "ani_api_login TO ani_stardesk_api_login"]:
+              assert forbidden.lower() not in isolated.lower(), "installer must never mutate/drop the old system: " + forbidden
+          repair = Path("backend/android-db/termux/repair-admin-v0-live-api.sh").read_text()
+          assert "ani-games-db-android-stage/server" in repair and "ani_games_ready_stage" in repair and 'API_PORT="8788"' in repair, "Admin repair must target the existing Android DB API only"
+          assert "pg_dump" in repair and "pg_dumpall" in repair and "pg_restore --list" in repair and "sha256sum -c" in repair, "Admin repair requires a validated database/roles backup"
+          assert 'CONFIRM" = "APPLY"' in repair, "missing explicit APPLY gate for Coin v0 migration"
+          assert "admin_context(text)" in repair and "androiddb_v0_admin_dashboard(text,integer)" in repair, "Admin/RPC preflight smoke tests missing"
+          assert "RPC_ALLOWLIST_SMOKE_FAILED" in repair and "AUTH_REQUIRED" in repair, "Admin RPC test must distinguish an allowed protected RPC from RPC_NOT_ALLOWED"
+          assert "SIGTERM" in repair and "process.execPath" in repair and "API_UPDATE_FAILED_ROLLBACK" in repair, "API restart/rollback guard missing"
+          for forbidden in ["sv down postgres", "sv up postgres", "initdb", "pg_ctl -D", "DROP DATABASE", "TRUNCATE TABLE"]:
+              assert forbidden.lower() not in repair.lower(), "repair script must not manage/destroy PostgreSQL: " + forbidden
+          assert "BLYNK_AUTH_TOKEN" not in repair and "CLOUDFLARE" not in repair.upper(), "repair must not rotate or inspect external secrets"
+          assert script.index("Pengaman berhenti sebelum pkg update") < script.index('pkg update -y') < script.index('cp -R "$SOURCE_ROOT/backend/android-db/server/.'), "unmanaged PostgreSQL preflight must run before package and source changes"
           assert 'Do not request/upgrade the PostgreSQL package over a live data directory.' in script, "must not upgrade PostgreSQL over existing data"
           assert 'apply_file "013_remote_play.sql"' in script and 'apply_file "019_remote_play_session_connected.sql"' in script, "staged Remote Play upgrade chain missing"
           assert "Schema Remote Play terdeteksi tetapi kontrak 013-019 tidak lengkap" in script, "partial Remote Play schema must stop"

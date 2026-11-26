@@ -1,91 +1,126 @@
-# Android DB Backend — Termux
+# StarDesk Custom v0 — Android / Termux
 
-## Pinned one-command installation
+## Isolation boundary
 
-Use the exact 40-character commit SHA supplied with the release. Do not replace it with a moving branch name.
+This installer is only for the StarDesk Custom project in `anigamesready/Billing_stardesk_custom`.
+
+StarDesk uses a **new, independent PostgreSQL database and application runtime**. The PostgreSQL server process may be shared with the already-running Termux cluster, but no application data or API credentials are shared.
+
+| Component | StarDesk Custom |
+|---|---|
+| Database | `stardesk_custom_v0` |
+| Database owner | `stardesk_v0_owner` (NOLOGIN) |
+| API login | `stardesk_v0_login` |
+| API runtime | `stardesk_v0_runtime` (NOLOGIN) |
+| Local application folder | `$HOME/ani-games-stardesk-custom-v0` |
+| Local API port | `8789` |
+| API runit service | `stardesk-custom-v0-api` |
+| Relay Agent service | `ani-games-stardesk-relay-agent` |
+| Gateway prefix | `/stardesk` |
+| Relay Durable Object hub | `redmi-stardesk-custom` |
+
+The old Ani Games Ready installation keeps its own database, API port `8788`, API service `ani-games-ready-api`, relay service, relay hub, credentials, sessions and rental data. The StarDesk installer must not change or restart any of them.
+
+There is no import, copy, synchronization, fallback, or dual-write between the legacy rental timer and StarDesk Coin. StarDesk has its own account, activation, wallet, Coin lots/expiry, ledger, top-up, PC rate, Host enrollment, and Remote Play session data.
+
+## Quick DB control menu (Termux)
+
+The menu inspects both databases side by side without merging them. The legacy system is **read-only/status-only**; only the two StarDesk services can be started or restarted. It never restarts PostgreSQL, the old Ani Games API, or the old relay.
+
+Download from the exact StarDesk commit SHA:
 
 ```bash
 REF=<40-character-commit-sha>
-curl -fsSL "https://raw.githubusercontent.com/anigamesready/Billing_stardesk_custom/$REF/backend/android-db/termux/install.sh" | ANI_DB_REF="$REF" bash
+curl -fsSL "https://raw.githubusercontent.com/anigamesready/Billing_stardesk_custom/$REF/backend/android-db/termux/stardesk-db-control.sh" -o "$HOME/STAR-DESK-DB-CONTROL.sh" &&
+chmod 700 "$HOME/STAR-DESK-DB-CONTROL.sh" &&
+bash "$HOME/STAR-DESK-DB-CONTROL.sh"
 ```
 
-The installer verifies it is running inside Termux, checks the existing PostgreSQL cluster before installing packages, fetches the repository archive at the same immutable commit, validates it, installs the Node API, and creates supervised PostgreSQL/API services. Existing `server/.env` and PostgreSQL data are not overwritten.
+Menu options include read-only status for both DB/API pairs, Gateway-to-Relay health probe, read-only-default psql access to either database, StarDesk-only API/Relay restarts, and StarDesk service logs. There is no database switch, data copy, migration, deletion, or PostgreSQL lifecycle control.
 
-## Database layout and separation
 
-The active Android DB retains its original core business and authentication tables for Admin/Owner, organization membership and PC inventory.
+## Install StarDesk database and API
 
-The new **Admin Android DB v0** Coin business domain is separate in schema `androiddb_v0`. Its 14 tables are:
+Use the exact 40-character commit SHA supplied for the StarDesk test build. Do not use a branch name or a SHA from another repository.
+
+```bash
+REF=<40-character-commit-sha>
+curl -fsSL "https://raw.githubusercontent.com/anigamesready/Billing_stardesk_custom/$REF/backend/android-db/termux/install-stardesk-custom-v0.sh" -o "$HOME/stardesk-setup/install-db.sh"
+ANI_STARDESK_SOURCE_REF="$REF" bash "$HOME/stardesk-setup/install-db.sh"
+```
+
+The `ANI_STARDESK_SOURCE_REF` value is mandatory. It makes the installer download the API source and migration files from the **same immutable commit** as the installer script. The installer stops if this pin is missing or malformed.
+
+### PostgreSQL safety checks
+
+The installer only uses an already-running PostgreSQL cluster. It checks that:
+
+- the Termux data directory and `PG_VERSION` exist;
+- PostgreSQL answers on the Termux socket and port;
+- the responding server's `SHOW data_directory` resolves to the expected Termux data directory;
+- the active server major version matches the cluster's `PG_VERSION`;
+- a local PostgreSQL superuser connection is available.
+
+It does not execute `initdb`, `pg_ctl`, `sv up postgres`, `sv down postgres`, package upgrades, or any PostgreSQL restart. If the database server is not already healthy, installation stops. Do not try to force it through or run the legacy installer.
+
+The installer fails closed if the StarDesk database, any StarDesk role, application folder, dedicated service folder, or port `8789` already exists. An existing partial installation requires a separate audit; it is never overwritten.
+
+Once preflight passes, the installer creates only `stardesk_custom_v0`, its dedicated owner/runtime/login roles, its source folder, and the API service on port `8789`. It does not copy any records from the old rental database. API credentials and the one-time Owner bootstrap token are kept in `server/.env` with mode `600`; secret values are never printed.
+
+## Install the dedicated Relay Agent
+
+Run this only after the dedicated API health endpoint reports both API and database online:
+
+```bash
+curl -fsSL "https://raw.githubusercontent.com/anigamesready/Billing_stardesk_custom/$REF/backend/android-db/relay-agent/install-stardesk-agent.sh" -o "$HOME/stardesk-setup/install-relay.sh"
+ANI_RELAY_REF="$REF" bash "$HOME/stardesk-setup/install-relay.sh"
+```
+
+The new Agent uses the existing Relay shared secret locally; it must not create or rotate a secret. It uses API port `8789`, route `/agent/connect/stardesk`, service `ani-games-stardesk-relay-agent`, and hub `redmi-stardesk-custom`. The old Agent and old hub remain unchanged.
+
+## Verify local installation
+
+These are read-only checks:
+
+```bash
+sv status postgres
+sv status stardesk-custom-v0-api
+sv status ani-games-stardesk-relay-agent
+curl -fsS http://127.0.0.1:8789/health
+```
+
+Expected health response must indicate both `api: online` and `database: online`. If `postgres` is not shown as runit-managed but PostgreSQL is already responding, the installer validates the active server's data directory and version before deciding whether it can safely use that existing process. It never starts or restarts it.
+
+First Owner setup page, only while Owner bootstrap remains available:
+
+`http://127.0.0.1:8789/setup`
+
+Create a new StarDesk Owner. It is not automatically copied from the old system. Then install the StarDesk Admin APK and log in using this new Owner account.
+
+## Database and Coin domain
+
+A fresh StarDesk database receives migrations `000`, `002`–`023`, and `025_admin_androiddb_v0_coin_domain.sql`. Historical catalog snapshot `001` is not replayed.
+
+The dedicated `androiddb_v0` schema contains 14 tables:
 - `rental_accounts`, `client_credentials`, `client_sessions`
 - `coin_wallets`, `coin_topup_orders`, `coin_lots`, `coin_ledger`
 - `pc_coin_rates`, `stardesk_device_links`
 - `host_permissions`, `host_enrollments`, `host_registrations`
 - `sessions`, `audit_events`
 
-The v0 rental account has only active/disabled/deleted state. It does not use the legacy rental timer balance or legacy account expiry. Coin expiry belongs to each wallet lot. The v0 functions do not deduct `public.rental_accounts.remaining_seconds` or reuse the legacy Remote Play settlement.
+It also provides 20 Admin, Host and Remote RPC functions. The API server has a separate RPC allowlist; a SQL function and a GRANT alone do not prove that the corresponding HTTP RPC is available.
 
-The v0 domain references existing organization/Owner authentication and `public.devices` for the PC inventory identity only. Member identity, activation, sessions, wallet, lots, ledger, top-ups, rates, StarDesk mapping, Host Agent and audit records belong to `androiddb_v0`.
-
-## Ordered migrations
-
-- New empty database: `000`, `002`–`023`, then `025_admin_androiddb_v0_coin_domain.sql`. Historical catalog snapshot `001` is never replayed.
-- Existing core-only database: preserve migrations `000`–`012`; apply the additive Remote Play/Coin/WoL/API read migrations required by the installer, then migration `025` for the separate v0 schema. Core migrations are never replayed.
-- Migration `023_admin_coin_management_read_api.sql` adds the existing Admin Coin read functions; it is distinct from the new v0 RPC family in migration `025`.
-- Migration `025_admin_androiddb_v0_coin_domain.sql` adds 14 v0 tables and 20 v0 API functions. It is additive; it does not drop, truncate, rename or replace legacy rental/device tables.
-
-The Node API has its own explicit RPC allowlist in `backend/android-db/server/server.mjs`. A SQL function and GRANT alone are not enough: the RPC name must also be allowlisted by the Node server. The installer checks the v0 API source and the local database signatures before reporting readiness.
-
-## Existing database upgrade safety
-
-The installer fails closed on an unrecognized PostgreSQL data directory, a major-version mismatch, an existing cluster not supervised by runit, an incomplete legacy Remote Play add-on, or a partially installed v0 schema.
-
-For an existing database where v0 is not installed:
-1. The installer validates the existing core and old add-on signatures.
-2. It creates a custom-format database backup and cluster-role backup.
-3. It verifies the database dump with `pg_restore --list`, records SHA-256 checksums, and stores the backup under `~/ani-games-ready-backups/`.
-4. It asks for the exact typed confirmation `APPLY`.
-5. Only after that confirmation does it apply migration 025.
-
-The installer checks all 14 v0 tables and all 20 v0 API signatures. A partial schema/function set stops for manual audit rather than guessing how to repair it. No migration is automatically run from this documentation; the installer is an explicit operator action.
-
-Do not apply migration 025 manually to the older Supabase project or a different database. This v0 deployment belongs to the Android DB Termux database only. Do not migrate legacy rental members into the Coin domain without a separately approved migration plan.
-
-## Coin baseline
-
+Coin baseline:
 - Conversion: Rp8.000 = 60 Coin.
 - GTX 1050: Rp6.000/hour = 45 Coin/hour.
 - GTX 1660: Rp6.000/hour = 45 Coin/hour.
 - RTX 3060: Rp7.000/hour = 52,5 Coin/hour.
 - RTX 5060: Rp8.000/hour = 60 Coin/hour.
-- Static QRIS creates a pending order. The Owner must verify payment and approve it before a Coin lot is credited.
-- Lot validity follows the approved expiry tier. The rental account itself does not have an old-style expiry date.
+- Static QRIS creates a pending order. The Owner must verify and approve it before a Coin lot is credited.
+- Expiry belongs to each Coin lot. The StarDesk rental account does not reuse the old rental timer's remaining-seconds balance or expiry.
 
-## API runtime and Cloudflare boundary
+## Existing Ani Games Ready installer — do not use for StarDesk
 
-The PostgreSQL API role inherits only `ani_api_runtime`; the Node process does not connect as PostgreSQL superuser. API credentials are stored in `server/.env` with mode 600. The local Node API binds to loopback (127.0.0.1) on port 8787 only.
+`backend/android-db/termux/install.sh`, `repair-admin-v0-live-api.sh`, and `audit-admin-v0-live-db.sh` belong to the **existing** Ani Games Ready Android DB/API workflow. They target the legacy stage database and/or port `8788`. They are not StarDesk installers.
 
-The public HTTPS gateway and WebSocket relay are separate Cloudflare Workers, configured to route to the private Android DB relay. Worker presence and service bindings do not prove the Redmi relay is connected or the PostgreSQL database is healthy. Use the endpoint and logs below on the actual Redmi to verify runtime health.
-
-## Service controls
-
-```bash
-sv status postgres
-sv status ani-games-ready-api
-sv down ani-games-ready-api && sv up ani-games-ready-api
-cat "$PREFIX/var/log/sv/ani-games-ready-api/current"
-curl -fsS http://127.0.0.1:8787/health
-```
-
-Local health endpoint: `http://127.0.0.1:8787/health`
-
-First Owner setup page (only when initial Owner setup is still required): `http://127.0.0.1:8787/setup`
-
-Blynk auth token is requested as an optional hidden prompt on first install. On a reinstall, existing .env values are preserved.
-
-## Start after Android reboot
-
-`termux-services` supervises enabled processes when its service daemon is running. The installer creates `~/.termux/boot/99-ani-games-ready-services`; to start services automatically after Android reboots, separately install the Termux:Boot companion app from the same trusted Termux distribution, open it once, and allow background execution/battery use. Android vendor battery-management policies can still stop background apps; this is not a hardware-level always-on guarantee.
-
-## Existing system backup and rollback
-
-Before installing migration 025 on a live database, confirm the backup files under `~/ani-games-ready-backups/` are present and valid. Keep these files private because they contain business data and PostgreSQL role metadata. Do not restore blindly over a newer live database; rollback should be planned with service stopped and database snapshot verified.
+Do not run those scripts to install, repair or migrate StarDesk. Do not point the StarDesk APK at the legacy URL or database. StarDesk deployment and builds remain confined to this repository's dedicated feature branch and workflows until the user approves a release.

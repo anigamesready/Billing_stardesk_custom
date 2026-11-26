@@ -36,6 +36,8 @@ DECLARE
   old_seconds bigint;
   old_expiry timestamptz;
   error_text text;
+  expired_lot_id uuid;
+  expired_ledger_count integer;
 BEGIN
   login_result:=api.admin_login('CI-OWNER','CI-Admin-New-Password-2026');
   owner_token:=login_result->>'token';
@@ -101,7 +103,8 @@ BEGIN
   order_id:=(topup_result->>'order_id')::uuid;
   IF order_id IS NULL OR (topup_duplicate->>'order_id')::uuid<>order_id
      OR (topup_result->>'coin_amount')::numeric<>60
-     OR topup_result->>'status'<>'pending' THEN
+     OR topup_result->>'status'<>'pending'
+     OR topup_result->>'expiry_days'<>'3' THEN
     RAISE EXCEPTION 'ANDROIDDB_V0_TOPUP_OR_IDEMPOTENCY_FAILED';
   END IF;
   BEGIN
@@ -128,7 +131,10 @@ BEGIN
   END IF;
 
   -- Rejecting a different top-up must not create a lot or credit the wallet.
-  topup_result:=api.androiddb_v0_remote_coin_create_topup(access_token,5000,'androiddb-v0-topup-idem-0002');
+  topup_result:=api.androiddb_v0_remote_coin_create_topup(access_token,40000,'androiddb-v0-topup-idem-0002');
+  IF topup_result->>'expiry_days'<>'7' THEN
+    RAISE EXCEPTION 'ANDROIDDB_V0_TOPUP_EXPIRY_TIER_7_DAYS_FAILED';
+  END IF;
   rejected_order_id:=(topup_result->>'order_id')::uuid;
   reject_result:=api.androiddb_v0_admin_reject_topup(owner_token,rejected_order_id,'CI reject path');
   wallet_result:=api.androiddb_v0_remote_coin_wallet(access_token);
@@ -137,9 +143,21 @@ BEGIN
     RAISE EXCEPTION 'ANDROIDDB_V0_REJECTED_TOPUP_CREDITED_WALLET';
   END IF;
 
+  rate_result:=api.androiddb_v0_admin_set_device_rate(owner_token,device_id,'GTX 1050');
+  IF rate_result->>'hourly_rupiah'<>'6000' OR (rate_result->>'hourly_coins')::numeric<>45 THEN
+    RAISE EXCEPTION 'ANDROIDDB_V0_GPU_RATE_GTX1050_WRONG';
+  END IF;
+  rate_result:=api.androiddb_v0_admin_set_device_rate(owner_token,device_id,'GTX 1660');
+  IF rate_result->>'hourly_rupiah'<>'6000' OR (rate_result->>'hourly_coins')::numeric<>45 THEN
+    RAISE EXCEPTION 'ANDROIDDB_V0_GPU_RATE_GTX1660_WRONG';
+  END IF;
+  rate_result:=api.androiddb_v0_admin_set_device_rate(owner_token,device_id,'RTX 3060');
+  IF rate_result->>'hourly_rupiah'<>'7000' OR (rate_result->>'hourly_coins')::numeric<>52.5 THEN
+    RAISE EXCEPTION 'ANDROIDDB_V0_GPU_RATE_RTX3060_WRONG';
+  END IF;
   rate_result:=api.androiddb_v0_admin_set_device_rate(owner_token,device_id,'RTX 5060');
   IF rate_result->>'hourly_rupiah'<>'8000' OR (rate_result->>'hourly_coins')::numeric<>60 THEN
-    RAISE EXCEPTION 'ANDROIDDB_V0_GPU_RATE_WRONG';
+    RAISE EXCEPTION 'ANDROIDDB_V0_GPU_RATE_RTX5060_WRONG';
   END IF;
   link_result:=api.androiddb_v0_admin_link_stardesk_device(owner_token,device_id,'CI-STAR-DESK-RTX5060',true);
   IF link_result->>'stardesk_device_id'<>'CI-STAR-DESK-RTX5060' THEN
@@ -180,6 +198,26 @@ BEGIN
      OR jsonb_array_length(admin_wallet->'lots')<>1 THEN
     RAISE EXCEPTION 'ANDROIDDB_V0_ADMIN_WALLET_DETAIL_FAILED';
   END IF;
+
+  -- Force the approved lot to expire and prove balance + ledger expiry are idempotent.
+  SELECT l.id INTO expired_lot_id
+  FROM androiddb_v0.coin_lots l
+  JOIN androiddb_v0.coin_wallets w ON w.id=l.wallet_id
+  WHERE w.rental_account_id=v0_rental_id AND l.remaining_coins>0;
+  IF expired_lot_id IS NULL THEN RAISE EXCEPTION 'ANDROIDDB_V0_EXPIRY_FIXTURE_LOT_MISSING'; END IF;
+  UPDATE androiddb_v0.coin_lots SET expires_at=now()-interval '1 second' WHERE id=expired_lot_id;
+  wallet_result:=api.androiddb_v0_remote_coin_wallet(access_token);
+  IF (wallet_result->>'balance')::numeric<>0 OR jsonb_array_length(wallet_result->'lots')<>0 THEN
+    RAISE EXCEPTION 'ANDROIDDB_V0_EXPIRED_LOT_REMAINS_SPENDABLE';
+  END IF;
+  SELECT count(*) INTO expired_ledger_count FROM androiddb_v0.coin_ledger
+  WHERE lot_id=expired_lot_id AND event_type='lot_expired';
+  IF expired_ledger_count<>1 THEN RAISE EXCEPTION 'ANDROIDDB_V0_EXPIRY_LEDGER_MISSING_OR_DUPLICATED'; END IF;
+  -- A second wallet read must not create a duplicate expiry ledger row.
+  PERFORM api.androiddb_v0_remote_coin_wallet(access_token);
+  SELECT count(*) INTO expired_ledger_count FROM androiddb_v0.coin_ledger
+  WHERE lot_id=expired_lot_id AND event_type='lot_expired';
+  IF expired_ledger_count<>1 THEN RAISE EXCEPTION 'ANDROIDDB_V0_EXPIRY_NOT_IDEMPOTENT'; END IF;
 
   -- Disable revokes v0 client credentials/sessions; it does not touch legacy rows.
   PERFORM api.androiddb_v0_admin_set_rental_status(owner_token,v0_rental_id,false);

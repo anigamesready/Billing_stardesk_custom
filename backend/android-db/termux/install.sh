@@ -2,11 +2,12 @@
 set -Ee -o pipefail
 umask 077
 
-APP_DIR="$HOME/ani-games-ready-android-db"
+# Reuse the already-running Android DB stage directory/database; do not create a parallel DB.
+APP_DIR="$HOME/ani-games-db-android-stage"
 SERVER_DIR="$APP_DIR/server"
 MIGRATIONS_DIR="$APP_DIR/migrations"
 ENV_FILE="$SERVER_DIR/.env"
-DB_DEFAULT="ani_games_ready"
+DB_DEFAULT="ani_games_ready_stage"
 DB_PORT="5432"
 if [ -n "$ANI_DB_NAME" ]; then DB_DEFAULT="$ANI_DB_NAME"; fi
 if [ -n "$ANI_DB_PORT" ]; then DB_PORT="$ANI_DB_PORT"; fi
@@ -53,6 +54,29 @@ if [ -f "$PGDATA/PG_VERSION" ]; then
   [ "$DATA_MAJOR" = "$SERVER_MAJOR" ] || die "Major version PostgreSQL tidak cocok (data=$DATA_MAJOR, binary=$SERVER_MAJOR). Tidak ada package upgrade, initdb, pg_upgrade atau migrasi yang dijalankan."
 fi
 
+# An already-running PostgreSQL process must be managed by the existing runit
+# service before this installer may update or copy any application files.
+if [ "$EXISTING_PG_CLUSTER" = 1 ] && command -v pg_isready >/dev/null 2>&1 \
+   && pg_isready -h "$PREFIX/tmp" -p "$DB_PORT" >/dev/null 2>&1; then
+  export SVDIR="$PREFIX/var/service"
+  if [ ! -x "$PREFIX/bin/sv" ] || [ ! -d "$SVDIR/postgres" ] \
+     || ! "$PREFIX/bin/sv" status postgres 2>&1 | grep -q '^run:'; then
+    die "PostgreSQL sudah aktif tetapi belum dikelola runit. Pengaman berhenti sebelum pkg update, penyalinan source/API, perubahan service, atau migrasi database. Perlu prosedur adopsi service terpisah; jangan jalankan sv up terhadap proses lama."
+  fi
+fi
+
+# Never overwrite an API source tree while its Node process is running outside
+# the supervised service that this installer can safely restart.
+if [ -d "$SERVER_DIR" ] && command -v pgrep >/dev/null 2>&1; then
+  RUNNING_API_PIDS="$(pgrep -f -- "$SERVER_DIR/server.mjs" || true)"
+  if [ -n "$RUNNING_API_PIDS" ]; then
+    export SVDIR="$PREFIX/var/service"
+    if [ ! -x "$PREFIX/bin/sv" ] || ! "$PREFIX/bin/sv" status ani-games-ready-api 2>&1 | grep -q '^run:'; then
+      die "Node API sudah aktif di luar runit (PID $RUNNING_API_PIDS). Pengaman berhenti sebelum pkg update atau penyalinan source/API. Hentikan/adopsi proses secara terencana terlebih dahulu."
+    fi
+  fi
+fi
+
 log "Memasang runtime resmi Termux (Node LTS, npm, service manager)..."
 pkg update -y
 if [ "$EXISTING_PG_CLUSTER" = 1 ]; then
@@ -78,7 +102,7 @@ if [ -f "$ENV_FILE" ]; then
   IFS='|' read -r DB_HOST DB_PORT DB_NAME <<< "$DB_INFO"
   if [ -z "$ANI_BIND" ]; then ANI_BIND="127.0.0.1"; fi
   case "$ANI_BIND" in 127.0.0.1|localhost|::1) ;; *) die "ANI_BIND harus loopback sebelum proses migrasi database."; esac
-  if [ -z "$PORT" ]; then PORT="8787"; fi
+  if [ -z "$PORT" ]; then PORT="8788"; fi
   case "$DB_HOST" in 127.0.0.1|localhost|::1) ;; *) die "DATABASE_URL bukan database lokal Termux. Host luar tidak disentuh."; esac
 else
   DB_HOST="127.0.0.1"
@@ -488,7 +512,7 @@ SQL
   cat > "$ENV_FILE" <<EOF
 DATABASE_URL=postgresql://$API_DB_USER:$API_DB_PASSWORD@127.0.0.1:$DB_PORT/$DB_NAME?sslmode=disable
 ANI_BIND=127.0.0.1
-PORT=8787
+PORT=8788
 ANI_API_PEPPER=$API_PEPPER
 ANI_ADMIN_BOOTSTRAP_TOKEN=$BOOTSTRAP_TOKEN
 ANI_ALLOWED_ORIGINS=
@@ -503,7 +527,7 @@ set -a
 set +a
 [ -n "$DATABASE_URL" ] || die "DATABASE_URL belum tersedia."
 if [ -z "$ANI_BIND" ]; then ANI_BIND="127.0.0.1"; fi
-if [ -z "$PORT" ]; then PORT="8787"; fi
+if [ -z "$PORT" ]; then PORT="8788"; fi
 API_PORT="$PORT"
 [[ "$API_PORT" =~ ^[0-9]{1,5}$ ]] || die "Port API tidak valid."
 case "$ANI_BIND" in 127.0.0.1|localhost|::1) ;; *) die "ANI_BIND harus loopback sampai HTTPS tunnel dikonfigurasi."; esac
@@ -583,7 +607,7 @@ done
 
 log "INSTALLASI BACKEND SELESAI."
 log "API lokal: http://127.0.0.1:$API_PORT/health"
-log "Setup Owner pertama: http://127.0.0.1:8787/setup"
+log "Setup Owner pertama: http://127.0.0.1:8788/setup"
 log "Service PostgreSQL: sv status postgres"
 log "Service API: sv status ani-games-ready-api"
 log "Log API: cat $PREFIX/var/log/sv/ani-games-ready-api/current"

@@ -49,3 +49,64 @@ test("relay restricts methods and handles Origin:null preflight without opening 
  assert.equal((await relay.fetch(req("https://relay.test/iot/power","OPTIONS"),env)).status,204);
  assert.equal(calls,0);
 });
+
+test("StarDesk path prefix reaches an independent Gateway relay hub while old path is unchanged",async()=>{
+ let paths=[],auths=[];
+ const env={EDGE_PROXY_SECRET:"edge-test",RELAY_SERVICE:{fetch:async r=>{
+   paths.push(new URL(r.url).pathname);auths.push(r.headers.get("x-ani-gateway-auth"));
+   return Response.json({message:"AUTH_REQUIRED"},{status:401});
+ }}};
+ const legacy=await gateway.fetch(req("https://gateway.test/rest/v1/rpc/admin_context"),env);
+ const stardesk=await gateway.fetch(req("https://gateway.test/stardesk/rest/v1/rpc/admin_context"),env);
+ assert.equal(legacy.status,401);assert.equal(stardesk.status,401);
+ assert.equal(paths[0],"/rest/v1/rpc/admin_context");
+ assert.equal(paths[1],"/stardesk/rest/v1/rpc/admin_context");
+ assert.deepEqual(auths,["edge-test","edge-test"]);
+});
+
+test("StarDesk Gateway health uses its own relay hub, not the legacy hub",async()=>{
+ let path="";
+ const env={EDGE_PROXY_SECRET:"edge-test",RELAY_SERVICE:{fetch:async r=>{
+   path=new URL(r.url).pathname;
+   return Response.json({relay:"online",agent_connected:true,api:"online",database:"online"});
+ }}};
+ const res=await gateway.fetch(req("https://gateway.test/stardesk/_ani_gateway/health"),env);
+ assert.equal(res.status,200);assert.equal(path,"/_relay/stardesk/health");
+ const d=await res.json();assert.equal(d.upstream_active,true);assert.equal(d.database,"online");
+});
+
+test("StarDesk Gateway blocks loopback-only Owner bootstrap while preserving allowed RPC routing",async()=>{
+ let calls=0;
+ const env={EDGE_PROXY_SECRET:"edge-test",RELAY_SERVICE:{fetch:async r=>{calls++;return Response.json({ok:true});}}};
+ const denied=await gateway.fetch(req("https://gateway.test/stardesk/api/admin/bootstrap","POST",{}),env);
+ assert.equal(denied.status,403);assert.equal(calls,0);
+ const ok=await gateway.fetch(req("https://gateway.test/stardesk/rest/v1/rpc/androiddb_v0_admin_dashboard","POST",{}),env);
+ assert.equal(ok.status,200);assert.equal(calls,1);
+});
+
+test("Relay forwards the StarDesk prefix to a separate Durable Object name and strips it from the local API envelope",async()=>{
+ let hubName="",path="",method="";
+ const env={RELAY_HUB:{getByName:name=>{
+   hubName=name;
+   return {fetch:async r=>{path=new URL(r.url).pathname;if(path==="/proxy"){const body=await r.json();method=body.path;}return Response.json({ok:true});}};
+ }}};
+ const res=await relay.fetch(req("https://relay.test/stardesk/rest/v1/rpc/admin_context"),env);
+ assert.equal(res.status,200);assert.equal(hubName,"redmi-stardesk-custom");
+ assert.equal(path,"/proxy");assert.equal(method,"/rest/v1/rpc/admin_context");
+});
+
+test("Relay health checks the dedicated StarDesk hub only",async()=>{
+ const names=[],paths=[];
+ const env={RELAY_HUB:{getByName:name=>{
+  names.push(name);
+  return {fetch:async r=>{
+    const p=new URL(typeof r==="string"?r:r.url).pathname;paths.push(p);
+    if(p==="/status")return Response.json({connected:true,connected_since:"test"});
+    return Response.json({api:"online",database:"online"});
+  }};
+ }}};
+ const res=await relay.fetch(req("https://relay.test/_relay/stardesk/health"),env);
+ assert.equal(res.status,200);assert.equal(names[0],"redmi-stardesk-custom");
+ assert.equal(paths[0],"/status");assert.equal(paths[1],"/proxy");
+ const d=await res.json();assert.equal(d.api,"online");assert.equal(d.database,"online");
+});
