@@ -183,7 +183,8 @@ CREATE ROLE :"api_user" LOGIN PASSWORD :'api_password'
 GRANT stardesk_v0_runtime TO :"api_user";
 GRANT CONNECT ON DATABASE :"db_name" TO :"api_user";
 SQL
-psql_admin -d "$DB_NAME" -c "SET ROLE $DB_OWNER_ROLE" <<SQL >/dev/null
+psql_admin -d "$DB_NAME" <<SQL >/dev/null
+SET ROLE $DB_OWNER_ROLE;
 CREATE TABLE private.stardesk_custom_install_meta (
   singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
   schema_version text NOT NULL,
