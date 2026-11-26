@@ -122,6 +122,7 @@ MIGRATION_FILES=(
   023_admin_coin_management_read_api.sql
   025_admin_androiddb_v0_coin_domain.sql
   026_androiddb_v0_coin_x100.sql
+  027_androiddb_v0_remote_userid_only_login.sql
 )
 for file in "${MIGRATION_FILES[@]}"; do
   [ -s "$SOURCE_ROOT/backend/android-db/migrations/$file" ] || die "Migrasi source hilang: $file"
