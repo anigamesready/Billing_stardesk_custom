@@ -59,6 +59,7 @@ jobs:
           assert len(scripts)==1, "expected one inline JS block"
           Path("/tmp/remote-androiddb.js").write_text(scripts[0])
           java=Path("android-client/app/src/main/java/com/anigamesready/stardeskclient/MainActivity.java").read_text()
+          assert "/stardesk" in java, "Remote native API base must target the isolated StarDesk database prefix"
           for token in ["AndroidKeyStore","AES/GCM/NoPadding","apiRequest","HttpsURLConnection","getSecureValue","saveSecureValue","Proxy.NO_PROXY","GatewayPinnedSocketFactory","setSSLSocketFactory","setHostnameVerifier","getDefaultHostnameVerifier"]:
               assert token in java, "missing native security/API bridge: "+token
           tls=Path("android-client/app/src/main/java/com/anigamesready/stardeskclient/GatewayPinnedSocketFactory.java").read_text()
@@ -66,7 +67,7 @@ jobs:
               assert token in tls, "missing pinned Cloudflare TLS control: "+token
           assert "InetAddress.getByName" not in tls and "X509TrustManager" not in tls, "DNS/trust bypass detected in pinned gateway socket factory"
           gradle=Path("android-client/app/build.gradle").read_text()
-          assert 'versionCode 7' in gradle and 'versionName "0.6.1-androiddb-v0-coin-gateway-pin"' in gradle
+          assert 'versionCode 8' in gradle and 'versionName "0.6.2-isolated-stardesk-db"' in gradle
           manifest=Path("android-client/app/src/main/AndroidManifest.xml").read_text()
           assert 'android:usesCleartextTraffic="false"' in manifest
           assert '<uses-permission android:name="android.permission.INTERNET"' in manifest
@@ -85,14 +86,14 @@ jobs:
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
           "$AAPT" dump badging "$APK" | tee /tmp/remote-badging.txt
-          grep -q "package: name='com.anigamesready.stardeskclient' versionCode='7' versionName='0.6.1-androiddb-v0-coin-gateway-pin'" /tmp/remote-badging.txt
+          grep -q "package: name='com.anigamesready.stardeskclient' versionCode='7' versionName='0.6.2-androiddb-v0-coin-gateway-pin'" /tmp/remote-badging.txt
           "$APKSIGNER" verify --verbose "$APK"
           "$APKSIGNER" verify --print-certs "$APK"
           sha256sum "$APK" | tee SHA256SUMS-REMOTE-ANDROIDDB.txt
           unzip -t "$APK"
       - uses: actions/upload-artifact@v4
         with:
-          name: Ani-Games-Ready-Remote-AndroidDB-v0-Coin-v0.6.1-Gateway-Pin
+          name: Ani-Games-Ready-Remote-AndroidDB-v0-Coin-v0.6.2-Gateway-Pin
           path: |
             android-client/app/build/outputs/apk/debug/app-debug.apk
             SHA256SUMS-REMOTE-ANDROIDDB.txt
