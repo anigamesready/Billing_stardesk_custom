@@ -177,6 +177,13 @@ for file in "${MIGRATION_FILES[@]}"; do apply_file "$file"; done
 API_DB_PASSWORD="$(openssl rand -hex 32)"
 API_PEPPER="$(openssl rand -hex 32)"
 BOOTSTRAP_TOKEN="$(openssl rand -hex 32)"
+# The database stores only the hash. The plaintext token stays in the mode-600
+# local API environment and is never printed or uploaded.
+psql_admin -d "$DB_NAME" -v bootstrap_token="$BOOTSTRAP_TOKEN" <<SQL >/dev/null
+SET ROLE $DB_OWNER_ROLE;
+INSERT INTO private.admin_bootstrap_control(singleton,token_hash)
+VALUES(true, encode(extensions.digest(:'bootstrap_token','sha256'),'hex'));
+SQL
 psql_admin -d postgres -v api_user="$API_DB_USER" -v api_password="$API_DB_PASSWORD" -v db_name="$DB_NAME" <<'SQL' >/dev/null
 CREATE ROLE :"api_user" LOGIN PASSWORD :'api_password'
   INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
