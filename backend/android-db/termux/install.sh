@@ -127,6 +127,7 @@ SOURCE_ROOT="$(find "$TMP_DIR" -mindepth 1 -maxdepth 1 -type d -print -quit)"
 [ -f "$SOURCE_ROOT/backend/android-db/server/server.mjs" ] || die "Source backend tidak ditemukan."
 [ -f "$SOURCE_ROOT/backend/android-db/migrations/022_coin_unit_scale_100.sql" ] || die "Migrasi coin x100 tidak ada dalam source terpin."
 [ -f "$SOURCE_ROOT/backend/android-db/migrations/025_admin_androiddb_v0_coin_domain.sql" ] || die "Migrasi Admin Android DB v0 tidak ada dalam source terpin."
+[ -f "$SOURCE_ROOT/backend/android-db/migrations/026_androiddb_v0_userid_only_remote_login.sql" ] || die "Migrasi Remote User ID-only tidak ada dalam source terpin."
 grep -q "androiddb_v0_remote_login" "$SOURCE_ROOT/backend/android-db/server/server.mjs" || die "API Android DB v0 tidak ada dalam source terpin."
 cp -R "$SOURCE_ROOT/backend/android-db/server/." "$SERVER_DIR/"
 mkdir -p "$MIGRATIONS_DIR"
@@ -270,7 +271,8 @@ if [ "$NEW_DATABASE" = 1 ]; then
     021_android_wol_relay.sql \
     022_coin_unit_scale_100.sql \
     023_admin_coin_management_read_api.sql \
-    025_admin_androiddb_v0_coin_domain.sql; do
+    025_admin_androiddb_v0_coin_domain.sql \
+    026_androiddb_v0_userid_only_remote_login.sql; do
     apply_file "$file"
   done
 else
@@ -466,7 +468,7 @@ V0_API_COUNT="$(psql_admin -d "$DB_NAME" -Atqc "
     to_regprocedure('api.androiddb_v0_admin_issue_host_enrollment(text,uuid,integer)'),
     to_regprocedure('api.androiddb_v0_host_enroll(text,text)'),
     to_regprocedure('api.androiddb_v0_host_heartbeat(text,boolean,text)'),
-    to_regprocedure('api.androiddb_v0_remote_login(text,text,text)'),
+    COALESCE(to_regprocedure('api.androiddb_v0_remote_login(text,text)'),to_regprocedure('api.androiddb_v0_remote_login(text,text,text'))),
     to_regprocedure('api.androiddb_v0_remote_refresh(text)'),
     to_regprocedure('api.androiddb_v0_remote_logout(text)'),
     to_regprocedure('api.androiddb_v0_remote_coin_wallet(text)'),
@@ -475,8 +477,25 @@ V0_API_COUNT="$(psql_admin -d "$DB_NAME" -Atqc "
     to_regprocedure('api.androiddb_v0_remote_coin_create_topup(text,bigint,text)')
   ]) AS u(name) WHERE u.name IS NOT NULL
 ")"
+V0_USERID_LOGIN="$(psql_admin -d "$DB_NAME" -Atqc "SELECT (to_regprocedure('api.androiddb_v0_remote_login(text,text)') IS NOT NULL)::int")"
+V0_LEGACY_LOGIN="$(psql_admin -d "$DB_NAME" -Atqc "SELECT (to_regprocedure('api.androiddb_v0_remote_login(text,text,text)') IS NOT NULL)::int")"
 if [ "$V0_SCHEMA" = 1 ]; then
   [ "$V0_TABLE_COUNT" = 14 ] && [ "$V0_API_COUNT" = 20 ] || die "Schema Android DB v0 terpasang sebagian (tables $V0_TABLE_COUNT/14, RPC $V0_API_COUNT/20). Hentikan untuk audit manual."
+  if [ "$V0_USERID_LOGIN" = 1 ] && [ "$V0_LEGACY_LOGIN" = 0 ]; then
+    log "Remote User ID-only login sudah terpasang."
+  elif [ "$V0_USERID_LOGIN" = 0 ] && [ "$V0_LEGACY_LOGIN" = 1 ]; then
+    if [ "$NEW_DATABASE" != 1 ]; then
+      log "Upgrade autentikasi Remote ke User ID-only. Data rental dan wallet dipertahankan."
+      backup_existing
+      printf '\nDB: %s | Remote login lama: aktivasi Admin | Remote login baru: User ID-only\n' "$DB_NAME"
+      printf 'Ketik APPLY untuk mengganti fungsi login setelah backup tervalidasi: '
+      read -r CONFIRM < /dev/tty
+      [ "$CONFIRM" = "APPLY" ] || die "Dibatalkan. Fungsi Remote login tidak diubah."
+    fi
+    apply_file "026_androiddb_v0_userid_only_remote_login.sql"
+  else
+    die "Signature Remote User ID-only tidak konsisten. Tidak ada migrasi otomatis."
+  fi
 elif [ "$V0_SCHEMA" = 0 ] && [ "$V0_TABLE_COUNT" = 0 ] && [ "$V0_API_COUNT" = 0 ]; then
   if [ "$NEW_DATABASE" != 1 ]; then
     log "Memasang domain Admin Android DB v0 yang terpisah dari rental timer lama."
@@ -487,6 +506,7 @@ elif [ "$V0_SCHEMA" = 0 ] && [ "$V0_TABLE_COUNT" = 0 ] && [ "$V0_API_COUNT" = 0 
     [ "$CONFIRM" = "APPLY" ] || die "Dibatalkan. Android DB v0 belum dipasang."
   fi
   apply_file "025_admin_androiddb_v0_coin_domain.sql"
+  apply_file "026_androiddb_v0_userid_only_remote_login.sql"
 else
   die "Signature Android DB v0 tidak konsisten. Tidak ada migrasi otomatis."
 fi
@@ -540,7 +560,7 @@ node --input-type=module <<'NODE'
 import pg from "pg";
 const pool = new pg.Pool({connectionString: process.env.DATABASE_URL, max: 1, connectionTimeoutMillis: 5000});
 try {
-  const r = await pool.query("SELECT 1 AS ok, to_regprocedure('api.remote_coin_wallet(text)') IS NOT NULL AS coin_api, to_regprocedure('api.wol_relay_status(text)') IS NOT NULL AS wol_api, to_regprocedure('api.androiddb_v0_admin_dashboard(text,integer)') IS NOT NULL AS admin_v0_api, to_regprocedure('api.androiddb_v0_remote_login(text,text,text)') IS NOT NULL AS remote_v0_api");
+  const r = await pool.query("SELECT 1 AS ok, to_regprocedure('api.remote_coin_wallet(text)') IS NOT NULL AS coin_api, to_regprocedure('api.wol_relay_status(text)') IS NOT NULL AS wol_api, to_regprocedure('api.androiddb_v0_admin_dashboard(text,integer)') IS NOT NULL AS admin_v0_api, to_regprocedure('api.androiddb_v0_remote_login(text,text)') IS NOT NULL AS remote_v0_api");
   if (r.rows[0]?.ok !== 1 || !r.rows[0]?.coin_api || !r.rows[0]?.wol_api || !r.rows[0]?.admin_v0_api || !r.rows[0]?.remote_v0_api) {
     throw new Error("ANDROID_DB_REQUIRED_API_NOT_READY");
   }
