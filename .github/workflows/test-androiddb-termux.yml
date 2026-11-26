@@ -29,11 +29,16 @@ jobs:
           set -euo pipefail
           bash -n backend/android-db/termux/install.sh
 
-      - name: ShellCheck installer errors
+      - name: Validate guarded Admin v0 live API repair syntax
+        run: |
+          set -euo pipefail
+          bash -n backend/android-db/termux/repair-admin-v0-live-api.sh
+
+      - name: ShellCheck installer and Admin repair scripts
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck
-          shellcheck --severity=error backend/android-db/termux/install.sh
+          shellcheck --severity=error backend/android-db/termux/install.sh backend/android-db/termux/repair-admin-v0-live-api.sh
 
       - name: Verify install safety gates and release contents
         run: |
@@ -68,6 +73,16 @@ jobs:
           assert "Pengaman berhenti sebelum pkg update" in script, "active unmanaged PostgreSQL must fail closed before any install changes"
           assert 'APP_DIR="$HOME/ani-games-db-android-stage"' in script and 'DB_DEFAULT="ani_games_ready_stage"' in script, "installer must reuse the active Android DB stage instead of creating a parallel database"
           assert 'PORT="8788"' in script and "PORT=8788" in script, "new API install must preserve the existing Cloudflare relay target port"
+          repair = Path("backend/android-db/termux/repair-admin-v0-live-api.sh").read_text()
+          assert "ani-games-db-android-stage/server" in repair and "ani_games_ready_stage" in repair and 'API_PORT="8788"' in repair, "Admin repair must target the existing Android DB API only"
+          assert "pg_dump" in repair and "pg_dumpall" in repair and "pg_restore --list" in repair and "sha256sum -c" in repair, "Admin repair requires a validated database/roles backup"
+          assert 'CONFIRM" = "APPLY"' in repair, "missing explicit APPLY gate for Coin v0 migration"
+          assert "admin_context(text)" in repair and "androiddb_v0_admin_dashboard(text,integer)" in repair, "Admin/RPC preflight smoke tests missing"
+          assert "RPC_ALLOWLIST_SMOKE_FAILED" in repair and "AUTH_REQUIRED" in repair, "Admin RPC test must distinguish an allowed protected RPC from RPC_NOT_ALLOWED"
+          assert "SIGTERM" in repair and "process.execPath" in repair and "API_UPDATE_FAILED_ROLLBACK" in repair, "API restart/rollback guard missing"
+          for forbidden in ["sv down postgres", "sv up postgres", "initdb", "pg_ctl -D", "DROP DATABASE", "TRUNCATE TABLE"]:
+              assert forbidden.lower() not in repair.lower(), "repair script must not manage/destroy PostgreSQL: " + forbidden
+          assert "BLYNK_AUTH_TOKEN" not in repair and "CLOUDFLARE" not in repair.upper(), "repair must not rotate or inspect external secrets"
           assert script.index("Pengaman berhenti sebelum pkg update") < script.index('pkg update -y') < script.index('cp -R "$SOURCE_ROOT/backend/android-db/server/.'), "unmanaged PostgreSQL preflight must run before package and source changes"
           assert 'Do not request/upgrade the PostgreSQL package over a live data directory.' in script, "must not upgrade PostgreSQL over existing data"
           assert 'apply_file "013_remote_play.sql"' in script and 'apply_file "019_remote_play_session_connected.sql"' in script, "staged Remote Play upgrade chain missing"
