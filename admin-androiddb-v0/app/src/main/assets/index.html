@@ -253,7 +253,7 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
 </div>
 <script>
 const REFRESH_KEY="androiddb_v0_admin_refresh_token";
-let accessToken="",refreshToken="",adminContext=null,dashboardData=null,requestCounter=0;
+let accessToken="",refreshToken="",adminContext=null,dashboardData=null,requestCounter=0,refreshPromise=null;
 const pendingRequests=new Map();
 window.__adminV0Result=function(id,data){
   const callbacks=pendingRequests.get(id);if(!callbacks)return;pendingRequests.delete(id);
@@ -270,7 +270,56 @@ function callApi(route,args,token){
     catch(error){pendingRequests.delete(id);reject(error);}
   });
 }
-function api(name,args){return callApi(name,args||{},accessToken);}
+function isAdminAuthError(error){
+  const code=val(error&&error.code||"").toUpperCase(),message=val(error&&error.message||"").toUpperCase();
+  return /^(AUTH_REQUIRED|ADMIN_SESSION_EXPIRED|ADMIN_NOT_AUTHENTICATED|UNAUTHENTICATED)$/.test(code)
+    || /AUTH_REQUIRED|ADMIN_SESSION_EXPIRED|ADMIN_NOT_AUTHENTICATED/.test(message);
+}
+function isTerminalAdminRefreshError(error){
+  const code=val(error&&error.code||"").toUpperCase(),message=val(error&&error.message||"").toUpperCase();
+  return /ADMIN_REFRESH_EXPIRED|ADMIN_ACCOUNT_DISABLED|INVALID_CREDENTIALS|ADMIN_SESSION_REVOKED/.test(code+" "+message);
+}
+async function refreshAdminSession(){
+  if(refreshPromise)return refreshPromise;
+  if(!refreshToken)refreshToken=val(AniAdminV0.getSecureValue(REFRESH_KEY));
+  if(!refreshToken)throw new Error("ADMIN_SESSION_TOKEN_MISSING");
+  const pending=(async function(){
+    const result=await callApi("__admin_refresh",{refresh_token:refreshToken},"");
+    if(!result||!result.access_token||!result.refresh_token)throw new Error("ADMIN_REFRESH_RESPONSE_INVALID");
+    accessToken=result.access_token;refreshToken=result.refresh_token;saveRefreshToken();
+    return accessToken;
+  })();
+  refreshPromise=pending;
+  try{return await pending;}
+  finally{if(refreshPromise===pending)refreshPromise=null;}
+}
+async function api(name,args){
+  if(!accessToken){
+    if(!refreshToken)refreshToken=val(AniAdminV0.getSecureValue(REFRESH_KEY));
+    if(!refreshToken)throw new Error("ADMIN_SESSION_TOKEN_MISSING");
+    await refreshAdminSession();
+  }
+  const usedToken=accessToken;
+  try{return await callApi(name,args||{},usedToken);}
+  catch(error){
+    if(!isAdminAuthError(error))throw error;
+    if(accessToken===usedToken){
+      try{await refreshAdminSession();}
+      catch(refreshError){
+        if(isTerminalAdminRefreshError(refreshError)){
+          accessToken="";refreshToken="";AniAdminV0.clearSecureValue(REFRESH_KEY);
+        }
+        throw refreshError;
+      }
+    }
+    if(!accessToken)throw new Error("ADMIN_SESSION_TOKEN_MISSING");
+    try{return await callApi(name,args||{},accessToken);}
+    catch(retryError){
+      if(isAdminAuthError(retryError))throw new Error("ADMIN_AUTH_REQUIRED_AFTER_REFRESH: "+val(retryError.message||retryError.code));
+      throw retryError;
+    }
+  }
+}
 function el(id){return document.getElementById(id);}
 function val(value){return String(value===null||value===undefined?"":value);}
 function esc(value){return val(value).replace(/[&<>"']/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch];});}
@@ -291,27 +340,33 @@ async function login(){
     if(!result||!result.access_token||!result.refresh_token)throw new Error("ADMIN_LOGIN_RESPONSE_INVALID");
     accessToken=result.access_token;refreshToken=result.refresh_token;saveRefreshToken();
     await finishLogin(result.user);
-  }catch(error){accessToken="";refreshToken="";setMessage("loginMessage",error.message||error,true);}
+  }catch(error){accessToken="";setMessage("loginMessage",error.message||error,true);el("appScreen").classList.add("hidden");el("loginScreen").classList.remove("hidden");}
   finally{button.disabled=false;}
 }
 async function restoreSession(){
   try{
     refreshToken=val(AniAdminV0.getSecureValue(REFRESH_KEY));if(!refreshToken)return false;
-    const result=await callApi("__admin_refresh",{refresh_token:refreshToken},"");
-    if(!result||!result.access_token||!result.refresh_token)throw new Error("ADMIN_REFRESH_RESPONSE_INVALID");
-    accessToken=result.access_token;refreshToken=result.refresh_token;saveRefreshToken();
-    await finishLogin(result.user);return true;
-  }catch(error){accessToken="";refreshToken="";AniAdminV0.clearSecureValue(REFRESH_KEY);return false;}
+    await refreshAdminSession();
+    await finishLogin({email:"Android DB"});
+    return true;
+  }catch(error){
+    accessToken="";
+    if(isTerminalAdminRefreshError(error)){
+      refreshToken="";AniAdminV0.clearSecureValue(REFRESH_KEY);
+    }else refreshToken=val(AniAdminV0.getSecureValue(REFRESH_KEY));
+    setMessage("loginMessage",error.message||"Koneksi Admin belum tersedia. Coba lagi.",true);
+    return false;
+  }
 }
 async function finishLogin(user){
   adminContext=await api("admin_context");
   if(!adminContext||!Array.isArray(adminContext.orgs)||!adminContext.orgs.length)throw new Error("ADMIN_ORG_ACCESS_DENIED");
   if(!isOwner(adminContext))throw new Error("OWNER_ONLY — Admin Android DB v0 hanya untuk Owner.");
   fillOrganizations();
+  globalMessage("Login Owner berhasil. Memuat seluruh modul Admin Android DB…");
+  await loadDashboard();
   el("who").textContent="Owner • "+val(user&&user.email||"Android DB");
   el("loginScreen").classList.add("hidden");el("appScreen").classList.remove("hidden");
-  globalMessage("Login Owner berhasil. Menghubungkan seluruh modul Admin Android DB.");
-  await loadDashboard();
 }
 async function logout(){
   try{await callApi("__admin_logout",{},accessToken);}catch(ignored){}
@@ -348,7 +403,7 @@ function renderRentals(data){
   const rows=Array.isArray(data.rental_accounts)?data.rental_accounts:[];
   el("rentalList").innerHTML=rows.map(function(r){
     const id=esc(r.id),enabled=r.status==="active";
-    return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(r.code)+'</div><div class="item-meta">'+esc(r.client_label||"Tanpa nama")+' • Dibuat '+date(r.created_at)+'</div></div><span class="pill '+(enabled?"good":"bad")+'">'+esc(val(r.status).toUpperCase())+'</span></div><div class="item-meta">Saldo: <b>'+coin(r.coin_balance)+'</b> • Remote login: '+(r.client_logged_in?"Aktif":"Belum login")+' • Aktivasi: '+(r.activation_issued?"Pernah diterbitkan":"Belum diterbitkan")+'</div><div class="item-actions"><button class="small primary" data-id="'+id+'" onclick="issueActivation(this.dataset.id)">Kode Remote</button><button class="small '+(enabled?"danger":"")+'" onclick="toggleRental(\''+id+'\','+(!enabled)+')">'+(enabled?"Nonaktifkan":"Aktifkan")+'</button><button class="small" onclick="selectWallet(\''+id+'\')">Wallet</button></div></div>';
+    return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(r.code)+'</div><div class="item-meta">'+esc(r.client_label||"Tanpa nama")+' • Dibuat '+date(r.created_at)+'</div></div><span class="pill '+(enabled?"good":"bad")+'">'+esc(val(r.status).toUpperCase())+'</span></div><div class="item-meta">Saldo: <b>'+coin(r.coin_balance)+'</b> • Login Remote: '+(r.client_logged_in?"Aktif":"Belum login")+'</div><div class="item-actions"><button class="small '+(enabled?"danger":"")+'" onclick="toggleRental(\\''+id+'\\','+(!enabled)+')">'+(enabled?"Nonaktifkan":"Aktifkan")+'</button><button class="small" onclick="selectWallet(\\''+id+'\\')">Wallet</button></div></div>';
   }).join("")||'<div class="empty">Belum ada rental Coin v0.</div>';
 }
 function renderHosts(data){
@@ -384,13 +439,6 @@ async function toggleRental(id,enabled){
   if(!confirm((enabled?"Aktifkan":"Nonaktifkan")+" akun ini? Penonaktifan akan mencabut token Remote aktif."))return;
   try{const r=await api("androiddb_v0_admin_set_rental_status",{p_rental_account_id:id,p_enabled:enabled});if(r.ok!==true)throw new Error("Perubahan status tidak dikonfirmasi.");await loadDashboard();globalMessage("Status rental diperbarui.");}
   catch(error){globalMessage("Gagal mengubah rental: "+val(error.message||error),true);}
-}
-async function issueActivation(id){
-  const member=(dashboardData&&Array.isArray(dashboardData.rental_accounts)?dashboardData.rental_accounts:[]).find(x=>x.id===id)||{};
-  const code=val(member.code)||id;
-  if(!confirm("Terbitkan kode aktivasi satu kali untuk "+code+"? Kode lama dan login sebelumnya akan dicabut."))return;
-  try{const r=await api("androiddb_v0_admin_issue_activation",{p_rental_account_id:id});if(r.ok!==true||!r.activation_code)throw new Error("Kode aktivasi tidak tersedia.");showCode("KODE AKTIVASI REMOTE",r.activation_code,"ID Rental "+code+" • Berlaku "+date(r.expires_at)+" • Satu kali pakai.");await loadDashboard();}
-  catch(error){globalMessage("Gagal menerbitkan kode: "+val(error.message||error),true);}
 }
 async function saveRate(id){
   const gpu=el("gpu_"+id).value;if(!gpu){globalMessage("Pilih GPU terlebih dahulu.",true);return;}
