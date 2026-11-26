@@ -122,12 +122,14 @@ MIGRATION_FILES=(
   023_admin_coin_management_read_api.sql
   025_admin_androiddb_v0_coin_domain.sql
   026_androiddb_v0_coin_x100.sql
+  027_windows_agent_domain.sql
 )
 for file in "${MIGRATION_FILES[@]}"; do
   [ -s "$SOURCE_ROOT/backend/android-db/migrations/$file" ] || die "Migrasi source hilang: $file"
 done
 grep -q "androiddb_v0_remote_login" "$SOURCE_ROOT/backend/android-db/server/server.mjs" || die "API Remote Coin v0 tidak ditemukan."
 grep -q "androiddb_v0_admin_dashboard" "$SOURCE_ROOT/backend/android-db/server/server.mjs" || die "RPC Admin Coin v0 tidak ditemukan."
+grep -q "androiddb_v0_agent_heartbeat" "$SOURCE_ROOT/backend/android-db/server/server.mjs" || die "RPC Windows Agent StarDesk tidak ditemukan."
 
 mkdir -p "$SERVER_DIR" "$MIGRATIONS_DIR"
 cp -R "$SOURCE_ROOT/backend/android-db/server/." "$SERVER_DIR/"
@@ -219,7 +221,7 @@ CREATE TABLE private.stardesk_custom_install_meta (
   installed_at timestamptz NOT NULL DEFAULT now()
 );
 INSERT INTO private.stardesk_custom_install_meta(singleton,schema_version,runtime_role,api_login_role,source_ref)
-VALUES(true,'androiddb_v0_025','$RUNTIME_ROLE','$API_DB_USER','$SOURCE_REF');
+VALUES(true,'androiddb_v0_027_agent','$RUNTIME_ROLE','$API_DB_USER','$SOURCE_REF');
 REVOKE ALL ON private.stardesk_custom_install_meta FROM PUBLIC;
 SQL
 

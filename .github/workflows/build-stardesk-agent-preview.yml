@@ -1,0 +1,140 @@
+name: Build Ani Games Ready StarDesk Windows Agent + Admin Preview
+
+on:
+  push:
+    branches:
+      - feature/ani-games-ready-windows-agent-20261127
+    paths:
+      - "win-agent/**"
+      - "admin-androiddb-v0/**"
+      - "backend/android-db/migrations/027_windows_agent_domain.sql"
+      - "backend/android-db/server/server.mjs"
+      - "backend/android-db/termux/install-stardesk-custom-v0.sh"
+      - "backend/android-db/termux/upgrade-stardesk-agent-027.sh"
+      - "tests/stardesk-agent-contract.test.mjs"
+      - ".github/workflows/build-stardesk-agent-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-agent:
+    name: Publish Windows x64 Agent Service + Tray
+    runs-on: windows-2022
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Publish Windows Service
+        shell: pwsh
+        run: dotnet publish win-agent/Agent.Service/Agent.Service.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o "$PWD/out/WindowsAgent/Agent.Service"
+      - name: Publish Windows tray application
+        shell: pwsh
+        run: dotnet publish win-agent/Agent.Tray/Agent.Tray.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o "$PWD/out/WindowsAgent/Agent.Tray"
+      - name: Assemble installer bundle and verify outputs
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path out/WindowsAgent | Out-Null
+          Copy-Item win-agent/scripts/install.ps1 out/WindowsAgent/install.ps1
+          Copy-Item win-agent/scripts/uninstall.ps1 out/WindowsAgent/uninstall.ps1
+          Copy-Item win-agent/README.txt out/WindowsAgent/README.txt
+          if (!(Test-Path out/WindowsAgent/Agent.Service/AniGamesReady.Agent.Service.exe)) { throw "Windows Service publish output missing" }
+          if (!(Test-Path out/WindowsAgent/Agent.Tray/AniGamesReady.Agent.Tray.exe)) { throw "Windows tray publish output missing" }
+          $zip = "Ani-Games-Ready-StarDesk-Windows-Agent-Preview-0.1.0-win-x64.zip"
+          Compress-Archive -Path out/WindowsAgent/* -DestinationPath "out/$zip" -CompressionLevel Optimal
+          Get-FileHash "out/$zip" -Algorithm SHA256 | Format-List | Out-File "out/SHA256-WINDOWS-AGENT.txt"
+          Get-Item "out/$zip" | Format-Table Name,Length
+      - name: Upload Windows Agent package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ani-Games-Ready-StarDesk-Windows-Agent-Preview-0.1.0-win-x64
+          path: |
+            out/Ani-Games-Ready-StarDesk-Windows-Agent-Preview-0.1.0-win-x64.zip
+            out/SHA256-WINDOWS-AGENT.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  admin-android:
+    name: Build Admin Android DB v0 Agent Preview APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Configure Android SDK
+        shell: bash
+        run: |
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
+      - name: Verify isolated Agent API, Admin UI and source contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check backend/android-db/server/server.mjs
+          node --test tests/stardesk-agent-contract.test.mjs
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path("admin-androiddb-v0/app/src/main/assets/index.html").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
+          assert len(scripts) == 1, "expected one inline script in Admin WebView"
+          Path("/tmp/admin-agent-preview.js").write_text(scripts[0], encoding="utf-8")
+          PY
+          node --check /tmp/admin-agent-preview.js
+          python3 - <<'PY'
+          from pathlib import Path
+          gradle = Path("admin-androiddb-v0/app/build.gradle").read_text()
+          assert "versionCode 9" in gradle
+          assert 'versionName "0.2.7-agent-preview"' in gradle
+          java = Path("admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java").read_text()
+          assert 'return "0.2.7-agent-preview";' in java
+          assert '"/stardesk"' in java
+          manifest = Path("admin-androiddb-v0/app/src/main/AndroidManifest.xml").read_text()
+          assert 'android:usesCleartextTraffic="false"' in manifest
+          PY
+      - name: Build isolated Admin APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace -p admin-androiddb-v0 clean assembleDebug
+          APK="admin-androiddb-v0/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          mkdir -p out
+          cp "$APK" out/Ani-Games-Admin-Agent-Preview-0.2.7.apk
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
+          "$AAPT" dump badging out/Ani-Games-Admin-Agent-Preview-0.2.7.apk | tee out/admin-badging.txt
+          grep -q "package: name='com.anigames.billingadmin.coinx100preview' versionCode='9' versionName='0.2.7-agent-preview'" out/admin-badging.txt
+          grep -q "Ani Games Admin Coin x100 + Agent Preview 0.2.7" out/admin-badging.txt
+          "$APKSIGNER" verify --verbose out/Ani-Games-Admin-Agent-Preview-0.2.7.apk
+          sha256sum out/Ani-Games-Admin-Agent-Preview-0.2.7.apk | tee out/SHA256-ADMIN-AGENT.txt
+          unzip -t out/Ani-Games-Admin-Agent-Preview-0.2.7.apk
+      - name: Upload Admin APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ani-Games-Admin-Agent-Preview-0.2.7
+          path: |
+            out/Ani-Games-Admin-Agent-Preview-0.2.7.apk
+            out/SHA256-ADMIN-AGENT.txt
+            out/admin-badging.txt
+          if-no-files-found: error
+          retention-days: 30

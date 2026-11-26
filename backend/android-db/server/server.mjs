@@ -240,6 +240,14 @@ const RPC = {
   androiddb_v0_admin_link_stardesk_device: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_link_stardesk_device($1::text,$2::uuid,$3::text,$4::boolean) AS result", args: ["p_device_id","p_stardesk_device_id","p_enabled"] },
   androiddb_v0_admin_set_host_permission: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_set_host_permission($1::text,$2::uuid,$3::boolean) AS result", args: ["p_device_id","p_enabled"] },
   androiddb_v0_admin_issue_host_enrollment: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_issue_host_enrollment($1::text,$2::uuid,$3::integer) AS result", args: ["p_device_id","p_valid_minutes"] },
+  androiddb_v0_admin_agent_pair: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_agent_pair($1::text,$2::text,$3::text,$4::text) AS result", args: ["p_pair_code","p_display_name","p_gpu_class"] },
+  androiddb_v0_admin_agent_list: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_agent_list($1::text) AS result", args: [] },
+  androiddb_v0_admin_agent_update_pc: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_agent_update_pc($1::text,$2::uuid,$3::text,$4::text) AS result", args: ["p_agent_device_id","p_display_name","p_gpu_class"] },
+  androiddb_v0_admin_agent_enqueue_command: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_agent_enqueue_command($1::text,$2::uuid,$3::text,$4::jsonb) AS result", args: ["p_agent_device_id","p_command","p_payload"] },
+  androiddb_v0_admin_agent_command_status: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_agent_command_status($1::text,$2::uuid) AS result", args: ["p_command_id"] },
+  androiddb_v0_admin_agent_revoke: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_agent_revoke($1::text,$2::uuid) AS result", args: ["p_agent_device_id"] },
+  androiddb_v0_agent_heartbeat: { auth: "agent", sql: "SELECT api.androiddb_v0_agent_heartbeat($1::text,$2::text,$3::text,$4::text,$5::text) AS result", args: ["p_agent_version","p_computer_name","p_windows_version","p_gpu_name"] },
+  androiddb_v0_agent_ack: { auth: "agent", sql: "SELECT api.androiddb_v0_agent_ack($1::text,$2::uuid,$3::text,$4::text) AS result", args: ["p_command_id","p_status","p_result"] },
   androiddb_v0_host_heartbeat: { auth: "remote_host", sql: "SELECT api.androiddb_v0_host_heartbeat($1::text,$2::boolean,$3::text) AS result", args: ["p_stardesk_ready","p_agent_version"] },
   androiddb_v0_remote_logout: { auth: "remote_client", sql: "SELECT api.androiddb_v0_remote_logout($1::text) AS result", args: [] },
   androiddb_v0_remote_dashboard: { auth: "remote_client", sql: "SELECT api.androiddb_v0_remote_dashboard($1::text) AS result", args: [] },
@@ -307,6 +315,36 @@ async function rpcRequest(req, res, name, body) {
     const result = await scalar("SELECT api.androiddb_v0_remote_login($1::text,$2::text,$3::text) AS result",[
       rentalCode,str(val(body,"p_activation_code"),64),str(val(body,"p_client_install_id"),128)
     ]);
+    await clearRateLimit([key]);
+    return send(res,200,result);
+  }
+  if (name === "androiddb_v0_admin_agent_pair") {
+    const token = bearer(req);
+    if (!token) return send(res,401,{message:"AUTH_REQUIRED"});
+    const key = bucketHash("androiddb-v0-agent-owner-pair",clientIp(req),token.slice(0,24));
+    await callRateLimit(key,5);
+    const spec = RPC[name];
+    const result = await scalar(spec.sql,[token,...spec.args.map(k => val(body,k))]);
+    await clearRateLimit([key]);
+    return send(res,200,result);
+  }
+  if (name === "androiddb_v0_agent_enroll_request") {
+    const agentId = str(val(body,"p_agent_device_id"),36);
+    const pairHash = str(val(body,"p_pair_code_hash"),64).toLowerCase();
+    const key = bucketHash("androiddb-v0-agent-enroll",clientIp(req));
+    await callRateLimit(key,10);
+    const result = await scalar(
+      "SELECT api.androiddb_v0_agent_enroll_request($1::uuid,$2::text,$3::text,$4::text,$5::text,$6::text,$7::text) AS result",
+      [
+        agentId,
+        str(val(body,"p_agent_token_hash"),64).toLowerCase(),
+        pairHash,
+        str(val(body,"p_computer_name"),120),
+        str(val(body,"p_windows_version"),160),
+        str(val(body,"p_gpu_name"),160),
+        str(val(body,"p_agent_version"),80)
+      ]
+    );
     await clearRateLimit([key]);
     return send(res,200,result);
   }

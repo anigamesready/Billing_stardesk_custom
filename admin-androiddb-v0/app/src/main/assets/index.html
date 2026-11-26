@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#07101f">
-<title>Ani Games Admin Coin x100 Preview 0.2.6</title>
+<title>Ani Games Admin Coin x100 + Agent Preview 0.2.7</title>
 <style>
 :root{color-scheme:dark;--bg:#07101f;--panel:#11223a;--panel2:#0a192b;--line:#28425e;--txt:#edf6ff;--muted:#91a8c1;--cyan:#55d8ff;--blue:#3288ff;--violet:#7651ff;--green:#35d39a;--red:#ff718a;--amber:#ffd18b}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(ellipse at 10% 0%,#123b58 0,transparent 36%),var(--bg);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--txt)}
@@ -34,7 +34,7 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
 </head>
 <body>
 <section id="loginScreen" class="login-wrap">
-  <div class="top"><div><div class="brand">ANI GAMES <span>ADMIN</span></div><div class="sub">ANDROID DB • ADMIN OWNER</div></div><div class="version">v0.2.6</div></div>
+  <div class="top"><div><div class="brand">ANI GAMES <span>ADMIN</span></div><div class="sub">ANDROID DB • ADMIN OWNER</div></div><div class="version">v0.2.7</div></div>
   <div class="card">
     <div class="login-title">Admin <b>Android DB v0</b></div>
     <p class="hint">Panel terpisah untuk rental Coin, top-up, wallet, PC Host, dan pemetaan StarDesk. Login memakai akun Owner Android DB yang sudah ada.</p>
@@ -50,7 +50,7 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
 <main id="appScreen" class="hidden">
   <header class="top">
     <div><div class="brand">ANI GAMES <span>ADMIN DB v0</span></div><div class="sub" id="who">Owner • Android DB</div></div>
-    <div class="row"><select id="orgSelect" aria-label="Pilih organisasi" style="width:150px;padding:8px;font-size:11px" onchange="changeOrg()"></select><div class="version">v0.2.6</div><button class="small" onclick="logout()">Keluar</button></div>
+    <div class="row"><select id="orgSelect" aria-label="Pilih organisasi" style="width:150px;padding:8px;font-size:11px" onchange="changeOrg()"></select><div class="version">v0.2.7</div><button class="small" onclick="logout()">Keluar</button></div>
   </header>
   <div id="globalMessage" class="msg">Menunggu data dari Android DB.</div>
   <nav class="tabs">
@@ -65,6 +65,7 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
     <button data-tab="remote" onclick="showTab('remote')">WoL Android Relay</button>
     <button data-tab="rentals" onclick="showTab('rentals')">Data User Coin</button>
     <button data-tab="hosts" onclick="showTab('hosts')">PC Host & Tarif</button>
+    <button data-tab="agentpc" onclick="showTab('agentpc');loadAgentPCs()">Agent PC</button>
     <button data-tab="payments" onclick="showTab('payments')">Top-up</button>
     <button data-tab="settings" onclick="showTab('settings')">Pengaturan</button>
   </nav>
@@ -170,6 +171,31 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
     </div>
   </section>
 
+  <section id="agentpc" class="section">
+    <div class="card">
+      <h2>Pairing Windows Agent</h2>
+      <p class="hint">Buka aplikasi Ani Games Ready Agent pada PC Windows. Masukkan kode pairing 8 digit yang tampil di Agent, tentukan nama PC dan GPU, lalu pasangkan. Identitas Agent ini terpisah dari PC Billing lama dan tidak otomatis membuat StarDesk Host siap Remote.</p>
+      <div class="form-grid">
+        <div><label>Kode pairing dari Agent</label><input id="agentPairCode" inputmode="numeric" maxlength="8" placeholder="12345678"></div>
+        <div><label>Nama PC untuk rental</label><input id="agentPairName" maxlength="120" placeholder="Contoh: RTX 5060 - PC 01"></div>
+        <div><label>GPU / tarif</label><select id="agentPairGpu"><option>GTX 1050</option><option>GTX 1660</option><option>RTX 3060</option><option selected>RTX 5060</option></select></div>
+        <div class="wide"><button class="primary" style="width:100%" onclick="pairAgentPC()">Setujui & pasangkan Agent</button></div>
+      </div>
+      <div class="hint" style="margin-top:9px">Tarif otomatis: GTX 1050/1660 Rp6.000 • 45 AniCoin/jam; RTX 3060 Rp7.000 • 52,5 AniCoin/jam; RTX 5060 Rp8.000 • 60 AniCoin/jam.</div>
+      <div id="agentPairMessage" class="msg" style="margin-top:10px">Belum ada proses pairing.</div>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between"><h2>Daftar Agent PC</h2><button class="small primary" onclick="loadAgentPCs()">Refresh</button></div>
+      <p class="hint">Status ini hanya heartbeat Windows Agent. Itu bukan bukti StarDesk streaming tersedia dan tidak memulai pemotongan AniCoin.</p>
+      <div id="agentPcList" class="list"><div class="empty">Belum dimuat.</div></div>
+    </div>
+    <div class="card">
+      <h3>Status perintah Agent</h3>
+      <div class="row"><input id="agentCommandId" class="grow" placeholder="Command ID"><button class="small" onclick="checkAgentCommand()">Cek status</button></div>
+      <pre id="agentCommandResult" class="msg" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:10px">Belum ada perintah Agent.</pre>
+    </div>
+  </section>
+
   <section id="payments" class="section">
     <div class="card">
       <h2>Top-up menunggu persetujuan</h2>
@@ -263,7 +289,7 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
     </div>
   </section>
 
-  <div class="bottom-note">StarDesk Custom • Satu database • Data User Coin • PC Billing & Host Agent</div>
+  <div class="bottom-note">StarDesk Custom • Database terpisah • AniCoin • Windows Agent</div>
 </main>
 
 <div id="oneTimeModal" class="modal hidden">
@@ -471,6 +497,95 @@ async function issueSelectedHost(){
   const id=val(el("pairHostDevice").value).trim();
   if(!id){globalMessage("Pilih PC untuk Host Agent terlebih dahulu.",true);return;}
   await issueHost(id);
+}
+
+
+function agentGpuSelect(id,current){
+  const items=["GTX 1050","GTX 1660","RTX 3060","RTX 5060"];
+  return '<select id="agentgpu_'+esc(id)+'">'+items.map(g=>'<option value="'+g+'"'+(g===current?' selected':'')+'>'+g+'</option>').join("")+'</select>';
+}
+async function loadAgentPCs(){
+  const host=el("agentPcList");if(!host)return;
+  host.innerHTML='<div class="empty">Memuat data Agent dari database StarDesk…</div>';
+  try{
+    const result=await api("androiddb_v0_admin_agent_list");
+    if(result.ok!==true)throw new Error(result.message||"Daftar Agent tidak tersedia.");
+    const rows=Array.isArray(result.agents)?result.agents:[];
+    window.__agentPCs=rows;
+    host.innerHTML=rows.map(d=>{
+      const id=esc(d.agent_device_id),online=d.status==="online",revoked=d.status==="revoked";
+      const hourly=Number(d.hourly_coin_units||0)/100;
+      return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(d.display_name)+'</div><div class="item-meta">'+esc(d.computer_name||"Windows PC")+' • '+esc(d.gpu_name||d.gpu_class||"GPU belum dilaporkan")+'</div></div><span class="pill '+(online?"good":revoked?"bad":"warn")+'">'+(online?"AGENT ONLINE":revoked?"REVOKED":"OFFLINE")+'</span></div>'+
+      '<div class="item-meta">Agent ID: '+id+'<br>Windows: '+esc(d.windows_version||"—")+' • Agent '+esc(d.agent_version||"—")+'<br>Heartbeat: '+date(d.last_heartbeat_at)+'<br>Tarif: '+esc(d.gpu_class)+' • Rp'+Number(d.hourly_rupiah||0).toLocaleString("id-ID")+' / jam • '+hourly.toLocaleString("id-ID")+' AniCoin / jam</div>'+
+      (!revoked?'<div class="form-grid" style="margin-top:10px"><div><label>Nama PC</label><input id="agentname_'+id+'" maxlength="120" value="'+esc(d.display_name)+'"></div><div><label>GPU / tarif</label>'+agentGpuSelect(id,d.gpu_class)+'</div></div>'+
+      '<div class="item-actions"><button class="small" onclick="updateAgentPC(\''+id+'\')">Simpan nama & tarif</button><button class="small" onclick="sendAgentCommand(\''+id+'\',\'message\')">Kirim pesan</button><button class="small" onclick="sendAgentCommand(\''+id+'\',\'logoff\')">Logoff Windows</button><button class="small" onclick="sendAgentCommand(\''+id+'\',\'restart\')">Restart Windows</button><button class="small danger" onclick="sendAgentCommand(\''+id+'\',\'shutdown\')">Shutdown</button><button class="small danger" onclick="revokeAgentPC(\''+id+'\')">Cabut pairing</button></div>':'<div class="hint" style="margin-top:8px">Agent ini sudah dicabut aksesnya. Pasangkan ulang dengan instalasi baru.</div>')+'</div>';
+    }).join("")||'<div class="empty">Belum ada Windows Agent yang dipasangkan.</div>';
+    globalMessage("Data Agent PC berhasil dimuat. "+rows.filter(x=>x.status==="online").length+" Agent online.");
+  }catch(e){host.innerHTML='<div class="msg error">'+esc(e.message||e)+'</div>';globalMessage("Gagal membaca Agent PC: "+e.message,true);}
+}
+async function pairAgentPC(){
+  const code=val(el("agentPairCode").value).trim(),name=val(el("agentPairName").value).trim(),gpu=val(el("agentPairGpu").value);
+  if(!/^[0-9]{8}$/.test(code))return globalMessage("Kode pairing Agent harus 8 digit.",true);
+  if(!name)return globalMessage("Nama PC wajib diisi.",true);
+  try{
+    const r=await api("androiddb_v0_admin_agent_pair",{p_pair_code:code,p_display_name:name,p_gpu_class:gpu});
+    if(r.ok!==true||r.paired!==true)throw new Error(r.message||"Pairing Agent tidak dikonfirmasi.");
+    el("agentPairCode").value="";el("agentPairMessage").textContent="BERHASIL DIPASANGKAN\n"+r.display_name+" • "+r.gpu_class+"\nRp"+Number(r.hourly_rupiah).toLocaleString("id-ID")+" / jam • "+Number(r.hourly_coins).toLocaleString("id-ID")+" AniCoin / jam\nPC baru terdaftar pada data StarDesk Custom.";
+    await loadAgentPCs();
+    globalMessage("Windows Agent berhasil dipasangkan. Tunggu heartbeat untuk status online.");
+  }catch(e){el("agentPairMessage").textContent="Pairing gagal: "+(e.message||e);globalMessage("Pairing Agent gagal: "+(e.message||e),true);}
+}
+async function updateAgentPC(id){
+  const name=val(el("agentname_"+id).value).trim(),gpu=val(el("agentgpu_"+id).value);
+  if(!name)return globalMessage("Nama PC wajib diisi.",true);
+  try{
+    const r=await api("androiddb_v0_admin_agent_update_pc",{p_agent_device_id:id,p_display_name:name,p_gpu_class:gpu});
+    if(r.ok!==true)throw new Error(r.message||"Perubahan tidak tersimpan.");
+    await loadAgentPCs();globalMessage("Nama PC dan tarif Agent diperbarui.");
+  }catch(e){globalMessage("Gagal memperbarui Agent PC: "+(e.message||e),true);}
+}
+async function sendAgentCommand(id,command){
+  let payload={};
+  if(command==="message"){
+    const message=prompt("Pesan untuk Windows PC (maksimum 240 karakter):","");
+    if(message===null)return;
+    if(!message.trim()||message.length>240)return globalMessage("Pesan harus 1–240 karakter.",true);
+    payload={message:message.trim()};
+  }else{
+    const labels={logoff:"Logoff Windows",restart:"Restart Windows",shutdown:"Shutdown Windows"};
+    if(!confirm("Yakin kirim "+labels[command]+" ke PC ini?"))return;
+  }
+  try{
+    const r=await api("androiddb_v0_admin_agent_enqueue_command",{p_agent_device_id:id,p_command:command,p_payload:payload});
+    if(r.ok!==true||!r.command_id)throw new Error(r.message||"Perintah tidak masuk antrean.");
+    el("agentCommandId").value=r.command_id;showJson("agentCommandResult",r);
+    globalMessage("Perintah masuk antrean. Menunggu Agent menerima dan mengirim ACK…");
+    await checkAgentCommand(true);
+  }catch(e){globalMessage("Gagal mengirim perintah Agent: "+(e.message||e),true);}
+}
+async function checkAgentCommand(silent){
+  const id=val(el("agentCommandId").value).trim();
+  if(!id){if(!silent)globalMessage("Command ID wajib diisi.",true);return;}
+  try{
+    let state;
+    for(let i=0;i<(silent?12:1);i++){
+      state=await api("androiddb_v0_admin_agent_command_status",{p_command_id:id});
+      showJson("agentCommandResult",state);
+      if(["completed","failed","expired"].includes(String(state.status||"")))break;
+      if(i<11)await new Promise(resolve=>setTimeout(resolve,1000));
+    }
+    if(state.status==="completed")globalMessage("Agent mengonfirmasi perintah selesai/dikirim ke Windows. Untuk pesan, status tampil di layar belum dapat diverifikasi.");
+    else if(state.status==="failed"||state.status==="expired")globalMessage("Perintah Agent gagal: "+(state.result||state.status),true);
+    else if(!silent)globalMessage("Status perintah: "+(state.status||"belum diketahui")+".");
+  }catch(e){showJson("agentCommandResult",{ok:false,error:e.message});if(!silent)globalMessage("Gagal membaca status command: "+e.message,true);}
+}
+async function revokeAgentPC(id){
+  if(!confirm("Cabut pairing Agent ini? PC tidak lagi bisa mengirim heartbeat atau menerima perintah."))return;
+  try{
+    const r=await api("androiddb_v0_admin_agent_revoke",{p_agent_device_id:id});
+    if(r.ok!==true||r.status!=="revoked")throw new Error(r.message||"Pencabutan tidak dikonfirmasi.");
+    await loadAgentPCs();globalMessage("Pairing Agent dicabut.");
+  }catch(e){globalMessage("Gagal mencabut Agent: "+e.message,true);}
 }
 
 async function approveTopup(id){

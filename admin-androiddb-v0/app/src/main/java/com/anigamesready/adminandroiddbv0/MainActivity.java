@@ -282,7 +282,7 @@ public final class MainActivity extends Activity {
     }
 
     public final class AdminBridge {
-        @JavascriptInterface public String getAppVersion() { return "0.2.6-coin-x100"; }
+        @JavascriptInterface public String getAppVersion() { return "0.2.7-agent-preview"; }
         @JavascriptInterface public String getApiBase() { return API_BASE; }
         @JavascriptInterface public String getSecureValue(String key) { return readSecret(key); }
         @JavascriptInterface public boolean saveSecureValue(String key, String value) {
