@@ -86,14 +86,14 @@ jobs:
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
           "$AAPT" dump badging "$APK" | tee /tmp/remote-badging.txt
-          grep -q "package: name='com.anigamesready.stardeskclient' versionCode='7' versionName='0.6.2-androiddb-v0-coin-gateway-pin'" /tmp/remote-badging.txt
+          grep -q "package: name='com.anigamesready.stardeskclient' versionCode='8' versionName='0.6.2-isolated-stardesk-db'" /tmp/remote-badging.txt
           "$APKSIGNER" verify --verbose "$APK"
           "$APKSIGNER" verify --print-certs "$APK"
           sha256sum "$APK" | tee SHA256SUMS-REMOTE-ANDROIDDB.txt
           unzip -t "$APK"
       - uses: actions/upload-artifact@v4
         with:
-          name: Ani-Games-Ready-Remote-AndroidDB-v0-Coin-v0.6.2-Gateway-Pin
+          name: Ani-Games-Ready-Remote-AndroidDB-v0-Coin-v0.6.2-Isolated-DB
           path: |
             android-client/app/build/outputs/apk/debug/app-debug.apk
             SHA256SUMS-REMOTE-ANDROIDDB.txt
