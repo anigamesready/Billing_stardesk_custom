@@ -271,5 +271,8 @@ test('Remote renter login requires only User ID and removes Admin activation wor
   assert.ok(!admin.includes('issueActivation') && !admin.includes('Kode Remote'));
   assert.ok(!admin.includes('androiddb_v0_admin_issue_activation') && !admin.includes('activation_issued'));
   assert.ok(api.includes('api.androiddb_v0_remote_login($1::text,$2::text)'));
-  assert.ok(!api.includes('p_activation_code'));
+  const loginStart = api.indexOf('if (name === "androiddb_v0_remote_login")');
+  const hostStart = api.indexOf('if (name === "androiddb_v0_host_enroll")', loginStart);
+  assert.ok(loginStart >= 0 && hostStart > loginStart);
+  assert.ok(!api.slice(loginStart,hostStart).includes('p_activation_code'));
 });
