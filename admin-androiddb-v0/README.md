@@ -1,14 +1,14 @@
-# StarDesk Custom Admin — Coin-first PC Control Preview 0.2.5
+# StarDesk Custom Admin — Coin x100 Preview 0.2.6
 
 A standalone Android Owner/Admin app built only from this repository. Package identity remains separate from Admin V12.x. This preview is intended for functional review, not production deployment.
 
 ## Identity
 
-- Package: `com.anigames.billingadmin.coinpreview`
-- App label: `Ani Games Admin Coin Preview 0.2.5`
-- Install mode: side-by-side with the previous `com.anigames.billingadmin.androiddbv0` app
+- Package: `com.anigames.billingadmin.coinx100preview`
+- App label: `Ani Games Admin Coin x100 Preview 0.2.6`
+- Install mode: side-by-side with the previous `com.anigames.billingadmin.coinpreview` (Admin 0.2.5) app
 - Namespace: `com.anigamesready.adminandroiddbv0`
-- Version: `0.2.5-coin-first-pc-control`, versionCode `7`
+- Version: `0.2.6-coin-x100`, versionCode `8`
 - Source root: `admin-androiddb-v0/`
 - Admin UI: `app/src/main/assets/index.html`
 
@@ -29,7 +29,11 @@ A standalone Android Owner/Admin app built only from this repository. Package id
 
 ## Coin domain
 
-The visible Admin rental/member workflow uses only the `androiddb_v0` Coin domain:
+The visible Admin rental/member workflow uses only the `androiddb_v0` Coin domain and the x100 denomination from migration `026_androiddb_v0_coin_x100.sql`:
+
+- `coin_unit_config.coin_scale` is `100`; each previous v0 Coin amount is multiplied once, guarded by the scale row.
+- Rp8,000 converts to 6,000 AniCoin. Rp5,000=3,750; Rp10,000=7,500; Rp15,000=11,250; Rp20,000=15,000.
+- GPU rates: GTX1050/GTX1660=4,500 AniCoin/hour; RTX3060=5,250; RTX5060=6,000. The Rupiah prices stay Rp6,000/Rp6,000/Rp7,000/Rp8,000.
 
 - One member wallet balance is shared across supported PCs.
 - Coin expiry belongs to each top-up lot, not to an account timer.
