@@ -1,6 +1,7 @@
 const AGENT_PROTOCOL = "ani-db-relay-v1";
 const AGENT_TOKEN_PREFIX = "ani-token-";
 const HUB_NAME = "redmi-db-android-stage";
+const STAR_DESK_HUB_NAME = "redmi-stardesk-custom";
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 const MAX_IN_FLIGHT = 64;
@@ -103,14 +104,18 @@ function filteredRequestHeaders(request) {
   return out;
 }
 async function proxyApiRequest(request, env, url) {
+  const project = url.pathname.startsWith("/stardesk/");
+  const apiPath = project ? url.pathname.slice("/stardesk".length) : url.pathname;
+  const hubName = project ? STAR_DESK_HUB_NAME : HUB_NAME;
+
   const origin = request.headers.get("Origin");
   if (origin && origin !== "null") return json({ error: "ORIGIN_NOT_ALLOWED" }, 403);
-  if (!isAllowedApiRoute(url.pathname)) {
-    return json({ error: isBootstrapRoute(url.pathname) ? "LOCAL_ONLY_ROUTE" : "ROUTE_NOT_ALLOWED" },
-      isBootstrapRoute(url.pathname) ? 403 : 404, corsHeaders(request));
+  if (!isAllowedApiRoute(apiPath)) {
+    return json({ error: isBootstrapRoute(apiPath) ? "LOCAL_ONLY_ROUTE" : "ROUTE_NOT_ALLOWED" },
+      isBootstrapRoute(apiPath) ? 403 : 404, corsHeaders(request));
   }
-  if (url.pathname === "/iot/status" && !["GET", "OPTIONS"].includes(request.method)) return json({ error: "METHOD_NOT_ALLOWED" }, 405, corsHeaders(request));
-  if (url.pathname === "/iot/power" && !["POST", "OPTIONS"].includes(request.method)) return json({ error: "METHOD_NOT_ALLOWED" }, 405, corsHeaders(request)); 
+  if (apiPath === "/iot/status" && !["GET", "OPTIONS"].includes(request.method)) return json({ error: "METHOD_NOT_ALLOWED" }, 405, corsHeaders(request));
+  if (apiPath === "/iot/power" && !["POST", "OPTIONS"].includes(request.method)) return json({ error: "METHOD_NOT_ALLOWED" }, 405, corsHeaders(request)); 
   if (!["GET", "POST", "OPTIONS"].includes(request.method)) return json({ error: "METHOD_NOT_ALLOWED" }, 405, corsHeaders(request));
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(request) });
   const ip = clientAddress(request, env);
@@ -120,7 +125,7 @@ async function proxyApiRequest(request, env, url) {
     bodyBytes = new Uint8Array(await request.arrayBuffer());
     if (bodyBytes.byteLength > MAX_BODY_BYTES) return json({ error: "REQUEST_TOO_LARGE" }, 413, corsHeaders(request));
   }
-  const envelope = { id: crypto.randomUUID(), method: request.method, path: url.pathname + url.search,
+  const envelope = { id: crypto.randomUUID(), method: request.method, path: apiPath + url.search,
     clientIp: ip, headers: filteredRequestHeaders(request), bodyBase64: bytesToBase64(bodyBytes) };
   let upstream;
   try {
@@ -136,8 +141,8 @@ async function proxyApiRequest(request, env, url) {
   for (const [name, value] of Object.entries(corsHeaders(request))) headers.set(name, value);
   return new Response(upstream.body, { status: upstream.status, statusText: upstream.statusText, headers });
 }
-async function relayHealth(env) {
-  const hub = env.RELAY_HUB.getByName(HUB_NAME);
+async function relayHealth(env, hubName = HUB_NAME) {
+  const hub = env.RELAY_HUB.getByName(hubName);
   let status;
   try { status = await (await hub.fetch("https://relay.internal/status")).json(); }
   catch { return json({ relay: "offline", agent_connected: false, api: "unknown", database: "unknown", reason: "DURABLE_OBJECT_STATUS_UNREACHABLE" }, 503); }
@@ -178,7 +183,7 @@ export class RelayHub {
   }
   async fetch(request) {
     const url = new URL(request.url);
-    if (url.pathname === "/agent/connect") {
+    if (url.pathname === "/agent/connect" || url.pathname === "/agent/connect/stardesk") {
       if (request.method !== "GET" || request.headers.get("Upgrade") !== "websocket") return new Response("WebSocket upgrade required", { status: 426 });
       for (const socket of this.ctx.getWebSockets("agent")) {
         try { socket.close(1012, "Agent replaced by newer connection"); } catch {}
@@ -266,9 +271,10 @@ export async function handleRequest(request, env) {
     if (request.method !== "GET" || request.headers.get("Upgrade") !== "websocket") return json({ error: "WEBSOCKET_UPGRADE_REQUIRED" }, 426);
     const auth = parseAgentProtocols(request);
     if (!auth.base || !(await verifyAgentToken(auth.token, env.RELAY_SHARED_SECRET))) return json({ error: "AGENT_UNAUTHORIZED" }, 401);
-    return env.RELAY_HUB.getByName(HUB_NAME).fetch(request);
+    return env.RELAY_HUB.getByName(hubName).fetch(request);
   }
   if (url.pathname === "/_relay/health" && request.method === "GET") return relayHealth(env);
+  if (url.pathname === "/_relay/stardesk/health" && request.method === "GET") return relayHealth(env, STAR_DESK_HUB_NAME);
   if (origin && origin !== "null") return json({ error: "ORIGIN_NOT_ALLOWED" }, 403);
   return proxyApiRequest(request, env, url);
 }
