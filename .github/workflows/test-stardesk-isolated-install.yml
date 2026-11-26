@@ -6,6 +6,7 @@ on:
       - feature/admin-androiddb-v0-full-db-20261126
     paths:
       - "backend/android-db/termux/install-stardesk-custom-v0.sh"
+      - "backend/android-db/termux/stardesk-db-control.sh"
       - "backend/android-db/relay-agent/**"
       - "backend/android-db/migrations/**"
       - "backend/android-db/server/**"
