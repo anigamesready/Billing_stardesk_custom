@@ -4,7 +4,7 @@
     <application
         android:allowBackup="false"
         android:icon="@drawable/ic_admin_v0"
-        android:label="Ani Games Admin Android DB v0"
+        android:label="Ani Games Admin Coin Preview 0.2.5"
         android:supportsRtl="true"
         android:theme="@style/AdminV0Theme"
         android:usesCleartextTraffic="false">
