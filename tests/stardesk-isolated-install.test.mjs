@@ -4,6 +4,10 @@ import { readFileSync } from 'node:fs';
 
 const installer = readFileSync('backend/android-db/termux/install-stardesk-custom-v0.sh', 'utf8');
 const agentInstaller = readFileSync('backend/android-db/relay-agent/install-stardesk-agent.sh', 'utf8');
+const agentUpdater = readFileSync('backend/android-db/relay-agent/update-stardesk-agent.sh', 'utf8');
+const relayAgent = readFileSync('backend/android-db/relay-agent/agent.mjs', 'utf8');
+const relayReconnect = readFileSync('backend/android-db/relay-agent/reconnect.mjs', 'utf8');
+const relayPackage = JSON.parse(readFileSync('backend/android-db/relay-agent/package.json', 'utf8'));
 const migrationRoot = 'backend/android-db/migrations/';
 const migrations = [
   '000_prerequisites.sql',
@@ -111,4 +115,40 @@ test('StarDesk installer requires caller to pin the exact source commit', () => 
   assert.ok(installer.includes('SOURCE_REF="${ANI_STARDESK_SOURCE_REF:-}"'));
   assert.ok(installer.includes('ANI_STARDESK_SOURCE_REF wajib diisi'));
   assert.ok(!installer.includes('890bae3e2ae16dffe530e04d0929d066f38832b2'));
+});
+
+test('StarDesk Relay Agent reconnect lifecycle is persistent and stable-backoff controlled', () => {
+  assert.ok(relayAgent.includes('createReconnectController'));
+  assert.ok(relayAgent.includes('reconnectController.schedule()'));
+  assert.ok(relayAgent.includes('reconnectController.markStable()'));
+  assert.ok(relayAgent.includes('stableForMs: 60000'));
+  assert.ok(!relayAgent.includes('reconnectTimer.unref'));
+  assert.ok(!relayAgent.includes('reconnectDelay = 2000'));
+  assert.ok(relayReconnect.includes('scheduleTimer(() =>'));
+  assert.ok(relayReconnect.includes('cancelTimer(timer)'));
+  assert.ok(relayPackage.scripts.check.includes('reconnect.mjs'));
+  assert.ok(agentInstaller.includes('for file in agent.mjs protocol.mjs reconnect.mjs package.json protocol.test.mjs'));
+  assert.ok(agentInstaller.includes('"$TMP/reconnect.mjs"'));
+});
+
+test('StarDesk Relay updater is pinned, transactional, and cannot retarget legacy services', () => {
+  for (const token of [
+    'ANI_RELAY_REF',
+    'ani-games-stardesk-relay-agent',
+    'http://127.0.0.1:8789',
+    '/agent/connect/stardesk',
+    'sv down "$SERVICE_NAME"',
+    'sv up "$SERVICE_NAME"',
+    'run.backup.',
+    'RELAY_SHARED_SECRET',
+  ]) assert.ok(agentUpdater.includes(token), 'missing updater safety contract: ' + token);
+  for (const forbidden of [
+    'ani-games-ready-api',
+    'ani-games-relay-agent',
+    'ani_games_ready_stage',
+    '8788',
+    'redmi-db-android-stage',
+    'openssl rand',
+  ]) assert.ok(!agentUpdater.includes(forbidden), 'legacy target or secret generation found: ' + forbidden);
+  assert.ok(!agentUpdater.includes('cat "$ENV_FILE"'));
 });
