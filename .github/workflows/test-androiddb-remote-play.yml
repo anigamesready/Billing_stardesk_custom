@@ -8,6 +8,7 @@ on:
       - feature/admin-androiddb-coin-api-20261125
       - feature/admin-androiddb-v0-isolated-20261125
       - feature/admin-androiddb-v0-full-db-20261126
+      - feature/remote-v064-userid-whatsapp-20261126
     paths:
       - "backend/android-db/migrations/**"
       - "backend/android-db/server/**"
@@ -24,6 +25,7 @@ on:
       - "backend/android-db/migrations/023_admin_coin_management_read_api.sql"
       - "backend/android-db/tests/018_admin_coin_management_read_api_smoke.sql"
       - "backend/android-db/migrations/025_admin_androiddb_v0_coin_domain.sql"
+      - "backend/android-db/migrations/026_androiddb_v0_userid_only_remote_login.sql"
       - "backend/android-db/tests/019_admin_androiddb_v0_coin_isolation_smoke.sql"
       - ".github/workflows/test-androiddb-remote-play.yml"
   workflow_dispatch:
