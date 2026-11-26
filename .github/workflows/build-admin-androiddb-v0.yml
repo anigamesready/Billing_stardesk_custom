@@ -262,7 +262,7 @@ jobs:
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
           test -n "$AAPT" && test -n "$APKSIGNER"
           "$AAPT" dump badging output/Ani-Games-Admin-Coin-x100-Preview-0.2.6.apk | tee output/apk-badging.txt
-          grep -q "package: name='com.anigames.billingadmin.coinx100preview' versionCode='7' versionName='0.2.6-coin-x100'" output/apk-badging.txt
+          grep -q "package: name='com.anigames.billingadmin.coinx100preview' versionCode='8' versionName='0.2.6-coin-x100'" output/apk-badging.txt
           grep -q "application-label:'Ani Games Admin Coin x100 Preview 0.2.6'" output/apk-badging.txt
           "$APKSIGNER" verify --verbose output/Ani-Games-Admin-Coin-x100-Preview-0.2.6.apk
           "$APKSIGNER" verify --print-certs output/Ani-Games-Admin-Coin-x100-Preview-0.2.6.apk
@@ -270,7 +270,7 @@ jobs:
           unzip -t output/Ani-Games-Admin-Coin-x100-Preview-0.2.6.apk
           ls -lh output/Ani-Games-Admin-Coin-x100-Preview-0.2.6.apk
 
-      - name: Upload isolated Admin Android DB v0 coin-first PC control preview
+      - name: Upload isolated Admin AniCoin x100 preview
         uses: actions/upload-artifact@v4
         with:
           name: Ani-Games-Admin-Coin-x100-Preview-0.2.6
