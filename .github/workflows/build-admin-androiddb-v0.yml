@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   build-admin-androiddb-v0:
-    name: Build Admin Android DB v0 0.2.3
+    name: Build Admin Android DB v0 0.2.4
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -209,6 +209,8 @@ jobs:
           assert "/stardesk" in java, "Admin native API base must target the isolated StarDesk database prefix"
           assert 'connection.setReadTimeout("__gateway_health".equals(route) ? 15000 : 40000);' in java, "Admin native timeout must exceed the Relay request deadline"
           assert "GATEWAY_TIMEOUT: Gateway/Relay" in java, "Admin timeout error must be actionable"
+          assert 'connection.getHeaderField("Retry-After")' in java, "Admin native bridge must preserve rate-limit retry timing"
+          assert "retryAfterSeconds" in html and "LOGIN_RATE_LIMITED" in html, "Admin UI must show actionable login cooldown guidance"
           tls = Path("admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/GatewayPinnedSocketFactory.java").read_text(encoding="utf-8")
           for token in ["Proxy.NO_PROXY", "GatewayPinnedSocketFactory", "setSSLSocketFactory", "setHostnameVerifier", "getDefaultHostnameVerifier", "AndroidKeyStore", "AES/GCM/NoPadding", "HttpsURLConnection", "ani_admin_androiddb_v0_keystore_v1", "__admin_login", "__admin_refresh", "__admin_logout", "__iot_status", "__iot_power", "/iot/status", "/iot/power", "setRequestMethod(method)", '"GET".equals(method)', "WebChromeClient", "onJsAlert", "onJsConfirm", "onJsPrompt", "JsPromptResult", "JsResult"]:
               assert token in java, "missing native token/API/HTTP method control: " + token
@@ -217,7 +219,7 @@ jobs:
               assert token in tls, "missing pinned Cloudflare TLS control: " + token
           assert "InetAddress.getByName" not in tls and "X509TrustManager" not in tls, "DNS/trust bypass detected in pinned gateway socket factory"
           gradle = Path("admin-androiddb-v0/app/build.gradle").read_text(encoding="utf-8")
-          for token in ['applicationId "com.anigames.billingadmin.androiddbv0"', "versionCode 5", 'versionName "0.2.3-gateway-diagnostics"']:
+          for token in ['applicationId "com.anigames.billingadmin.androiddbv0"', "versionCode 6", 'versionName "0.2.4-login-limit-guidance"']:
               assert token in gradle, "Admin Android DB v0 build identity mismatch: " + token
 
           manifest = Path("admin-androiddb-v0/app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
@@ -236,23 +238,23 @@ jobs:
           APK="admin-androiddb-v0/app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
           mkdir -p output
-          cp "$APK" output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.3.apk
+          cp "$APK" output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.4.apk
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
           test -n "$AAPT" && test -n "$APKSIGNER"
-          "$AAPT" dump badging output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.3.apk | tee output/apk-badging.txt
+          "$AAPT" dump badging output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.4.apk | tee output/apk-badging.txt
           grep -q "package: name='com.anigames.billingadmin.androiddbv0' versionCode='5' versionName='0.2.3-gateway-diagnostics'" output/apk-badging.txt
           grep -q "application-label:'Ani Games Admin Android DB v0'" output/apk-badging.txt
-          "$APKSIGNER" verify --verbose output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.3.apk
-          "$APKSIGNER" verify --print-certs output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.3.apk
-          sha256sum output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.3.apk | tee output/SHA256SUMS.txt
-          unzip -t output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.3.apk
-          ls -lh output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.3.apk
+          "$APKSIGNER" verify --verbose output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.4.apk
+          "$APKSIGNER" verify --print-certs output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.4.apk
+          sha256sum output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.4.apk | tee output/SHA256SUMS.txt
+          unzip -t output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.4.apk
+          ls -lh output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.4.apk
 
       - name: Upload isolated Admin Android DB v0 preview
         uses: actions/upload-artifact@v4
         with:
-          name: Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.3
+          name: Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.4
           path: output/*
           if-no-files-found: error
           retention-days: 30
