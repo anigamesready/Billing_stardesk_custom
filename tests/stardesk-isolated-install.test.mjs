@@ -276,3 +276,41 @@ test('Remote renter login requires only User ID and removes Admin activation wor
   assert.ok(loginStart >= 0 && hostStart > loginStart);
   assert.ok(!api.slice(loginStart,hostStart).includes('p_activation_code'));
 });
+
+test('Termux User ID-only updater is backup-first and restarts only the StarDesk API', () => {
+  const update = readFileSync('backend/android-db/termux/upgrade-stardesk-userid-only.sh', 'utf8');
+  for (const token of [
+    'stardesk_custom_v0',
+    'stardesk_v0_owner',
+    'stardesk_v0_runtime',
+    'stardesk-custom-v0-api',
+    'ANI_STARDESK_SOURCE_REF',
+    '026_androiddb_v0_coin_x100.sql',
+    '027_androiddb_v0_remote_userid_only_login.sql',
+    'androiddb_v0.coin_unit_config',
+    'pg_dump',
+    'pg_restore --list',
+    'SHA256SUMS.txt',
+    'read -r CONFIRM </dev/tty',
+    '[ "$CONFIRM" = "APPLY" ]',
+    'androiddb_v0_remote_login($1::text,$2::text)',
+    'to_regprocedure',
+    'sv restart "$SERVICE_NAME"',
+    '127.0.0.1:$API_PORT/health',
+  ]) assert.ok(update.includes(token), 'missing User ID-only upgrade safety guard: ' + token);
+  for (const forbidden of [
+    'ani_games_ready_stage',
+    'ani-games-ready-api',
+    'ani-games-relay-agent',
+    'ani-games-stardesk-relay-agent',
+    'DROP DATABASE',
+    'DROP ROLE',
+    'TRUNCATE TABLE',
+    'initdb',
+    'pg_ctl',
+    'sv restart postgres',
+    'sv down postgres',
+    'sv restart ani-games-ready-api',
+    'sv restart ani-games-relay-agent',
+  ]) assert.ok(!update.includes(forbidden), 'unsafe or legacy target in User ID-only updater: ' + forbidden);
+});
