@@ -92,7 +92,7 @@ jobs:
           assert "chmod 600 \"$ENV_FILE\"" in script, "secret permissions missing"
           assert "022_coin_unit_scale_100.sql" in script and "021_android_wol_relay.sql" in script, "addon migrations missing"
           assert not re.search(r'(?im)^\s*(DROP\s+DATABASE|DROP\s+TABLE|TRUNCATE\b|DELETE\s+FROM\s+public\.)',script), "destructive core DB command found"
-          assert "sv down ani-games-ready-api" in readme and "pg_restore --list" in readme, "operator documentation incomplete"
+          assert "do not use for stardesk" in readme.lower() and "8788" in readme, "operator documentation must distinguish the legacy API from StarDesk"
           assert "coin_wallets" in migration and "coin_topup_orders" in migration and "coin_lots" in migration and "coin_ledger" in migration and "pc_coin_rates" in migration
           for klass,coins in [("GTX 1050",4500),("GTX 1660",4500),("RTX 3060",5250),("RTX 5060",6000)]:
               assert re.search(rf"WHEN '{re.escape(klass)}'.*?v_coins:={coins};",migration), f"wrong x100 rate for {klass}"
