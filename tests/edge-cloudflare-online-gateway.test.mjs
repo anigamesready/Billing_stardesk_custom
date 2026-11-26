@@ -49,3 +49,41 @@ test("relay restricts methods and handles Origin:null preflight without opening 
  assert.equal((await relay.fetch(req("https://relay.test/iot/power","OPTIONS"),env)).status,204);
  assert.equal(calls,0);
 });
+
+test("Admin Bearer token survives Cloudflare Gateway and WebSocket Relay forwarding",async()=>{
+ let envelope=null;
+ const relayEnv={
+  RELAY_SHARED_SECRET:"edge-test",
+  RELAY_HUB:{getByName:name=>{
+   assert.equal(name,"redmi-db-android-stage");
+   return {fetch:async request=>{
+    assert.equal(new URL(request.url).pathname,"/proxy");
+    envelope=await request.json();
+    return Response.json({
+     status:200,
+     headers:{"content-type":"application/json"},
+     bodyBase64:Buffer.from(JSON.stringify({ok:true})).toString("base64")
+    });
+   }};
+  }}
+ };
+ const gatewayEnv={
+  EDGE_PROXY_SECRET:"edge-test",
+  RELAY_SERVICE:{fetch:request=>relay.fetch(request,relayEnv)}
+ };
+ const request=new Request("https://gateway.test/rest/v1/rpc/admin_rental_accounts_global",{
+  method:"POST",
+  headers:{
+   "CF-Connecting-IP":IP,
+   "Origin":"null",
+   "Authorization":"Bearer ci-admin-session-token",
+   "Content-Type":"application/json"
+  },
+  body:JSON.stringify({p_org_id:"00000000-0000-4000-8000-000000000001"})
+ });
+ const response=await gateway.fetch(request,gatewayEnv);
+ assert.equal(response.status,200);
+ assert.deepEqual(await response.json(),{ok:true});
+ assert.equal(envelope?.path,"/rest/v1/rpc/admin_rental_accounts_global");
+ assert.equal(envelope?.headers?.authorization,"Bearer ci-admin-session-token");
+});
