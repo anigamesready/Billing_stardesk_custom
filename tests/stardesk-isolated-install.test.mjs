@@ -226,6 +226,25 @@ test('existing StarDesk v0 updater is restricted to the dedicated DB/API and val
   ]) assert.ok(!userIdUpdater.includes(forbidden), 'User ID updater must never touch legacy target: '+forbidden);
 });
 
+
+const coinAccountAudit = readFileSync('backend/android-db/termux/audit-stardesk-coin-account.sh', 'utf8');
+
+test('Coin account domain audit is read-only and checks both StarDesk Coin schemas', () => {
+  for (const token of [
+    'stardesk_custom_v0',
+    'androiddb_v0.rental_accounts',
+    'androiddb_v0.coin_lots',
+    'public.rental_accounts',
+    'remote_play.coin_wallets',
+    'remote_play.coin_lots',
+    'BEGIN TRANSACTION READ ONLY',
+    'COMMIT',
+    'TARGET_CODE'
+  ]) assert.ok(coinAccountAudit.includes(token), 'Coin account audit missing: '+token);
+  assert.doesNotMatch(coinAccountAudit, /INSERT\\s+INTO|UPDATE\\s+\\w|DELETE\\s+FROM|DROP\\s+|TRUNCATE\\s+|ALTER\\s+/i,
+    'Coin account audit must not write or alter any data');
+});
+
 const adminHtml = readFileSync('admin-androiddb-v0/app/src/main/assets/index.html', 'utf8');
 const adminJava = readFileSync('admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java', 'utf8');
 const dbControl = readFileSync('backend/android-db/termux/stardesk-db-control.sh', 'utf8');
