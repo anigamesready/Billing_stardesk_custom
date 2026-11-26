@@ -7,7 +7,7 @@ ENV_FILE="$API_DIR/.env"
 DB_NAME="ani_games_ready_stage"
 DB_PORT="5432"
 API_PORT="8788"
-API_SOURCE_REF="30a00886069d6267780498655e4e500ffc715e43"
+API_SOURCE_REF="30a00886069bce9188cf871c8da55512a4d07b3a"
 REPO="anigamesready/Billing_stardesk_custom"
 WORK_DIR="$HOME/ani-admin-v0-repair"
 BACKUP_ROOT="$HOME/ani-games-ready-backups"
@@ -152,7 +152,8 @@ SELECT
   to_regprocedure('api.androiddb_v0_admin_set_device_rate(text,uuid,text)'),
   to_regprocedure('api.androiddb_v0_admin_link_stardesk_device(text,uuid,text,boolean)'),
   to_regprocedure('api.androiddb_v0_admin_set_host_permission(text,uuid,boolean)'),
-  to_regprocedure('api.androiddb_v0_admin_issue_host_enrollment(text,text)'),
+  to_regprocedure('api.androiddb_v0_admin_issue_host_enrollment(text,uuid,integer)'),
+  to_regprocedure('api.androiddb_v0_host_enroll(text,text)'),
   to_regprocedure('api.androiddb_v0_host_heartbeat(text,boolean,text)'),
   to_regprocedure('api.androiddb_v0_remote_login(text,text,text)'),
   to_regprocedure('api.androiddb_v0_remote_refresh(text)'),
@@ -165,7 +166,7 @@ SELECT
 ")"
 IFS='|' read -r V0_SCHEMA V0_TABLES V0_FUNCTIONS <<< "$V0_STATE"
 if [ "$V0_SCHEMA" = "1" ]; then
-  [ "$V0_TABLES" = "14" ] && [ "$V0_FUNCTIONS" = "19" ] || die "Schema androiddb_v0 parsial ($V0_TABLES/14 tabel, $V0_FUNCTIONS/19 signature). Audit manual diperlukan."
+  [ "$V0_TABLES" = "14" ] && [ "$V0_FUNCTIONS" = "20" ] || die "Schema androiddb_v0 parsial ($V0_TABLES/14 tabel, $V0_FUNCTIONS/20 signature). Audit manual diperlukan."
 elif [ "$V0_SCHEMA" = "0" ] && [ "$V0_TABLES" = "0" ] && [ "$V0_FUNCTIONS" = "0" ]; then
   BACKUP_DIR="$BACKUP_ROOT/$DB_NAME-admin-v0-$STAMP"
   mkdir -p "$BACKUP_DIR"
