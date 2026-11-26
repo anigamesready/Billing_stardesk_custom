@@ -131,7 +131,27 @@ apply_file(){
   file="$1"
   [ -s "$MIGRATIONS_DIR/$file" ] || die "File migrasi hilang: $file"
   log "Menerapkan $file hanya pada $DB_NAME"
-  psql_admin -d "$DB_NAME" -f "$MIGRATIONS_DIR/$file" >/dev/null
+  if [ "$file" = "000_prerequisites.sql" ]; then
+    # Extension and cluster-level NOLOGIN role creation require the local DB
+    # administrator; application objects are reassigned to the isolated owner
+    # immediately afterward, before later migrations create any functions.
+    psql_admin -d "$DB_NAME" -f "$MIGRATIONS_DIR/$file" >/dev/null
+    psql_admin -d "$DB_NAME" <<SQL >/dev/null
+ALTER DATABASE $DB_NAME OWNER TO $DB_OWNER_ROLE;
+ALTER SCHEMA public OWNER TO $DB_OWNER_ROLE;
+ALTER SCHEMA api OWNER TO $DB_OWNER_ROLE;
+ALTER SCHEMA auth OWNER TO $DB_OWNER_ROLE;
+ALTER SCHEMA private OWNER TO $DB_OWNER_ROLE;
+ALTER SCHEMA reporting_private OWNER TO $DB_OWNER_ROLE;
+GRANT USAGE ON SCHEMA extensions TO $DB_OWNER_ROLE;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO $DB_OWNER_ROLE;
+ALTER TABLE auth.users OWNER TO $DB_OWNER_ROLE;
+SQL
+  else
+    # SECURITY DEFINER business routines must be owned by this non-login DB
+    # owner, never by the local PostgreSQL superuser.
+    psql_admin -d "$DB_NAME" -c "SET ROLE $DB_OWNER_ROLE" -f "$MIGRATIONS_DIR/$file" >/dev/null
+  fi
 }
 for file in "${MIGRATION_FILES[@]}"; do apply_file "$file"; done
 
@@ -144,7 +164,7 @@ CREATE ROLE :"api_user" LOGIN PASSWORD :'api_password'
 GRANT stardesk_v0_runtime TO :"api_user";
 GRANT CONNECT ON DATABASE :"db_name" TO :"api_user";
 SQL
-psql_admin -d "$DB_NAME" <<SQL >/dev/null
+psql_admin -d "$DB_NAME" -c "SET ROLE $DB_OWNER_ROLE" <<SQL >/dev/null
 CREATE TABLE private.stardesk_custom_install_meta (
   singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
   schema_version text NOT NULL,
