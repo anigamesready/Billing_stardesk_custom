@@ -82,5 +82,5 @@ for (const app of apps) {
 test('Admin Android DB v0: uses distinct Gateway health and API timeouts', () => {
   const main = readFileSync('admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java', 'utf8');
   assert.ok(main.includes('connection.setReadTimeout("__gateway_health".equals(route) ? 15000 : 40000);'));
-  assert.ok(main.includes('getAppVersion() { return "0.2.3-gateway-diagnostics"; }'));
+  assert.ok(main.includes('getAppVersion() { return "0.2.4-login-limit-guidance"; }'));
 });
