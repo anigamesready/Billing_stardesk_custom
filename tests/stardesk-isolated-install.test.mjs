@@ -202,7 +202,7 @@ test('existing StarDesk v0 updater is restricted to the dedicated DB/API and val
     'ani-games-stardesk-custom-v0',
     'stardesk-custom-v0-api',
     'ANI_STARDESK_SOURCE_REF',
-    '026_androiddb_v0_remote_login',
+    '026_androiddb_v0_userid_only_remote_login.sql',
     'pg_dump',
     'pg_dumpall',
     'pg_restore --list',
