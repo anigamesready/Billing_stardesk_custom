@@ -226,7 +226,7 @@ test('Coin x100 live upgrade is isolated, backup-first, idempotent and explicit-
     'POST_SCALE',
     'assert_scaled',
     'PRE_RUPIAH',
-    'No need to restart PostgreSQL',
+    'Tidak perlu restart PostgreSQL',
   ]) assert.ok(coinUpgrade.includes(token), 'missing safe Coin x100 upgrade guard: ' + token);
   for (const forbidden of [
     'ani_games_ready_stage',
