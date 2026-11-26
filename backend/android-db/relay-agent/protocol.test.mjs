@@ -72,3 +72,72 @@ test("Relay Agent pins only the approved relay hostname to verified Cloudflare I
   assert.equal(rejected?.code, "ENOTFOUND");
   assert.equal(rejected?.message, "RELAY_HOSTNAME_NOT_ALLOWED");
 });
+
+import { createReconnectController } from "./reconnect.mjs";
+
+test("Reconnect timer stays referenced and backs off until the link is stable", () => {
+  const jobs = new Map();
+  const waits = [];
+  let nextId = 1;
+  let connects = 0;
+  let timerWasUnrefed = false;
+  const controller = createReconnectController({
+    connect: () => { connects += 1; },
+    random: () => 0.5,
+    scheduleTimer: (callback, delay) => {
+      const id = nextId++;
+      waits.push(delay);
+      jobs.set(id, callback);
+      return { id, unref() { timerWasUnrefed = true; } };
+    },
+    cancelTimer: handle => jobs.delete(handle.id),
+  });
+
+  assert.equal(controller.schedule(), 2500);
+  assert.equal(controller.pending, true);
+  assert.equal(controller.schedule(), null);
+  assert.equal(jobs.size, 1);
+  assert.equal(timerWasUnrefed, false);
+
+  const first = [...jobs.values()][0];
+  jobs.clear();
+  first();
+  assert.equal(connects, 1);
+  assert.equal(controller.schedule(), 4500);
+
+  const second = [...jobs.values()][0];
+  jobs.clear();
+  second();
+  assert.equal(connects, 2);
+  assert.equal(controller.schedule(), 8500);
+
+  controller.markStable();
+  assert.equal(controller.nextDelayMs, 2000);
+  const third = [...jobs.values()][0];
+  jobs.clear();
+  third();
+  assert.equal(connects, 3);
+  assert.equal(controller.schedule(), 2500);
+  assert.deepEqual(waits, [2500, 4500, 8500, 2500]);
+  assert.equal(timerWasUnrefed, false);
+  controller.stop();
+  assert.equal(controller.pending, false);
+  assert.equal(controller.stopped, true);
+  assert.equal(controller.schedule(), null);
+});
+
+test("Stopping reconnect cancels pending work and prevents reconnect", () => {
+  const jobs = new Map();
+  let connects = 0;
+  const controller = createReconnectController({
+    connect: () => { connects += 1; },
+    random: () => 0,
+    scheduleTimer: callback => { jobs.set(1, callback); return 1; },
+    cancelTimer: id => jobs.delete(id),
+  });
+  controller.schedule();
+  controller.stop();
+  assert.equal(jobs.size, 0);
+  assert.equal(controller.schedule(), null);
+  assert.equal(connects, 0);
+});
