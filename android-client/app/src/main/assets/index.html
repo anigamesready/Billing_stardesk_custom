@@ -39,7 +39,7 @@ h1{font-size:24px;line-height:1.15;margin:0;font-weight:950}h1 span{color:#83caf
 <section id="dashboard" class="hidden">
 <div class="between"><div class="hello">Halo, <span id="welcome" class="blue">player</span></div><button id="logout">Keluar ↗</button></div>
 <div class="profile"><div><div class="cap">STATUS AKUN COIN</div><div class="val" id="rentalStatus">MEMUAT...</div></div><div><div class="cap">AKSES REMOTE</div><div class="val" id="remoteAccess">MEMUAT...</div></div></div>
-<div class="wallet"><div class="cap">SALDO DOMPET KOIN • ANDROID DB</div><div class="balance"><span id="balance">0</span> <small>koin</small></div><div class="wallet-note">Saldo hanya berasal dari lot koin yang belum kedaluwarsa.</div></div>
+<div class="wallet"><div class="cap">SALDO AniCoin ×100 • ANDROID DB</div><div class="balance"><span id="balance">0</span> <small>koin</small></div><div class="wallet-note">Saldo hanya berasal dari lot koin yang belum kedaluwarsa.</div></div>
 <div id="walletLock" class="lock hidden"><b>Akses belum siap</b><small id="walletLockText"></small></div>
 <div class="nav"><button data-tab="home" class="active">PC</button><button data-tab="topup">TOP-UP</button><button data-tab="rates">TARIF</button><button data-tab="history">RIWAYAT</button></div>
 <section id="tab-home"><div class="title"><h2>Pilih PC Gaming</h2><button id="refresh">↻ Refresh</button></div><p class="muted" id="pcSummary">Status PC live dari Android DB.</p><div class="pc-list" id="pcList"></div>
@@ -57,7 +57,8 @@ h1{font-size:24px;line-height:1.15;margin:0;font-weight:950}h1 span{color:#83caf
 <script>
 const $=id=>document.getElementById(id);
 const ONLINE_API_BASE="https://ani-games-db-android-stage-gateway.anigamesready.workers.dev/stardesk";
-const state={apiBase:ONLINE_API_BASE,accessToken:"",refreshToken:"",rentalCode:"",balance:0,account:null,hosts:[],lots:[],ledger:[],orders:[],canStart:false};
+const COIN_UNIT_SCALE=100;
+const state={apiBase:ONLINE_API_BASE,accessToken:"",refreshToken:"",rentalCode:"",balance:0,account:null,hosts:[],lots:[],ledger:[],orders:[],canStart:false,coinScale:COIN_UNIT_SCALE};
 let selectedAmount=10000,pendingOrderKey="";
 const rates=[{gpu:"GTX 1050",rp:6000,coins:4500},{gpu:"GTX 1660",rp:6000,coins:4500},{gpu:"RTX 3060",rp:7000,coins:5250},{gpu:"RTX 5060",rp:8000,coins:6000}];
 const native=window.AniAndroid||null;
@@ -139,6 +140,8 @@ async function refreshData(){
   nativeRpc("androiddb_v0_remote_coin_wallet",{},state.accessToken),
   nativeRpc("androiddb_v0_remote_coin_history",{p_limit:50},state.accessToken)
  ]);
+ const scales=[dashboard.coin_unit_scale,wallet.coin_unit_scale,history.coin_unit_scale].map(Number);
+ if(!scales.every(value=>value===COIN_UNIT_SCALE))throw new Error("COIN_UNIT_SCALE_MISMATCH: DB belum memakai AniCoin x100. Perbarui database StarDesk sebelum memakai Remote Coin x100.");
  state.account=dashboard.rental_account||null;state.hosts=Array.isArray(dashboard.hosts)?dashboard.hosts:[];state.canStart=!!dashboard.can_start&&state.hosts.some(host=>host.available===true);
  state.balance=Number(wallet.balance??dashboard.wallet?.balance??0);state.lots=Array.isArray(wallet.lots)?wallet.lots:[];
  state.ledger=Array.isArray(history.ledger)?history.ledger:[];state.orders=Array.isArray(history.orders)?history.orders:[];
