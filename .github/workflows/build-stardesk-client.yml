@@ -53,6 +53,7 @@ jobs:
           assert "nativeRpc(\"androiddb_v0_remote_dashboard\"" in h
           assert "nativeRpc(\"androiddb_v0_remote_coin_create_topup\"" in h
           assert 'id="apiBase"' not in h and '$("apiBase")' not in h, "manual server URL field must not be present"
+          java=Path("android-client/app/src/main/java/com/anigamesready/stardeskclient/MainActivity.java").read_text()
           expected_gateway = "https://ani-games-db-android-stage-gateway.anigamesready.workers.dev/stardesk"
           assert f'const ONLINE_API_BASE="{expected_gateway}";' in h, "Remote WebView must target isolated StarDesk /stardesk route"
           assert f'private static final String ONLINE_API_BASE = "{expected_gateway}";' in java, "native API bridge must use the exact same isolated StarDesk route"
@@ -60,8 +61,6 @@ jobs:
           scripts=re.findall(r"<script>(.*?)</script>",h,re.S)
           assert len(scripts)==1, "expected one inline JS block"
           Path("/tmp/remote-androiddb.js").write_text(scripts[0])
-          java=Path("android-client/app/src/main/java/com/anigamesready/stardeskclient/MainActivity.java").read_text()
-          assert "/stardesk" in java, "Remote native API base must target the isolated StarDesk database prefix"
           for token in ["AndroidKeyStore","AES/GCM/NoPadding","apiRequest","HttpsURLConnection","getSecureValue","saveSecureValue","Proxy.NO_PROXY","GatewayPinnedSocketFactory","setSSLSocketFactory","setHostnameVerifier","getDefaultHostnameVerifier"]:
               assert token in java, "missing native security/API bridge: "+token
           tls=Path("android-client/app/src/main/java/com/anigamesready/stardeskclient/GatewayPinnedSocketFactory.java").read_text()
