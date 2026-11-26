@@ -17,7 +17,7 @@ const apps = [
     helper: 'android-client/app/src/main/java/com/anigamesready/stardeskclient/GatewayPinnedSocketFactory.java',
     gradle: 'android-client/app/build.gradle',
     base: 'ONLINE_API_BASE',
-    version: ['versionCode 9', 'versionName "0.6.3-isolated-stardesk-route-fix"'],
+    version: ['versionCode 10', 'versionName "0.6.4-stardesk-userid-only"'],
   },
 ];
 
