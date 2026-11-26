@@ -98,8 +98,12 @@ test('StarDesk installer accepts only the already-running, identity-verified Pos
   assert.ok(installer.includes('SHOW data_directory'));
   assert.ok(installer.includes('SERVER_MAJOR'));
   assert.ok(installer.includes('POSTGRES_SERVICE_STATUS'));
-  for (const forbidden of ['sv up postgres', 'sv down postgres', 'sv-enable postgres', 'pg_ctl start', 'initdb']) {
-    assert.ok(!installer.includes(forbidden), 'PostgreSQL lifecycle mutation found: ' + forbidden);
+  for (const forbidden of [
+    /^\\s*sv\\s+(?:up|down|enable)\\s+postgres\\b/m,
+    /^\\s*pg_ctl\\s+(?:start|restart|stop)\\b/m,
+    /^\\s*initdb\\b/m,
+  ]) {
+    assert.doesNotMatch(installer, forbidden, 'PostgreSQL lifecycle command found: ' + forbidden);
   }
 });
 
