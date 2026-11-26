@@ -56,7 +56,7 @@ h1{font-size:24px;line-height:1.15;margin:0;font-weight:950}h1 span{color:#83caf
 <div id="toast" class="toast"></div><div id="modal" class="modal hidden"><button id="closeModal">Tutup ✕</button><img src="qris_ani_games.png" alt="QRIS Ani Games Ready"></div>
 <script>
 const $=id=>document.getElementById(id);
-const ONLINE_API_BASE="https://ani-games-db-android-stage-gateway.anigamesready.workers.dev";
+const ONLINE_API_BASE="https://ani-games-db-android-stage-gateway.anigamesready.workers.dev/stardesk";
 const state={apiBase:ONLINE_API_BASE,accessToken:"",refreshToken:"",rentalCode:"",balance:0,account:null,hosts:[],lots:[],ledger:[],orders:[],canStart:false};
 let selectedAmount=10000,pendingOrderKey="";
 const rates=[{gpu:"GTX 1050",rp:6000,coins:45},{gpu:"GTX 1660",rp:6000,coins:45},{gpu:"RTX 3060",rp:7000,coins:52.5},{gpu:"RTX 5060",rp:8000,coins:60}];
