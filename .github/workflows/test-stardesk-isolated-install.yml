@@ -8,6 +8,7 @@ on:
     paths:
       - "backend/android-db/termux/install-stardesk-custom-v0.sh"
       - "backend/android-db/termux/stardesk-db-control.sh"
+      - "backend/android-db/termux/audit-stardesk-coin-account.sh"
       - "backend/android-db/relay-agent/**"
       - "backend/android-db/migrations/**"
       - "backend/android-db/server/**"
@@ -58,8 +59,10 @@ jobs:
           bash -n backend/android-db/relay-agent/update-stardesk-agent.sh
           bash -n backend/android-db/termux/audit-admin-v0-live-db.sh
           bash -n backend/android-db/termux/stardesk-db-control.sh
+          bash -n backend/android-db/termux/audit-stardesk-coin-account.sh
           shellcheck -s bash backend/android-db/termux/install-stardesk-custom-v0.sh
           shellcheck -s bash backend/android-db/termux/stardesk-db-control.sh
+          shellcheck -s bash backend/android-db/termux/audit-stardesk-coin-account.sh
           shellcheck -s bash backend/android-db/relay-agent/install-stardesk-agent.sh
           shellcheck -s bash backend/android-db/relay-agent/update-stardesk-agent.sh
       - name: Test StarDesk isolation guards and source contracts
