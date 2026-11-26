@@ -16,7 +16,7 @@ STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 log(){ printf '[ANI-ADMIN-V0-REPAIR] %s\n' "$*"; }
 die(){ printf '[ANI-ADMIN-V0-REPAIR] STOP: %s\n' "$*" >&2; exit 1; }
 
-[ -n "\${PREFIX:-}" ] && [ -x "$PREFIX/bin/pkg" ] || die "Khusus Termux Android."
+[ -n "${PREFIX:-}" ] && [ -x "$PREFIX/bin/pkg" ] || die "Khusus Termux Android."
 for bin in node curl psql pg_dump pg_dumpall pg_restore sha256sum; do
   command -v "$bin" >/dev/null 2>&1 || die "$bin belum tersedia."
 done
@@ -27,10 +27,10 @@ done
 set -a
 . "$ENV_FILE"
 set +a
-[ -n "\${DATABASE_URL:-}" ] || die "DATABASE_URL tidak ada pada .env."
-[ -n "\${ANI_API_PEPPER:-}" ] && [ "\${#ANI_API_PEPPER}" -ge 32 ] || die "ANI_API_PEPPER tidak valid."
-[ "\${PORT:-}" = "$API_PORT" ] || die "Port API bukan 8788; tidak akan menebak target."
-[ "\${ANI_BIND:-}" = "127.0.0.1" ] || die "API bukan loopback; hentikan untuk audit manual."
+[ -n "${DATABASE_URL:-}" ] || die "DATABASE_URL tidak ada pada .env."
+[ -n "${ANI_API_PEPPER:-}" ] && [ "${#ANI_API_PEPPER}" -ge 32 ] || die "ANI_API_PEPPER tidak valid."
+[ "${PORT:-}" = "$API_PORT" ] || die "Port API bukan 8788; tidak akan menebak target."
+[ "${ANI_BIND:-}" = "127.0.0.1" ] || die "API bukan loopback; hentikan untuk audit manual."
 
 node --input-type=module - "$DATABASE_URL" "$DB_NAME" "$DB_PORT" <<'NODE'
 import { URL } from 'node:url';
@@ -326,5 +326,5 @@ NODE
 
 log "Selesai. PostgreSQL dan data rental lama tetap dipertahankan."
 log "Backup source API: $API_BACKUP_DIR"
-[ -z "\${BACKUP_DIR:-}" ] || log "Backup database/roles: $BACKUP_DIR"
+[ -z "${BACKUP_DIR:-}" ] || log "Backup database/roles: $BACKUP_DIR"
 log "Smoke test: /health online, admin_context dan AniCoin v0 dikenali API (AUTH_REQUIRED, bukan RPC_NOT_ALLOWED)."
