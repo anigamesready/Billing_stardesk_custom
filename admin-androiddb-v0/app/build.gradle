@@ -8,7 +8,7 @@ android {
         minSdk 26
         targetSdk 35
         versionCode 4
-        versionName "0.2.1-gateway-dns-pin"
+        versionName "0.2.2-isolated-stardesk-db"
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
