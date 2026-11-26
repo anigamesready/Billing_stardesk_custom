@@ -62,7 +62,7 @@ if (echo >"/dev/tcp/127.0.0.1/$API_PORT") >/dev/null 2>&1; then
   die "Port $API_PORT sudah dipakai service lain. Tidak ada perubahan."
 fi
 
-SOURCE_REF="${ANI_STARDESK_SOURCE_REF:-feature/admin-androiddb-v0-full-db-20261126}"
+SOURCE_REF="${ANI_STARDESK_SOURCE_REF:-}"
 [[ "$SOURCE_REF" =~ ^[0-9a-fA-F]{40}$ ]] || die "ANI_STARDESK_SOURCE_REF wajib SHA commit 40 karakter yang dipin."
 TMP_DIR="$(mktemp -d "$PREFIX/tmp/stardesk-v0-install.XXXXXX")"
 cleanup(){ [ -z "${TMP_DIR:-}" ] || [ ! -d "$TMP_DIR" ] || rm -rf -- "$TMP_DIR"; }
@@ -105,7 +105,7 @@ MIGRATION_FILES=(
   023_admin_coin_management_read_api.sql
   025_admin_androiddb_v0_coin_domain.sql
 )
-for file in ${MIGRATION_FILES[@]}; do
+for file in "${MIGRATION_FILES[@]}"; do
   [ -s "$SOURCE_ROOT/backend/android-db/migrations/$file" ] || die "Migrasi source hilang: $file"
 done
 grep -q "androiddb_v0_remote_login" "$SOURCE_ROOT/backend/android-db/server/server.mjs" || die "API Remote Coin v0 tidak ditemukan."
@@ -113,7 +113,7 @@ grep -q "androiddb_v0_admin_dashboard" "$SOURCE_ROOT/backend/android-db/server/s
 
 mkdir -p "$SERVER_DIR" "$MIGRATIONS_DIR"
 cp -R "$SOURCE_ROOT/backend/android-db/server/." "$SERVER_DIR/"
-for file in ${MIGRATION_FILES[@]}; do
+for file in "${MIGRATION_FILES[@]}"; do
   # The transformed runtime role is unique to this StarDesk database.
   sed "s/ani_api_runtime/$RUNTIME_ROLE/g" \
     "$SOURCE_ROOT/backend/android-db/migrations/$file" > "$MIGRATIONS_DIR/$file"
@@ -133,7 +133,7 @@ apply_file(){
   log "Menerapkan $file hanya pada $DB_NAME"
   psql_admin -d "$DB_NAME" -f "$MIGRATIONS_DIR/$file" >/dev/null
 }
-for file in ${MIGRATION_FILES[@]}; do apply_file "$file"; done
+for file in "${MIGRATION_FILES[@]}"; do apply_file "$file"; done
 
 API_DB_PASSWORD="$(openssl rand -hex 32)"
 API_PEPPER="$(openssl rand -hex 32)"
@@ -176,6 +176,7 @@ cd "$SERVER_DIR"
 npm install --omit=dev --no-audit --no-fund
 npm run check
 set -a
+# shellcheck disable=SC1090
 . "$ENV_FILE"
 set +a
 node --input-type=module <<'NODE'
