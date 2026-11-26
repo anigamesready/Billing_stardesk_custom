@@ -67,7 +67,7 @@ test('StarDesk installer is fail-closed and does not target legacy DB/API/servic
     'SERVICE_DIR',
     '/dev/tcp/127.0.0.1/$API_PORT',
     'pg_isready',
-    'sv status postgres',
+    'status postgres',
   ]) assert.ok(installer.includes(guard), 'missing fail-closed guard: ' + guard);
 });
 
