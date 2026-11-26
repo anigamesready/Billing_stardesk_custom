@@ -85,8 +85,8 @@ jobs:
             002_core_business_schema.sql \
             003_pc_device_api_functions.sql \
             004_billing_reseller_api.sql; do
-            sed 's/ani_api_runtime/stardesk_v0_runtime/g' "backend/android-db/migrations/$migration" |
-              psql -v ON_ERROR_STOP=1 -d stardesk_custom_v0 -c "SET ROLE stardesk_v0_owner"
+            { printf 'SET ROLE stardesk_v0_owner;\n'; sed 's/ani_api_runtime/stardesk_v0_runtime/g' "backend/android-db/migrations/$migration"; } |
+              psql -v ON_ERROR_STOP=1 -d stardesk_custom_v0
           done
           sed 's/ani_api_runtime/stardesk_v0_runtime/g' backend/android-db/migrations/005_runtime_privileges.sql |
             psql -v ON_ERROR_STOP=1 -d stardesk_custom_v0
