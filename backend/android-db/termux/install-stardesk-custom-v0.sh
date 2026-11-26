@@ -113,6 +113,13 @@ grep -q "androiddb_v0_admin_dashboard" "$SOURCE_ROOT/backend/android-db/server/s
 
 mkdir -p "$SERVER_DIR" "$MIGRATIONS_DIR"
 cp -R "$SOURCE_ROOT/backend/android-db/server/." "$SERVER_DIR/"
+# Brand the isolated API identity and make the local Owner setup page unambiguous.
+sed -i \
+  -e 's/Ani Games Ready Local Server/StarDesk Custom Local API/g' \
+  -e 's/Setup Admin Ani Games Ready/Setup StarDesk Custom Owner/g' \
+  -e 's/Database lokal Ani Games Ready. Blynk\/WoL tidak disentuh./Database khusus StarDesk Custom. Database Ani Games Ready lama tidak disentuh./g' \
+  -e 's/ani-games-ready-local-api/stardesk-custom-v0-api/g' \
+  "$SERVER_DIR/server.mjs"
 for file in "${MIGRATION_FILES[@]}"; do
   # The transformed runtime role is unique to this StarDesk database.
   sed "s/ani_api_runtime/$RUNTIME_ROLE/g" \
@@ -150,7 +157,19 @@ SQL
   else
     # SECURITY DEFINER business routines must be owned by this non-login DB
     # owner, never by the local PostgreSQL superuser.
-    psql_admin -d "$DB_NAME" -c "SET ROLE $DB_OWNER_ROLE" -f "$MIGRATIONS_DIR/$file" >/dev/null
+    if [ "$file" = "005_runtime_privileges.sql" ]; then
+      # This migration changes the cluster-level NOLOGIN role; run it with the
+      # local DB administrator, then set default privileges for StarDesk owner.
+      psql_admin -d "$DB_NAME" -f "$MIGRATIONS_DIR/$file" >/dev/null
+      psql_admin -d "$DB_NAME" <<SQL >/dev/null
+ALTER DEFAULT PRIVILEGES FOR ROLE $DB_OWNER_ROLE IN SCHEMA api REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE $DB_OWNER_ROLE IN SCHEMA api GRANT EXECUTE ON FUNCTIONS TO $RUNTIME_ROLE;
+SQL
+    else
+      # SECURITY DEFINER business routines must be owned by this non-login DB
+      # owner, never by the local PostgreSQL superuser.
+      psql_admin -d "$DB_NAME" -c "SET ROLE $DB_OWNER_ROLE" -f "$MIGRATIONS_DIR/$file" >/dev/null
+    fi
   fi
 }
 for file in "${MIGRATION_FILES[@]}"; do apply_file "$file"; done
