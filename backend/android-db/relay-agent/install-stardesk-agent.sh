@@ -5,16 +5,16 @@ umask 077
 PREFIX="$(printenv PREFIX || printf '/data/data/com.termux/files/usr')"
 HOME="$(printenv HOME || printf '/data/data/com.termux/files/home')"
 REF="$(printenv ANI_RELAY_REF || true)"
-API_URL="\${ANI_LOCAL_API_URL:-http://127.0.0.1:8789}"
+API_URL="${ANI_LOCAL_API_URL:-http://127.0.0.1:8789}"
 RELAY_URL="wss://ani-games-db-android-stage-ws-relay.anigamesready.workers.dev/agent/connect/stardesk"
 BASE="https://raw.githubusercontent.com/anigamesready/Billing_stardesk_custom"
-SECRET_FILE="\${ANI_RELAY_SECRET_FILE:-$HOME/ani-games-db-android-stage/relay-worker-shared-secret.txt}"
+SECRET_FILE="${ANI_RELAY_SECRET_FILE:-$HOME/ani-games-db-android-stage/relay-worker-shared-secret.txt}"
 
 die(){ printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 log(){ printf '[Ani StarDesk Relay Agent] %s\n' "$*"; }
 secret_is_valid(){
   local value="$1" safe
-  [ "\${#value}" -ge 32 ] && [ "\${#value}" -le 512 ] || return 1
+  [ "${#value}" -ge 32 ] && [ "${#value}" -le 512 ] || return 1
   safe="$(LC_ALL=C printf '%s' "$value" | LC_ALL=C tr -cd 'A-Za-z0-9._~+/=-')"
   [ "$safe" = "$value" ]
 }
