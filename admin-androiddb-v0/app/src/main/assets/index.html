@@ -55,15 +55,18 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
   <div id="globalMessage" class="msg">Menunggu data dari Android DB.</div>
   <nav class="tabs">
     <button class="active" data-tab="dashboard" onclick="showTab('dashboard')">Ringkasan</button>
-    <button data-tab="legacy" onclick="showTab('legacy')">Rental Lama</button>
-    <button data-tab="devices" onclick="showTab('devices')">PC & Kontrol</button>
+    <button data-tab="pairing" onclick="showTab('pairing')">Pairing PC</button>
+    <button data-tab="active" onclick="showTab('active')">PC Aktif</button>
+    <button data-tab="devices" onclick="showTab('devices')">Windows Control</button>
     <button data-tab="reports" onclick="showTab('reports')">Laporan</button>
-    <button data-tab="settings" onclick="showTab('settings')">Pengaturan</button>
-    <button data-tab="users" onclick="showTab('users')">Akun</button>
-    <button data-tab="remote" onclick="showTab('remote')">Remote / WoL</button>
-    <button data-tab="rentals" onclick="showTab('rentals')">Rental Coin</button>
-    <button data-tab="hosts" onclick="showTab('hosts')">PC Host</button>
+    <button data-tab="users" onclick="showTab('users')">User Billing Control</button>
+    <button data-tab="chat" onclick="showTab('chat')">Chat ke Windows</button>
+    <button data-tab="free" onclick="showTab('free')">FREE TEST 10 MENIT</button>
+    <button data-tab="remote" onclick="showTab('remote')">WoL Android Relay</button>
+    <button data-tab="rentals" onclick="showTab('rentals')">Data User Coin</button>
+    <button data-tab="hosts" onclick="showTab('hosts')">PC Host & Tarif</button>
     <button data-tab="payments" onclick="showTab('payments')">Top-up</button>
+    <button data-tab="settings" onclick="showTab('settings')">Pengaturan</button>
   </nav>
 
   <section id="dashboard" class="section active">
@@ -74,30 +77,89 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
       <div class="stat"><div class="k">Wallet</div><div id="statWallets" class="v">—</div></div>
       <div class="stat"><div class="k">PC Host Agent siap</div><div id="statHosts" class="v">—</div></div>
     </div>
-    <div class="card"><h3>Ringkasan DB utama</h3>
+    <div class="card"><h3>Status PC & sistem</h3>
       <div class="stat-grid">
-        <div class="stat"><div class="k">Rental timer lama</div><div id="coreRentalCount" class="v">—</div></div>
         <div class="stat"><div class="k">PC terdaftar</div><div id="coreDeviceCount" class="v">—</div></div>
-        <div class="stat"><div class="k">Sesi aktif</div><div id="coreSessionCount" class="v">—</div></div>
-        <div class="stat"><div class="k">Alert terbaru</div><div id="coreAlertCount" class="v">—</div></div>
+        <div class="stat"><div class="k">PC online</div><div id="coreOnlineCount" class="v">—</div></div>
+        <div class="stat"><div class="k">Alert 24 jam</div><div id="coreAlertCount" class="v">—</div></div>
       </div>
-      <div id="coreSystemStatus" class="hint" style="margin-top:10px">Membaca data Core Admin…</div>
+      <div id="coreSystemStatus" class="hint" style="margin-top:10px">Membaca status PC dan alert…</div>
     </div>
     <div class="card"><h3>Status sistem</h3><div id="systemStatus" class="hint">Membaca status dari gateway dan Android DB.</div></div>
     <div class="card"><h3>Pemisahan data</h3><p class="hint">Data member dan Coin disimpan pada schema androiddb_v0. Akun Owner hanya dipakai untuk autentikasi dan batas tenant. Sistem ini tidak memanggil tabel rental timer lama.</p></div>
   </section>
 
+  <section id="pairing" class="section">
+    <div class="card">
+      <h2>Pairing PC Billing</h2>
+      <p class="hint">Buat kode khusus untuk memasangkan aplikasi PC Billing ke StarDesk Android DB. Masukkan kode ini pada menu Pairing Android DB di PC tujuan. Kode hanya untuk proses pairing, bukan password Owner.</p>
+      <div class="form-grid">
+        <div><label>Nama / label PC</label><input id="pairPcLabel" maxlength="120" placeholder="Contoh: PC RTX3060"></div>
+        <div><label>Masa berlaku kode</label><select id="pairPcMinutes"><option value="15">15 menit</option><option value="30" selected>30 menit</option><option value="60">1 jam</option><option value="120">2 jam</option></select></div>
+        <div class="wide"><button class="primary" style="width:100%" onclick="generatePcPairingCode()">Buat Kode Pairing PC</button></div>
+      </div>
+      <div id="pairPcCodeResult" class="msg" style="margin-top:12px;white-space:pre-wrap">Belum ada kode Pairing PC dibuat.</div>
+    </div>
+    <div class="card">
+      <h2>Pairing StarDesk Host Agent</h2>
+      <p class="hint">Ini kode terpisah dari PC Billing. Pilih PC yang sudah terdaftar, pastikan izin Host di menu PC Host aktif, lalu buat kode satu kali untuk Host Agent.</p>
+      <div class="row"><select id="pairHostDevice" class="grow"><option value="">Pilih PC terdaftar</option></select><button class="primary" onclick="issueSelectedHost()">Buat kode Agent</button></div>
+      <div class="hint" id="pairHostStatus" style="margin-top:10px">Menunggu daftar PC Host dimuat.</div>
+    </div>
+  </section>
+
+  <section id="active" class="section">
+    <div class="card">
+      <div class="row" style="justify-content:space-between"><h2>PC Aktif / Online</h2><button class="small primary" onclick="loadActivePCs()">Refresh status</button></div>
+      <div id="activePcSummary" class="hint">Belum diperiksa.</div>
+      <div id="activePcList" class="list"><div class="empty">Belum dimuat.</div></div>
+    </div>
+    <div class="card">
+      <h3>PC Offline / belum terhubung</h3>
+      <div id="offlinePcList" class="list"><div class="empty">Belum dimuat.</div></div>
+    </div>
+  </section>
+
+  <section id="free" class="section">
+    <div class="card">
+      <div class="row" style="justify-content:space-between"><h2>FREE TEST 10 MENIT</h2><span id="freeTestState" class="pill">Belum diperiksa</span></div>
+      <p class="hint">Free Test adalah uji coba PC 10 menit. Izin global Owner harus aktif. Perintah baru dianggap berhasil setelah PC menerima dan mengirim ACK.</p>
+      <div class="actions">
+        <button class="small primary" onclick="setPolicy('free',true)">Aktifkan izin Free Test</button>
+        <button class="small danger" onclick="setPolicy('free',false)">Nonaktifkan izin</button>
+        <button class="small" onclick="loadFreeTest()">Refresh status</button>
+      </div>
+      <div class="form-grid" style="margin-top:12px">
+        <div class="wide"><label>PC tujuan</label><select id="freeTestDevice"><option value="">Pilih PC yang online</option></select></div>
+        <div class="wide"><button class="primary" style="width:100%" onclick="startSelectedFreeTest()">Mulai Free Test 10 Menit</button></div>
+      </div>
+      <pre id="freeTestResult" class="msg" style="white-space:pre-wrap;overflow-wrap:anywhere">Belum ada permintaan Free Test.</pre>
+    </div>
+  </section>
+
+  <section id="chat" class="section">
+    <div class="card">
+      <h2>Chat ke Windows</h2>
+      <span class="pill warn">BELUM TERHUBUNG KE RECEIVER PC</span>
+      <p class="hint">Admin V12.1.62 yang dilampirkan menyiapkan command <code>show_admin_message</code>, tetapi PC Billing bundle yang bisa diverifikasi belum memiliki handler untuk menampilkan pesan tersebut. Tombol kirim sengaja belum diaktifkan supaya pesan tidak dianggap terkirim padahal PC menolak command.</p>
+      <p class="hint">Menu tetap disediakan. Fitur akan diaktifkan setelah receiver di PC Billing/Host Agent terpasang dan diuji dengan ACK pada PC nyata.</p>
+      <textarea id="windowsChatMessage" rows="3" maxlength="240" placeholder="Chat Windows belum aktif sampai receiver PC diperbarui." disabled></textarea>
+      <button class="small" disabled>Kirim ke Windows (menunggu receiver PC)</button>
+      <pre id="windowsChatStatus" class="msg" style="white-space:pre-wrap">Belum ada receiver PC yang lolos verifikasi.</pre>
+    </div>
+  </section>
+
   <section id="rentals" class="section">
     <div class="card">
-      <h2>Buat akun rental Coin</h2>
-      <p class="hint">Akun baru tidak memiliki hitungan waktu ataupun tanggal kedaluwarsa akun. Masa berlaku diterapkan pada setiap lot Coin setelah top-up disetujui.</p>
+      <h2>Data User Coin — buat akun member</h2>
+      <p class="hint">Satu sistem ID rental untuk semua PC. Saldo Coin dipakai lintas PC; tarif dihitung dari GPU PC tujuan. Masa berlaku melekat pada setiap lot Coin, bukan pada timer rental.</p>
       <div class="form-grid">
         <div><label for="newCode">ID Rental</label><input id="newCode" maxlength="40" placeholder="MEMBER001"></div>
         <div><label for="newLabel">Nama member</label><input id="newLabel" maxlength="120" placeholder="Nama penyewa"></div>
         <div class="wide"><button class="primary" style="width:100%" onclick="createRental()">+ Buat Rental Coin</button></div>
       </div>
     </div>
-    <div class="card"><div class="row" style="justify-content:space-between"><h2>Daftar rental v0</h2><button class="small" onclick="loadDashboard()">Refresh</button></div><div id="rentalList" class="list"><div class="empty">Belum dimuat.</div></div></div>
+    <div class="card"><div class="row" style="justify-content:space-between"><h2>Daftar Data User Coin</h2><button class="small" onclick="loadDashboard()">Refresh</button></div><div id="rentalList" class="list"><div class="empty">Belum dimuat.</div></div></div>
   </section>
 
   <section id="hosts" class="section">
@@ -120,28 +182,13 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
       <div id="walletResult" class="list" style="margin-top:12px"><div class="empty">Pilih akun untuk membaca lot dan ledger.</div></div>
     </div>
   </section>
-  <section id="legacy" class="section">
-    <div class="card">
-      <h2>Rental timer utama</h2>
-      <p class="hint">Data dari public.rental_accounts dan fungsi Admin inti. Tetap terpisah dari rental Coin di schema androiddb_v0.</p>
-      <div class="form-grid">
-        <div><label>ID Rental</label><input id="legacyNewCode" maxlength="120" placeholder="MEMBER001"></div>
-        <div><label>Kategori</label><select id="legacyNewCategory"><option>reguler</option><option>mingguan</option><option>bulanan</option><option>hemat</option><option>sultan</option><option>mega hemat</option></select></div>
-        <div><label>Durasi menit</label><input id="legacyNewMinutes" type="number" min="1" max="525600" value="60"></div>
-        <div><label>Nama member</label><input id="legacyNewLabel" maxlength="120" placeholder="Nama penyewa"></div>
-        <div><label>Expiry akun (opsional)</label><input id="legacyNewExpiry" type="datetime-local"></div>
-        <div class="wide"><button class="primary" style="width:100%" onclick="createLegacyRental()">+ Buat Rental Timer</button></div>
-      </div>
-    </div>
-    <div class="card"><div class="row" style="justify-content:space-between"><h2>Daftar rental timer</h2><button class="small" onclick="loadLegacyRentals()">Refresh</button></div><div id="legacyRentalList" class="list"><div class="empty">Belum dimuat.</div></div></div>
-  </section>
-
+  
   <section id="devices" class="section">
-    <div class="card"><div class="row" style="justify-content:space-between"><h2>Inventaris PC & kontrol Windows</h2><button class="small primary" onclick="loadDevices()">Refresh</button></div>
-      <p class="hint">Kontrol diteruskan melalui command queue resmi DB. Perintah restart, logoff, stop, dan shutdown memerlukan konfirmasi.</p>
+    <div class="card"><div class="row" style="justify-content:space-between"><h2>Windows Control per PC</h2><button class="small primary" onclick="loadDevices()">Refresh daftar PC</button></div>
+      <p class="hint">Pilih perintah untuk PC yang online. Restart Billing, Logout Billing, logoff Windows, restart PC dan shutdown dikirim ke antrian PC; status berubah menjadi BERHASIL hanya setelah PC mengirim ACK.</p>
       <div id="deviceList" class="list"><div class="empty">Belum dimuat.</div></div>
     </div>
-    <div class="card"><h3>Status perintah</h3><div class="row"><input id="commandStatusId" placeholder="Command ID" class="grow"><button class="primary" onclick="checkCommandStatus()">Cek</button></div><pre id="commandStatusResult" class="msg" style="white-space:pre-wrap;overflow-wrap:anywhere">Belum ada command yang dipilih.</pre></div>
+    <div class="card"><h3>Status perintah Windows</h3><div class="row"><input id="commandStatusId" placeholder="Command ID" class="grow"><button class="primary" onclick="checkCommandStatus()">Cek status</button></div><pre id="commandStatusResult" class="msg" style="white-space:pre-wrap;overflow-wrap:anywhere">Belum ada command yang dipilih.</pre></div>
   </section>
 
   <section id="reports" class="section">
@@ -164,25 +211,9 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
 
   <section id="settings" class="section">
     <div class="card">
-      <div class="row" style="justify-content:space-between"><h2>Kebijakan Billing</h2><button class="small" onclick="loadSettings()">Refresh</button></div>
-      <div class="item"><div class="item-head"><b>Free Test 10 menit</b><span id="freeTestState" class="pill">—</span></div><div class="actions"><button class="small primary" onclick="setPolicy('free',true)">Aktifkan</button><button class="small danger" onclick="setPolicy('free',false)">Nonaktifkan</button></div></div>
+      <div class="row" style="justify-content:space-between"><h2>Kebijakan Stop / Pause</h2><button class="small" onclick="loadSettings()">Refresh</button></div>
       <div class="item"><div class="item-head"><b>Kebijakan Stop / Pause Billing</b><span id="stopPauseState" class="pill">—</span></div><div class="actions"><button class="small primary" onclick="setPolicy('stop',true)">Aktifkan</button><button class="small danger" onclick="setPolicy('stop',false)">Nonaktifkan</button></div></div>
       <div id="policyDetails" class="hint" style="margin-top:8px">Membaca kebijakan dari database.</div>
-    </div>
-    <div class="card">
-      <h2>Tampilan / Theme organisasi</h2>
-      <div class="form-grid">
-        <div><label>Nama theme</label><input id="themeName" value="Ani Games Ready"></div>
-        <div><label>Judul brand</label><input id="themeTitle" value="ANI GAMES READY"></div>
-        <div><label>Subtitle</label><input id="themeSubtitle" value="PC RENTAL"></div>
-        <div><label>Warna utama</label><input id="themePrimary" value="#17688b"></div>
-        <div><label>Warna kedua</label><input id="themeSecondary" value="#5940ba"></div>
-        <div><label>Warna card</label><input id="themeCard" value="#11223a"></div>
-        <div><label>Media URL (opsional)</label><input id="themeMedia" placeholder="https://..."></div>
-        <div><label>Wallpaper URL (opsional)</label><input id="themeWallpaper" placeholder="https://..."></div>
-        <div><label>Logo URL (opsional)</label><input id="themeLogo" placeholder="https://..."></div>
-        <div class="wide"><button class="primary" style="width:100%" onclick="saveOrgTheme()">Simpan Theme</button></div>
-      </div>
     </div>
     <div class="card">
       <h2>Ganti Password Owner</h2>
@@ -350,7 +381,7 @@ function showTab(id){
   document.querySelectorAll(".section").forEach(function(x){x.classList.remove("active");});
   document.querySelectorAll(".tabs button").forEach(function(x){x.classList.toggle("active",x.dataset.tab===id);});
   el(id).classList.add("active");
-  const jobs={dashboard:loadDashboard,legacy:loadLegacyRentals,devices:loadDevices,reports:function(){},settings:loadSettings,users:loadBillingUsers,remote:function(){return Promise.all([loadRemoteAdmin(),loadWolStatus(),checkBlynk()]);},rentals:loadDashboard,hosts:loadDashboard,payments:loadDashboard};
+  const jobs={dashboard:loadDashboard,pairing:loadDashboard,active:loadActivePCs,devices:loadDevices,reports:function(){},settings:loadSettings,users:loadBillingUsers,chat:loadChatStatus,free:loadFreeTest,remote:function(){return Promise.all([loadRemoteAdmin(),loadWolStatus(),checkBlynk()]);},rentals:loadDashboard,hosts:loadDashboard,payments:loadDashboard};
   const fn=jobs[id]||loadDashboard;Promise.resolve().then(fn).catch(e=>globalMessage("Gagal memuat modul: "+e.message,true));
 }
 async function loadDashboard(){
@@ -358,7 +389,7 @@ async function loadDashboard(){
   try{
     const data=await api("androiddb_v0_admin_dashboard",{p_limit:200});
     if(!data||data.ok!==true)throw new Error("ANDROIDDB_V0_DASHBOARD_INVALID");
-    dashboardData=data;renderDashboard(data);renderRentals(data);renderHosts(data);renderTopups(data);populateWalletSelect(data);
+    dashboardData=data;renderDashboard(data);renderRentals(data);renderHosts(data);renderTopups(data);populateWalletSelect(data);populateHostPairingSelect(data);
     try{await loadCoreOverview();}catch(coreError){el("coreSystemStatus").textContent="Core Admin belum terbaca: "+coreError.message;}
     globalMessage("Data Android DB berhasil diperbarui • "+date(data.server_time));return data;
   }catch(error){globalMessage("Gagal memuat Android DB v0: "+val(error.message||error),true);throw error;}
@@ -439,6 +470,18 @@ async function issueHost(id){
   try{const r=await api("androiddb_v0_admin_issue_host_enrollment",{p_device_id:id,p_valid_minutes:15});if(r.ok!==true||!r.enrollment_code)throw new Error("Kode enrollment tidak tersedia.");showCode("KODE ENROLLMENT HOST AGENT",r.enrollment_code,"Berlaku sampai "+date(r.expires_at)+". Kode khusus PC yang dipilih.");await loadDashboard();}
   catch(error){globalMessage("Gagal membuat kode Agent: "+val(error.message||error),true);}
 }
+function populateHostPairingSelect(data){
+  const rows=Array.isArray(data.host_devices)?data.host_devices:[],selected=el("pairHostDevice").value;
+  el("pairHostDevice").innerHTML='<option value="">Pilih PC terdaftar</option>'+rows.map(function(h){return '<option value="'+esc(h.device_id)+'">'+esc(h.device_name||h.client_id)+' • '+esc(h.client_id)+'</option>';}).join("");
+  if(rows.some(function(h){return String(h.device_id)===selected;}))el("pairHostDevice").value=selected;
+  el("pairHostStatus").textContent=rows.length+" PC tersedia untuk mapping Host Agent. PC Billing pairing dan Host Agent pairing memakai kode berbeda.";
+}
+async function issueSelectedHost(){
+  const id=val(el("pairHostDevice").value).trim();
+  if(!id){globalMessage("Pilih PC untuk Host Agent terlebih dahulu.",true);return;}
+  await issueHost(id);
+}
+
 async function approveTopup(id){
   if(!confirm("Pastikan pembayaran diterima sebelum menyetujui top-up ini. Lanjutkan?"))return;
   try{const r=await api("androiddb_v0_admin_approve_topup",{p_order_id:id});if(r.ok!==true||r.status!=="approved")throw new Error(r.message||"Approval gagal.");await loadDashboard();globalMessage("Top-up disetujui dan Coin dikreditkan satu kali.");}
@@ -481,77 +524,60 @@ async function loadCoreOverview(){
   const id=orgId();if(!id)return;
   const since=new Date(Date.now()-86400000).toISOString();
   const results=await Promise.all([
-    api("admin_rental_accounts_global",{p_org_id:id}),
     api("admin_devices",{p_org_id:id}),
-    api("admin_active_sessions",{p_org_id:id}),
     api("admin_recent_alerts",{p_org_id:id,p_since:since})
   ]);
-  coreOverview={rentals:asArray(results[0]),devices:asArray(results[1]),sessions:asArray(results[2]),alerts:asArray(results[3])};
-  el("coreRentalCount").textContent=coreOverview.rentals.length;
-  el("coreDeviceCount").textContent=coreOverview.devices.length;
-  el("coreSessionCount").textContent=coreOverview.sessions.length;
-  el("coreAlertCount").textContent=coreOverview.alerts.length;
-  el("coreSystemStatus").textContent="Core DB tersambung • "+coreOverview.rentals.length+" rental lama • "+coreOverview.devices.length+" PC • "+coreOverview.sessions.length+" sesi aktif • "+coreOverview.alerts.length+" alert 24 jam terakhir.";
+  const devices=asArray(results[0]),alerts=asArray(results[1]);
+  const online=devices.filter(function(d){return d.status==="online";});
+  coreOverview={devices:devices,online:online,alerts:alerts};
+  el("coreDeviceCount").textContent=devices.length;
+  el("coreOnlineCount").textContent=online.length;
+  el("coreAlertCount").textContent=alerts.length;
+  el("coreSystemStatus").textContent="Core DB tersambung • "+online.length+" PC online dari "+devices.length+" terdaftar • "+alerts.length+" alert 24 jam terakhir.";
   return coreOverview;
 }
-async function loadLegacyRentals(){
+async function generatePcPairingCode(){
+  const label=val(el("pairPcLabel").value).trim()||"PC StarDesk";
+  const minutes=Math.max(5,Math.min(1440,Math.trunc(Number(el("pairPcMinutes").value)||30)));
+  if(!orgId())throw new Error("Workspace Owner belum dipilih.");
   try{
-    const rows=asArray(await api("admin_rental_accounts_global",orgArgs()));
-    renderLegacyRentals(rows);globalMessage("Rental timer lama berhasil dibaca dari DB.");
-  }catch(e){el("legacyRentalList").innerHTML='<div class="msg error">'+esc(e.message)+'</div>';globalMessage("Gagal membaca rental lama: "+e.message,true);}
+    const r=await api("create_enrollment",{p_org_id:orgId(),p_label:label,p_minutes:minutes});
+    const code=val(r.code||r.enrollment_code||r.pairing_code).trim();
+    if(!code)throw new Error("Backend tidak mengembalikan kode pairing.");
+    el("pairPcCodeResult").textContent="KODE PAIRING PC BILLING\n"+code+"\nLabel: "+label+"\nBerlaku "+minutes+" menit. Masukkan kode pada menu Pairing Android DB di PC tujuan.";
+    showCode("KODE PAIRING PC BILLING",code,"Label: "+label+" • Berlaku "+minutes+" menit • Masukkan ke PC Billing tujuan.");
+    globalMessage("Kode Pairing PC berhasil dibuat.");
+  }catch(e){el("pairPcCodeResult").textContent="Gagal membuat kode: "+e.message;globalMessage("Pairing PC gagal: "+e.message,true);}
 }
-function renderLegacyRentals(rows){
-  el("legacyRentalList").innerHTML=rows.map(r=>{
-    const id=esc(r.id),minutes=Math.max(0,Math.floor(num(r.remaining_seconds)/60)),status=val(r.status);
-    const cats=["reguler","mingguan","bulanan","hemat","sultan","mega hemat"];
-    return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(r.code)+'</div><div class="item-meta">'+esc(r.client_label||"Tanpa nama")+' • Sisa '+minutes+' menit</div></div><span class="pill '+(status==="active"?"good":status==="expired"?"warn":"bad")+'">'+esc(status.toUpperCase())+'</span></div><div class="form-grid" style="margin-top:10px"><div><label>ID Rental</label><input id="lr_code_'+id+'" value="'+esc(r.code)+'"></div><div><label>Kategori</label><select id="lr_cat_'+id+'">'+cats.map(c=>'<option value="'+c+'" '+(r.category===c?"selected":"")+'>'+c+'</option>').join("")+'</select></div><div><label>Durasi menit</label><input id="lr_min_'+id+'" type="number" min="0" value="'+minutes+'"></div><div><label>Nama member</label><input id="lr_label_'+id+'" value="'+esc(r.client_label||"")+'"></div><div><label>Status</label><select id="lr_status_'+id+'"><option value="active" '+(status==="active"?"selected":"")+'>active</option><option value="disabled" '+(status==="disabled"?"selected":"")+'>disabled</option><option value="expired" '+(status==="expired"?"selected":"")+'>expired</option></select></div><div><label>Expiry akun</label><input id="lr_exp_'+id+'" type="datetime-local" value="'+toLocalInput(r.expiry_at)+'"></div></div><div class="item-actions"><button class="small primary" onclick="saveLegacyRental(\''+id+'\')">Simpan</button><button class="small" onclick="disableLegacyRental(\''+id+'\')">Nonaktifkan</button><button class="small danger" onclick="deleteLegacyRental(\''+id+'\')">Hapus</button></div></div>';
-  }).join("")||'<div class="empty">Belum ada rental timer lama.</div>';
-}
-async function createLegacyRental(){
+async function loadActivePCs(){
   try{
-    const args=orgArgs();args.p_code=val(el("legacyNewCode").value).trim();args.p_category=el("legacyNewCategory").value;
-    args.p_minutes=num(el("legacyNewMinutes").value);args.p_client_label=val(el("legacyNewLabel").value).trim();args.p_expiry_at=isoFromInput("legacyNewExpiry");
-    if(!args.p_code||args.p_minutes<1)throw new Error("ID Rental dan durasi minimal 1 menit wajib diisi.");
-    const r=await api("admin_create_rental_global",args);showCode("Rental timer dibuat",r.code||args.p_code,pretty(r));
-    el("legacyNewCode").value="";el("legacyNewLabel").value="";await loadLegacyRentals();await loadCoreOverview();
-  }catch(e){globalMessage("Gagal membuat rental lama: "+e.message,true);}
-}
-async function saveLegacyRental(id){
-  try{
-    const args=orgArgs();args.p_rental_id=id;args.p_code=val(el("lr_code_"+id).value).trim();args.p_category=el("lr_cat_"+id).value;
-    args.p_minutes=num(el("lr_min_"+id).value);args.p_client_label=val(el("lr_label_"+id).value).trim();args.p_expiry_at=isoFromInput("lr_exp_"+id);args.p_status=el("lr_status_"+id).value;
-    await api("admin_update_rental_global",args);globalMessage("Rental lama berhasil diperbarui.");await loadLegacyRentals();await loadCoreOverview();
-  }catch(e){globalMessage("Gagal menyimpan rental: "+e.message,true);}
-}
-async function disableLegacyRental(id){
-  if(!confirm("Nonaktifkan rental ini? DB akan menolak jika sesi timer masih aktif."))return;
-  try{const a=orgArgs();a.p_rental_id=id;await api("admin_disable_rental_global",a);await loadLegacyRentals();await loadCoreOverview();globalMessage("Rental dinonaktifkan.");}
-  catch(e){globalMessage("Gagal menonaktifkan rental: "+e.message,true);}
-}
-async function deleteLegacyRental(id){
-  if(!confirm("Hapus permanen rental ini? DB akan memeriksa sesi aktif dan relasi terkait."))return;
-  try{const a=orgArgs();a.p_rental_id=id;await api("admin_delete_rental_global",a);await loadLegacyRentals();await loadCoreOverview();globalMessage("Rental dihapus.");}
-  catch(e){globalMessage("Gagal menghapus rental: "+e.message,true);}
+    const rows=asArray(await api("admin_devices",orgArgs()));
+    const online=rows.filter(d=>d.status==="online"),offline=rows.filter(d=>d.status!=="online");
+    el("activePcSummary").textContent=online.length+" PC online dari "+rows.length+" terdaftar. Status online mengikuti heartbeat PC (maksimum 45 detik).";
+    function card(d){
+      const id=esc(d.id),isOn=d.status==="online";
+      return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(d.device_name||d.client_id)+'</div><div class="item-meta">'+esc(d.client_id)+' • '+esc(d.power_state||"power unknown")+'</div></div><span class="pill '+(isOn?"good":"bad")+'">'+(isOn?"ONLINE":"OFFLINE")+'</span></div><div class="item-meta">Heartbeat: '+date(d.last_heartbeat_at||d.last_seen_at)+'</div></div>';
+    }
+    el("activePcList").innerHTML=online.map(card).join("")||'<div class="empty">Belum ada PC online.</div>';
+    el("offlinePcList").innerHTML=offline.map(card).join("")||'<div class="empty">Semua PC yang terdaftar sedang online.</div>';
+    window.__stardeskDeviceRows=rows;
+  }catch(e){el("activePcSummary").textContent="Gagal membaca status PC: "+e.message;globalMessage("PC Aktif gagal dimuat: "+e.message,true);}
 }
 async function loadDevices(){
   try{
-    const a=orgArgs();const [devices,sessions]=await Promise.all([api("admin_devices",a),api("admin_active_sessions",a)]);
-    renderDevices(asArray(devices),asArray(sessions));globalMessage("Inventaris PC dan sesi aktif berhasil dimuat.");
+    const rows=asArray(await api("admin_devices",orgArgs()));
+    renderDevices(rows);
+    globalMessage("Daftar PC untuk Windows Control berhasil dimuat.");
   }catch(e){el("deviceList").innerHTML='<div class="msg error">'+esc(e.message)+'</div>';globalMessage("Gagal membaca PC: "+e.message,true);}
 }
-function renderDevices(rows,sessions){
-  const activeByDevice=new Map();sessions.forEach(s=>activeByDevice.set(s.device_id,s));
-  const commands=["refresh","restart_billing","pause","resume","stop","logoff","restart_pc","shutdown"];
+function renderDevices(rows){
+  window.__stardeskDeviceRows=rows;
+  const commands=["refresh","restart_billing","logout","pause","resume","stop","logoff","restart_pc","shutdown"];
+  const labels={refresh:"Refresh Billing",restart_billing:"Restart Billing",logout:"Logout Billing",pause:"Pause sesi Billing",resume:"Resume sesi Billing",stop:"Stop sesi Billing",logoff:"Logoff Windows",restart_pc:"Restart Windows",shutdown:"Shutdown Windows"};
   el("deviceList").innerHTML=rows.map(d=>{
-    const id=esc(d.id),session=activeByDevice.get(d.id),online=d.status==="online";
-    return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(d.device_name||d.client_id)+'</div><div class="item-meta">'+esc(d.client_id)+' • '+esc(d.power_state||"power unknown")+'</div></div><span class="pill '+(online?"good":"bad")+'">'+esc(val(d.status).toUpperCase())+'</span></div><div class="item-meta">Heartbeat: '+date(d.last_heartbeat_at||d.last_seen_at)+' • Sesi: '+(session?esc(session.code||session.rental_code||session.status):"Tidak ada sesi aktif")+'</div><div class="form-grid" style="margin-top:9px"><div><label>Nama PC</label><input id="devname_'+id+'" value="'+esc(d.device_name||"")+'"></div><div><label>Perintah</label><select id="devcmd_'+id+'">'+commands.map(c=>'<option value="'+c+'">'+c.replaceAll("_"," ")+'</option>').join("")+'</select></div></div><div class="item-actions"><button class="small" onclick="renameDevice(\''+id+'\')">Ubah nama</button><button class="small primary" onclick="sendDeviceCommand(\''+id+'\')">Kirim perintah</button><button class="small" onclick="showDeviceState(\''+id+'\')">Detail PC</button><button class="small" onclick="showDeviceSessions(\''+id+'\')">Sesi PC</button><button class="small" onclick="createRecoveryCode(\''+id+'\')">Kode recovery</button><button class="small" data-id="'+id+'" onclick="createDeviceEnrollment(this.dataset.id)">Kode enrollment</button><button class="small" onclick="startDeviceTrial(\''+id+'\')">Free test</button><button class="small danger" onclick="disconnectDevice(\''+id+'\')">Putuskan</button></div></div>';
+    const id=esc(d.id),online=d.status==="online";
+    return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(d.device_name||d.client_id)+'</div><div class="item-meta">'+esc(d.client_id)+' • '+esc(d.power_state||"power unknown")+'</div></div><span class="pill '+(online?"good":"bad")+'">'+(online?"ONLINE":"OFFLINE")+'</span></div><div class="item-meta">Heartbeat PC: '+date(d.last_heartbeat_at||d.last_seen_at)+'</div><div class="form-grid" style="margin-top:9px"><div><label>Nama PC</label><input id="devname_'+id+'" value="'+esc(d.device_name||"")+'"></div><div><label>Kontrol Windows</label><select id="devcmd_'+id+'">'+commands.map(c=>'<option value="'+c+'">'+labels[c]+'</option>').join("")+'</select></div></div><div class="item-actions"><button class="small" onclick="renameDevice(\''+id+'\')">Ubah nama</button><button class="small primary" onclick="sendDeviceCommand(\''+id+'\')">Kirim perintah</button><button class="small" onclick="showDeviceState(\''+id+'\')">Detail PC</button><button class="small" onclick="createRecoveryCode(\''+id+'\')">Kode recovery</button><button class="small danger" onclick="disconnectDevice(\''+id+'\')">Putuskan</button></div></div>';
   }).join("")||'<div class="empty">Belum ada PC terdaftar di organisasi ini.</div>';
-}
-async function createDeviceEnrollment(id){
-  const minutes=prompt("Masa berlaku kode enrollment (menit):","30");if(minutes===null)return;
-  const valid=Math.max(5,Math.min(1440,Math.trunc(Number(minutes)||30)));
-  try{const r=await api("create_enrollment",{p_org_id:orgId(),p_label:"PC "+id,p_minutes:valid});showCode("Kode enrollment PC",r.code||r.enrollment_code||pretty(r),"PC "+id+" • berlaku "+valid+" menit");}
-  catch(e){globalMessage("Gagal membuat enrollment PC: "+e.message,true);}
 }
 async function renameDevice(id){
   try{const a=orgArgs();a.p_device_id=id;a.p_device_name=val(el("devname_"+id).value).trim();if(!a.p_device_name)throw new Error("Nama PC wajib diisi.");await api("admin_rename_device",a);await loadDevices();globalMessage("Nama PC diperbarui.");}
@@ -562,15 +588,43 @@ async function disconnectDevice(id){
   try{const a=orgArgs();a.p_device_id=id;await api("admin_disconnect_device",a);await loadDevices();globalMessage("Perintah putuskan perangkat dikirim.");}
   catch(e){globalMessage("Gagal putuskan PC: "+e.message,true);}
 }
+async function waitDeviceCommand(commandId,timeoutMs=24000){
+  const until=Date.now()+timeoutMs;let state={status:"queued"};
+  do{
+    const args=orgArgs();args.p_command_id=commandId;
+    state=await api("admin_command_status",args);
+    if(["completed","failed","expired"].includes(String(state.status||"").toLowerCase()))return state;
+    await new Promise(resolve=>setTimeout(resolve,1500));
+  }while(Date.now()<until);
+  return state;
+}
 async function sendDeviceCommand(id){
   const command=el("devcmd_"+id).value;
-  const dangerous=["shutdown","restart_pc","logoff","stop"];
-  if(dangerous.includes(command)&&!confirm("Kirim perintah "+command+" ke PC ini?"))return;
+  const device=(window.__stardeskDeviceRows||[]).find(d=>String(d.id)===String(id));
+  if(!device)throw new Error("PC tidak ditemukan. Refresh daftar PC terlebih dahulu.");
+  if(device.status!=="online"&&command!=="restart_billing")throw new Error("PC OFFLINE. Nyalakan PC dan tunggu heartbeat sebelum mengirim perintah.");
+  const dangerous=["shutdown","restart_pc","logoff","logout","stop"];
+  if(dangerous.includes(command)&&!confirm("Kirim "+command.replaceAll("_"," ")+" ke "+(device.device_name||device.client_id)+"?"))return;
   try{
-    const a=orgArgs();a.p_device_id=id;a.p_command=command;a.p_payload={source:"admin_android_v0",requested_at:new Date().toISOString()};
+    const payload={source:"admin_android_v0",requested_at:new Date().toISOString()};
+    if(["pause","resume","stop"].includes(command)){
+      const args=orgArgs();args.p_device_id=id;
+      const sessions=asArray(await api("admin_selected_sessions",args));
+      const session=sessions.find(s=>String(s.device_id)===String(id))||sessions[0];
+      if(!session||!session.id)throw new Error("Tidak ada sesi Billing aktif untuk perintah "+command+". Perintah sesi ini belum bisa dipakai di PC tanpa sesi aktif.");
+      payload.session_id=session.id;
+    }
+    const a=orgArgs();a.p_device_id=id;a.p_command=command;a.p_payload=payload;
     const r=await api("admin_command",a);const cid=r.command_id||r.id||"";
-    if(cid){el("commandStatusId").value=cid;showJson("commandStatusResult",r);}
-    globalMessage("Command "+command+" dikirim. Status: "+(r.status||"queued"));
+    if(!r.ok||!cid)throw new Error(r.message||"Backend tidak mengembalikan command ID.");
+    el("commandStatusId").value=cid;showJson("commandStatusResult",r);
+    globalMessage("Perintah masuk antrean. Menunggu PC menerima dan mengirim ACK…");
+    const status=await waitDeviceCommand(cid,24000);
+    showJson("commandStatusResult",status);
+    if(status.status==="completed")globalMessage("Perintah "+command+" BERHASIL dikonfirmasi PC.");
+    else if(status.status==="failed"||status.status==="expired")globalMessage("PC menolak/gagal menjalankan "+command+": "+val(status.result?.message||status.result?.error||status.status),true);
+    else globalMessage("Perintah masih "+val(status.status||"queued")+". PC belum mengirim ACK akhir; cek Status Perintah untuk lanjut.");
+    await loadActivePCs();
   }catch(e){globalMessage("Command gagal: "+e.message,true);}
 }
 async function checkCommandStatus(){
@@ -591,8 +645,23 @@ async function createRecoveryCode(id){
 }
 async function startDeviceTrial(id){
   if(!confirm("Mulai Free Test 10 menit pada PC ini?"))return;
-  try{const a=orgArgs();a.p_device_id=id;showJson("commandStatusResult",await api("admin_start_trial",a));globalMessage("Permintaan Free Test dikirim.");}
-  catch(e){globalMessage("Free Test gagal: "+e.message,true);}
+  try{
+    const a=orgArgs();a.p_device_id=id;
+    const request=await api("admin_start_trial",a);
+    if(request.ok!==true||!request.command_id)throw new Error(request.message||"Permintaan Free Test tidak dibuat.");
+    el("commandStatusId").value=request.command_id;
+    globalMessage("Free Test masuk antrean. Menunggu PC menerima perintah…");
+    const status=await waitDeviceCommand(request.command_id,24000);
+    showJson("freeTestResult",status);
+    if(status.status==="completed")globalMessage("PC mengonfirmasi Free Test 10 menit dimulai.");
+    else if(status.status==="failed"||status.status==="expired")globalMessage("Free Test ditolak PC: "+val(status.result?.message||status.result?.error||status.status),true);
+    else globalMessage("Free Test masih "+val(status.status||"queued")+". Belum ada ACK akhir dari PC.");
+  }catch(e){globalMessage("Free Test gagal: "+e.message,true);}
+}
+async function startSelectedFreeTest(){
+  const id=val(el("freeTestDevice").value).trim();
+  if(!id){globalMessage("Pilih PC yang online terlebih dahulu.",true);return;}
+  await startDeviceTrial(id);
 }
 function reportRange(){
   const from=val(el("reportFrom").value),to=val(el("reportTo").value);
@@ -615,25 +684,37 @@ async function runReport(type){
 }
 async function loadSettings(){
   try{
-    const [free,stop]=await Promise.all([api("admin_get_free_test_policy"),api("admin_get_billing_stop_pause_policy")]);
-    el("freeTestState").textContent=val(free.enabled===true?"AKTIF":"NONAKTIF");el("freeTestState").className="pill "+(free.enabled===true?"good":"warn");
+    const stop=await api("admin_get_billing_stop_pause_policy");
     el("stopPauseState").textContent=val(stop.enabled===true?"AKTIF":"NONAKTIF");el("stopPauseState").className="pill "+(stop.enabled===true?"good":"warn");
-    showJson("policyDetails",{free_test:free,stop_pause:stop});
+    showJson("policyDetails",{stop_pause:stop});
   }catch(e){showJson("policyDetails",{ok:false,error:e.message});}
+}
+async function loadFreeTest(){
+  try{
+    const results=await Promise.all([api("admin_get_free_test_policy"),api("admin_devices",orgArgs())]);
+    const policy=results[0],devices=asArray(results[1]),online=devices.filter(d=>d.status==="online");
+    el("freeTestState").textContent=policy.enabled===true?"AKTIF":"NONAKTIF";
+    el("freeTestState").className="pill "+(policy.enabled===true?"good":"warn");
+    const selected=el("freeTestDevice").value;
+    el("freeTestDevice").innerHTML='<option value="">Pilih PC yang online</option>'+online.map(d=>'<option value="'+esc(d.id)+'">'+esc(d.device_name||d.client_id)+' • '+esc(d.client_id)+'</option>').join("");
+    if(online.some(d=>String(d.id)===selected))el("freeTestDevice").value=selected;
+    el("freeTestResult").textContent="Izin Free Test: "+(policy.enabled===true?"AKTIF":"NONAKTIF")+" • PC online: "+online.length;
+    if(policy.enabled!==true)el("freeTestResult").textContent+="\nAktifkan izin terlebih dahulu. PC akan tetap memverifikasi kebijakan dari server.";
+  }catch(e){el("freeTestState").textContent="GAGAL DIBACA";el("freeTestState").className="pill bad";showJson("freeTestResult",{ok:false,error:e.message});}
+}
+async function loadChatStatus(){
+  el("windowsChatStatus").textContent="BELUM AKTIF: receiver show_admin_message pada PC Billing belum terverifikasi. Tidak ada command yang dikirim.";
 }
 async function setPolicy(type,enabled){
   const label=type==="free"?"Free Test 10 menit":"Stop / Pause Billing";
   if(!confirm((enabled?"Aktifkan ":"Nonaktifkan ")+label+"?"))return;
-  try{const r=await api(type==="free"?"admin_set_free_test_policy":"admin_set_billing_stop_pause_policy",{p_enabled:enabled});showJson("policyDetails",r);await loadSettings();globalMessage(label+" diperbarui.");}
-  catch(e){globalMessage("Gagal mengubah kebijakan: "+e.message,true);}
-}
-async function saveOrgTheme(){
   try{
-    const a=orgArgs();a.p_name=val(el("themeName").value);a.p_brand_title=val(el("themeTitle").value);a.p_brand_subtitle=val(el("themeSubtitle").value);
-    a.p_primary_color=val(el("themePrimary").value);a.p_secondary_color=val(el("themeSecondary").value);a.p_card_color=val(el("themeCard").value);
-    a.p_media_url=val(el("themeMedia").value)||null;a.p_wallpaper_url=val(el("themeWallpaper").value)||null;a.p_logo_url=val(el("themeLogo").value)||null;
-    showJson("policyDetails",await api("save_theme",a));globalMessage("Theme organisasi berhasil disimpan.");
-  }catch(e){globalMessage("Gagal menyimpan theme: "+e.message,true);}
+    const r=await api(type==="free"?"admin_set_free_test_policy":"admin_set_billing_stop_pause_policy",{p_enabled:enabled});
+    if(r.enabled!==enabled)throw new Error("Database belum mengonfirmasi perubahan kebijakan.");
+    showJson(type==="free"?"freeTestResult":"policyDetails",r);
+    if(type==="free")await loadFreeTest();else await loadSettings();
+    globalMessage(label+" diperbarui dan dikonfirmasi database.");
+  }catch(e){globalMessage("Gagal mengubah kebijakan: "+e.message,true);}
 }
 async function changeOwnerPassword(){
   const current=val(el("pwCurrent").value),next=val(el("pwNew").value);
