@@ -17,7 +17,7 @@ const apps = [
     helper: 'android-client/app/src/main/java/com/anigamesready/stardeskclient/GatewayPinnedSocketFactory.java',
     gradle: 'android-client/app/build.gradle',
     base: 'ONLINE_API_BASE',
-    version: ['versionCode 9', 'versionName "0.6.3-isolated-stardesk-route-fix"'],
+    version: ['versionCode 10', 'versionName "0.6.4-route-and-login-limit-guidance"'],
   },
 ];
 
@@ -64,6 +64,14 @@ for (const app of apps) {
     if (app.name === 'Remote Android') {
       const html = readFileSync('android-client/app/src/main/assets/index.html', 'utf8');
       const gatewayBase = 'https://ani-games-db-android-stage-gateway.anigamesready.workers.dev/stardesk';
+      assert.ok(main.includes('connection.getHeaderField("Retry-After")'),
+        'Remote native bridge must preserve login cooldown timing');
+      assert.ok(html.includes('error.retryAfterSeconds=Number(result?.retry_after_seconds)||0;') &&
+        html.includes('err?.code==="LOGIN_RATE_LIMITED"') &&
+        html.includes('LOGIN DIBATASI SEMENTARA'),
+        'Remote login must show a localized and bounded cooldown message');
+      assert.ok(html.includes('Host Agent PC berasal dari heartbeat Windows, terpisah dari Relay Agent Redmi'),
+        'Remote UI must distinguish Windows Host Agent from Redmi Relay Agent');
       const worker = readFileSync('edge/cloudflare/ani-games-db-android-stage-ws-relay.mjs', 'utf8');
       assert.ok(main.includes('private static final String ONLINE_API_BASE = "' + gatewayBase + '";'),
         'Remote native bridge must use the isolated StarDesk route');
