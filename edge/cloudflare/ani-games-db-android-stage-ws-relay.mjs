@@ -129,7 +129,7 @@ async function proxyApiRequest(request, env, url) {
     clientIp: ip, headers: filteredRequestHeaders(request), bodyBase64: bytesToBase64(bodyBytes) };
   let upstream;
   try {
-    const hub = env.RELAY_HUB.getByName(HUB_NAME);
+    const hub = env.RELAY_HUB.getByName(hubName);
     upstream = await hub.fetch(new Request("https://relay.internal/proxy", {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(envelope)
     }));
