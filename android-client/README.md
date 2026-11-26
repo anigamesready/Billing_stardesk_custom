@@ -6,8 +6,8 @@ This source is the isolated Remote Android DB v0 client for the Ani Games Ready 
 - Application ID: `com.anigamesready.stardeskclient`
 - Package: `com.anigamesready.stardeskclient.coinx100preview`
 - Version: `0.6.6-userid-only-login`, versionCode `12`
-- Install mode: side-by-side with the earlier Remote 0.6.4
-- Version code: `9`
+- Install mode: updates Remote Coin x100 Preview 0.6.5 in place; package is unchanged
+- Version code: `12`
 - Remote source: `android-client/`
 - Repository: `anigamesready/Billing_stardesk_custom`
 
