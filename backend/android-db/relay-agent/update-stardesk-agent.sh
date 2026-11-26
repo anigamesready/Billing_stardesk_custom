@@ -25,7 +25,7 @@ for bin in node npm curl sv; do command -v "$bin" >/dev/null 2>&1 || die "$bin b
 [ "$(grep -c '^RELAY_SHARED_SECRET=' "$ENV_FILE" || true)" = "1" ] || die "Baris secret Relay tidak valid; tidak ada secret yang ditampilkan."
 grep -Fxq "ANI_LOCAL_API_URL=$API_URL" "$ENV_FILE" || die "Agent tidak mengarah ke API StarDesk khusus."
 grep -Fxq "RELAY_WS_URL=$RELAY_URL" "$ENV_FILE" || die "Agent tidak mengarah ke Relay hub StarDesk khusus."
-grep -Fq '. "'$ENV_FILE'"' "$SERVICE_DIR/run" || die "Service tidak memakai konfigurasi Agent StarDesk yang diharapkan."
+grep -Fq ". \"$ENV_FILE\"" "$SERVICE_DIR/run" || die "Service tidak memakai konfigurasi Agent StarDesk yang diharapkan."
 
 CURRENT_AGENT_DIR="$(sed -n 's/^cd "\(.*\)"$/\1/p' "$SERVICE_DIR/run" | head -n 1)"
 case "$CURRENT_AGENT_DIR" in
@@ -45,7 +45,6 @@ if(d.api!=="online"||d.database!=="online") { process.stderr.write("STAR_DESK_AP
 TMP="$(mktemp -d "$HOME/.ani-stardesk-relay-update.XXXXXX")"
 NEW_AGENT_DIR="$HOME/ani-games-stardesk-relay-agent-$REF"
 BACKUP_RUN="$CONFIG_DIR/run.backup.$(date +%Y%m%d%H%M%S)"
-LOG_OFFSET=0
 cleanup(){ [ ! -d "$TMP" ] || rm -rf -- "$TMP"; }
 trap cleanup EXIT
 [ ! -e "$NEW_AGENT_DIR" ] || die "Folder versi target sudah ada; tidak akan ditimpa."
@@ -77,7 +76,6 @@ exec "$PREFIX/bin/node" "$NEW_AGENT_DIR/agent.mjs"
 EOF
 chmod 700 "$NEW_RUN"
 cp -p "$SERVICE_DIR/run" "$BACKUP_RUN"
-if [ -f "$LOG_FILE" ]; then LOG_OFFSET="$(wc -c < "$LOG_FILE" | tr -d ' ')"; fi
 
 log "Pembaruan lolos syntax dan seluruh tes protokol; menghentikan hanya $SERVICE_NAME."
 sv down "$SERVICE_NAME" >/dev/null 2>&1 || die "Service StarDesk Relay tidak bisa dihentikan dengan aman; source lama dipertahankan."
