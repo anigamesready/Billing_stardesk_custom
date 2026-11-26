@@ -10,6 +10,7 @@ button,input{font:inherit}button{border:1px solid #51488f;background:#211c4b;col
 h1{font-size:24px;line-height:1.15;margin:0;font-weight:950}h1 span{color:#83caff}.lead{color:var(--muted);margin:10px auto 20px;max-width:350px;line-height:1.5}
 .card{padding:16px;background:linear-gradient(145deg,#1b1948,#101a38);border:1px solid var(--line);border-radius:18px;text-align:left;margin-bottom:11px}
 .label{font-size:10px;font-weight:900;display:block;margin-bottom:7px;letter-spacing:.6px;color:#cac6f2}.field{height:49px;width:100%;border-radius:12px;border:1px solid #655bc0;background:#090e28;color:white;padding:0 13px;font:inherit;font-size:16px;outline:none}.field:focus{border-color:#9a76ff;box-shadow:0 0 0 3px #8b55ff24}.full{width:100%;margin-top:12px;height:47px}.hint{font-size:10px;color:var(--muted);text-align:center;line-height:1.5;margin:10px 0 0}
+.register-row{display:flex;justify-content:center;align-items:center;gap:5px;margin-top:14px;color:var(--muted);font-size:11px}.register-link{padding:0;border:0;background:transparent;color:#8bd2ff;font-size:11px;text-decoration:underline}
 .notice{font-size:10px;color:#ded8ff;background:#211847;border:1px solid #51438f;border-radius:13px;padding:11px;margin:12px auto 0;line-height:1.55;text-align:left}
 .hello{font-size:21px;font-weight:950;margin:3px 0 10px}.blue{color:#8bd2ff}.profile{display:grid;grid-template-columns:1fr 1fr;border:1px solid #45408a;border-radius:15px;overflow:hidden;background:linear-gradient(110deg,#1c1951,#101d3c);margin-bottom:11px}.profile>div{padding:11px 12px;min-width:0}.profile>div+div{border-left:1px solid #474077}.profile>div:nth-child(3){grid-column:1/-1;border-left:0;border-top:1px solid #474077}
 .cap{font-size:9px;color:#b5b1d9;font-weight:850;letter-spacing:.35px}.val{font-size:13px;font-weight:950;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -29,9 +30,10 @@ h1{font-size:24px;line-height:1.15;margin:0;font-weight:950}h1 span{color:#83caf
 <section id="login" class="login"><div class="logo">🎮</div><h1>ANI GAMES <span>READY</span></h1><p class="lead">Masuk dengan User ID rental. Aktivasi satu kali diperlukan untuk perangkat baru.</p>
 <form id="loginForm" class="card">
 <div><label class="label" for="uid">USER ID RENTAL</label><input id="uid" class="field" maxlength="120" placeholder="Masukkan User ID" autocomplete="username" autocapitalize="characters" required></div>
-<div style="margin-top:13px"><label class="label" for="activationCode">KODE AKTIVASI PERANGKAT (HANYA AKTIVASI PERTAMA)</label><input id="activationCode" class="field" maxlength="32" placeholder="Kode dari Admin" autocomplete="one-time-code" autocapitalize="characters"></div>
+<div id="activationWrap" class="hidden" style="margin-top:13px"><label class="label" for="activationCode">KODE AKTIVASI PERANGKAT (HANYA PERTAMA KALI)</label><input id="activationCode" class="field" maxlength="32" placeholder="Kode aktivasi perangkat" autocomplete="one-time-code" autocapitalize="characters"></div>
 <button id="loginButton" class="primary full" type="submit">MASUK KE DASHBOARD</button>
-<p class="hint">Token sesi disimpan terenkripsi di Android Keystore. User ID lain harus diaktivasi oleh Admin.</p>
+<p class="hint">Perangkat yang sudah terdaftar akan mengingat akses dengan aman. Login berikutnya cukup memakai User ID.</p>
+<div class="register-row"><span>Belum punya User ID?</span><button id="registerButton" class="register-link" type="button">Daftar via WhatsApp</button></div>
 </form>
 <div id="loginNotice" class="notice">Menghubungkan otomatis ke server Ani Games Ready...</div><button id="retryGateway" class="full hidden" type="button">COBA HUBUNGKAN ULANG</button></section>
 
@@ -119,6 +121,12 @@ window.__onNativeApiResult=(id,result)=>{
 function secretGet(k){try{return native?.getSecureValue(k)||""}catch(_){return""}}
 function secretSet(k,v){if(!native?.saveSecureValue(k,v))throw new Error("ANDROID_KEYSTORE_SAVE_FAILED")}
 function secretClear(k){try{native?.clearSecureValue(k)}catch(_){}}
+function toggleActivation(show){
+ const wrap=$("activationWrap");
+ if(!wrap)return;
+ wrap.classList.toggle("hidden",!show);
+ if(!show)$("activationCode").value="";
+}
 function setConnectionBadge(text,online=false){$("connectionBadge").textContent=text;$("connectionBadge").style.background=online?"#123b32":"#322515";$("connectionBadge").style.borderColor=online?"#2e9b75":"#84643c";$("connectionBadge").style.color=online?"#b2ffe0":"#ffe2a4"}
 function currentAmount(){const v=$("manualAmount").value.trim();return v?Math.max(0,Math.floor(Number(v)||0)):selectedAmount}
 function updateCalc(){const n=currentAmount(),c=coinFor(n),t=state.balance+c;$("coinResult").textContent=dec(c)+" koin";$("expiryResult").textContent=expiryDays(t)+" hari";$("totalResult").textContent=dec(t)+" koin";$("payAmount").textContent=rupiah(n);$("confirmWa").disabled=n<1000||n>10000000||n%1000!==0;document.querySelectorAll(".package").forEach(b=>b.classList.toggle("selected",!$("manualAmount").value&&Number(b.dataset.amount)===selectedAmount))}
@@ -202,16 +210,26 @@ async function login(e){
   state.apiBase=native.getApiBase();const rentalCode=$("uid").value.trim().toUpperCase();
   if(!rentalCode)throw new Error("Masukkan User ID rental.");
   const savedCode=secretGet("remote_rental_code");
-  let access=secretGet("remote_access_token"),refresh=secretGet("remote_refresh_token");
+  const refresh=secretGet("remote_refresh_token");
   if(savedCode&&savedCode===rentalCode&&refresh){
    try{await refreshTokens(refresh)}
-   catch(err){secretClear("remote_access_token");secretClear("remote_refresh_token");state.accessToken="";state.refreshToken="";refresh="";}
+   catch(err){
+    const reason=String(err?.message||err);
+    if(reason.includes("REMOTE_PLAY_REFRESH_EXPIRED")||reason.includes("REMOTE_PLAY_SESSION_EXPIRED")){
+     secretClear("remote_access_token");secretClear("remote_refresh_token");
+     state.accessToken="";state.refreshToken="";
+    }else throw err;
+   }
   }else if(savedCode&&savedCode!==rentalCode){
-   secretClear("remote_access_token");secretClear("remote_refresh_token");secretClear("remote_rental_code");access="";refresh="";
+   secretClear("remote_access_token");secretClear("remote_refresh_token");secretClear("remote_rental_code");
+   state.accessToken="";state.refreshToken="";
   }
   if(!state.accessToken){
    const activation=$("activationCode").value.trim().toUpperCase();
-   if(!activation)throw new Error("Masukkan kode aktivasi dari Admin untuk perangkat ini.");
+   if(!activation){
+    toggleActivation(true);
+    throw new Error("Perangkat ini belum terdaftar. Masukkan kode aktivasi satu kali dari Admin.");
+   }
    const clientId=native.getClientId();
    const result=await nativeRpc("remote_play_login",{p_rental_code:rentalCode,p_activation_code:activation,p_client_install_id:clientId},"");
    if(!result?.access_token||!result?.refresh_token)throw new Error("REMOTE_PLAY_LOGIN_RESPONSE_INVALID");
@@ -223,7 +241,7 @@ async function login(e){
   state.rentalCode=rentalCode;
   await refreshData();
   $("welcome").textContent=rentalCode;$("login").classList.add("hidden");$("dashboard").classList.remove("hidden");tab("home");
-  $("activationCode").value="";$("loginNotice").textContent="Login terhubung ke Android DB.";
+  toggleActivation(false);$("loginNotice").textContent="Login terhubung ke Android DB.";
   toast("Login Android DB berhasil.");
  }catch(err){
   state.accessToken="";state.refreshToken="";
@@ -232,11 +250,13 @@ async function login(e){
  }finally{button.disabled=false;button.textContent="MASUK KE DASHBOARD"}
 }
 async function logout(){
- try{if(state.accessToken)await nativeRpc("remote_play_logout",{},state.accessToken)}catch(_){}
- ["remote_access_token","remote_refresh_token","remote_rental_code"].forEach(secretClear);
+ // Local sign-out only: keep the encrypted refresh token and device registration for User-ID-only re-login.
+ secretClear("remote_access_token");
  state.accessToken="";state.refreshToken="";state.rentalCode="";state.account=null;state.hosts=[];state.balance=0;state.lots=[];state.ledger=[];state.orders=[];
- $("dashboard").classList.add("hidden");$("login").classList.remove("hidden");$("uid").value="";$("activationCode").value="";
- setConnectionBadge("DB BELUM DIHUBUNGKAN",false);toast("Logout berhasil.");
+ $("dashboard").classList.add("hidden");$("login").classList.remove("hidden");
+ $("uid").value=secretGet("remote_rental_code");toggleActivation(false);
+ $("loginNotice").textContent="Perangkat ini tersimpan aman. Masukkan User ID untuk login kembali.";
+ setConnectionBadge("DB BELUM DIHUBUNGKAN",false);toast("Keluar dari dashboard. Perangkat tetap terdaftar.");
 }
 async function refreshClick(){try{await refreshData();toast("Data Android DB diperbarui.")}catch(e){toast("Refresh gagal: "+String(e?.message||e));setConnectionBadge("DB OFFLINE",false)}}
 async function confirmTopup(){
@@ -255,6 +275,11 @@ async function confirmTopup(){
  finally{$("confirmWa").disabled=false;$("confirmWa").textContent="BUAT ORDER & KONFIRMASI WHATSAPP"}
 }
 $("loginForm").addEventListener("submit",login);
+$("registerButton").addEventListener("click",()=>{
+ const message="Halo Ani Games Ready, saya ingin mendaftar akun Remote Play. Mohon informasi pendaftaran User ID.";
+ if(native?.openWhatsApp)native.openWhatsApp(message);
+ else toast("Buka aplikasi Android Ani Games Ready untuk mendaftar via WhatsApp.");
+});
 $("retryGateway").addEventListener("click",checkGateway);
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>tab(b.dataset.tab)));
 document.querySelectorAll(".package").forEach(b=>b.addEventListener("click",()=>{selectedAmount=Number(b.dataset.amount);$("manualAmount").value="";updateCalc()}));
@@ -262,6 +287,6 @@ $("manualAmount").addEventListener("input",updateCalc);$("refresh").addEventList
 $("logout").addEventListener("click",logout);$("confirmWa").addEventListener("click",confirmTopup);
 $("copyAmount").addEventListener("click",()=>{const n=String(currentAmount());if(native?.copyText)native.copyText(n);else toast("Nominal: "+rupiah(n))});
 $("qrisZoom").addEventListener("click",()=>$("modal").classList.remove("hidden"));$("closeModal").addEventListener("click",()=>$("modal").classList.add("hidden"));$("modal").addEventListener("click",e=>{if(e.target===$("modal"))$("modal").classList.add("hidden")});
-if(native){state.apiBase=native.getApiBase()||"";void checkGateway()}else{$("loginNotice").textContent="Buka APK Android untuk menggunakan koneksi Android DB.";setConnectionBadge("APLIKASI ANDROID",false)}
+if(native){$("uid").value=secretGet("remote_rental_code");toggleActivation(false);state.apiBase=native.getApiBase()||"";void checkGateway()}else{$("loginNotice").textContent="Buka APK Android untuk menggunakan koneksi Android DB.";setConnectionBadge("APLIKASI ANDROID",false)}
 updateCalc();
 </script></body>
