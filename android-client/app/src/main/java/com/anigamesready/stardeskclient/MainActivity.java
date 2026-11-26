@@ -235,7 +235,7 @@ public class MainActivity extends Activity {
             String b=android.os.Build.MODEL==null?"Android":android.os.Build.MODEL;
             return (a+" "+b).trim();
         }
-        @JavascriptInterface public String getAppVersion(){return "0.6.3-isolated-stardesk-route-fix";}
+        @JavascriptInterface public String getAppVersion(){return "0.6.4-stardesk-userid-only";}
         @JavascriptInterface public String getApiBase(){return ONLINE_API_BASE;}
         @JavascriptInterface public boolean setApiBase(String value){
             // The client has one approved public API route. Ignore stale/manual loopback preferences.
