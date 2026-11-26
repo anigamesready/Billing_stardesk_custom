@@ -1,0 +1,151 @@
+-- Android DB v0 x100 regression. Run after test 019 and migration 026.
+DO $$
+DECLARE
+  owner_login jsonb;
+  owner_token text;
+  org_id uuid;
+  legacy_v0_rental uuid;
+  x100_rental uuid;
+  device_id uuid;
+  activation jsonb;
+  remote_login jsonb;
+  access_token text;
+  topup jsonb;
+  duplicate_topup jsonb;
+  approval jsonb;
+  wallet jsonb;
+  history jsonb;
+  dashboard jsonb;
+  admin_dashboard jsonb;
+  admin_wallet jsonb;
+  rate jsonb;
+  amounts bigint[] := ARRAY[5000,10000,15000,20000];
+  expected_coins numeric[] := ARRAY[3750,7500,11250,15000];
+  expected_days integer[] := ARRAY[3,3,3,7];
+  scale_value integer;
+  old_order numeric;
+  old_lot_original numeric;
+  old_lot_remaining numeric;
+  old_credit numeric;
+  old_expiry numeric;
+  old_rate numeric;
+  old_rupiah bigint;
+  i integer;
+BEGIN
+  SELECT coin_scale INTO scale_value
+  FROM androiddb_v0.coin_unit_config WHERE singleton IS TRUE;
+  IF scale_value<>100 THEN RAISE EXCEPTION 'ANDROIDDB_V0_COIN_SCALE_NOT_100'; END IF;
+
+  -- V0-CI-MEMBER was created under scale 1 by test 019 before migration 026.
+  SELECT id INTO legacy_v0_rental FROM androiddb_v0.rental_accounts WHERE code='V0-CI-MEMBER';
+  IF legacy_v0_rental IS NULL THEN RAISE EXCEPTION 'ANDROIDDB_V0_PRE_MIGRATION_FIXTURE_MISSING'; END IF;
+  SELECT o.coin_amount,o.amount_rupiah INTO old_order,old_rupiah
+    FROM androiddb_v0.coin_topup_orders o
+    WHERE o.rental_account_id=legacy_v0_rental AND o.amount_rupiah=8000 AND o.status='approved'
+    ORDER BY o.created_at DESC LIMIT 1;
+  SELECT l.original_coins,l.remaining_coins INTO old_lot_original,old_lot_remaining
+    FROM androiddb_v0.coin_lots l JOIN androiddb_v0.coin_wallets w ON w.id=l.wallet_id
+    WHERE w.rental_account_id=legacy_v0_rental ORDER BY l.created_at DESC LIMIT 1;
+  SELECT l.amount_coins INTO old_credit
+    FROM androiddb_v0.coin_ledger l JOIN androiddb_v0.coin_wallets w ON w.id=l.wallet_id
+    WHERE w.rental_account_id=legacy_v0_rental AND l.event_type='topup_credit'
+    ORDER BY l.created_at DESC LIMIT 1;
+  SELECT l.amount_coins INTO old_expiry
+    FROM androiddb_v0.coin_ledger l JOIN androiddb_v0.coin_wallets w ON w.id=l.wallet_id
+    WHERE w.rental_account_id=legacy_v0_rental AND l.event_type='lot_expired'
+    ORDER BY l.created_at DESC LIMIT 1;
+  SELECT r.hourly_coins INTO old_rate
+    FROM androiddb_v0.pc_coin_rates r JOIN public.devices d ON d.id=r.device_id
+    WHERE d.client_id='V0-CI-RTX5060';
+  IF old_order<>6000 OR old_rupiah<>8000
+     OR old_lot_original<>6000 OR old_lot_remaining<>0
+     OR old_credit<>6000 OR old_expiry<>6000 OR old_rate<>6000 THEN
+    RAISE EXCEPTION 'ANDROIDDB_V0_HISTORIC_COIN_VALUES_NOT_X100';
+  END IF;
+
+  owner_login:=api.admin_login('CI-OWNER','CI-Admin-New-Password-2026');
+  owner_token:=owner_login->>'token';
+  org_id:=(owner_login->>'org_id')::uuid;
+  IF coalesce(owner_token,'')='' OR org_id IS NULL THEN
+    RAISE EXCEPTION 'ANDROIDDB_V0_X100_OWNER_LOGIN_FAILED';
+  END IF;
+  SELECT d.id INTO device_id FROM public.devices d
+    WHERE d.client_id='V0-CI-RTX5060' AND d.org_id=org_id LIMIT 1;
+  IF device_id IS NULL THEN RAISE EXCEPTION 'ANDROIDDB_V0_X100_PC_FIXTURE_MISSING'; END IF;
+
+  topup:=api.androiddb_v0_admin_create_rental(owner_token,'V0-X100-TEST','AniCoin x100 test');
+  x100_rental:=(topup->>'rental_account_id')::uuid;
+  IF x100_rental IS NULL THEN RAISE EXCEPTION 'ANDROIDDB_V0_X100_RENTAL_CREATE_FAILED'; END IF;
+  activation:=api.androiddb_v0_admin_issue_activation(owner_token,x100_rental);
+  remote_login:=api.androiddb_v0_remote_login('V0-X100-TEST',activation->>'activation_code','v0-x100-ci-android');
+  access_token:=remote_login->>'access_token';
+  IF length(coalesce(access_token,''))<>64 THEN RAISE EXCEPTION 'ANDROIDDB_V0_X100_REMOTE_LOGIN_FAILED'; END IF;
+
+  FOR i IN 1..array_length(amounts,1) LOOP
+    topup:=api.androiddb_v0_remote_coin_create_topup(
+      access_token,amounts[i],'androiddb-v0-x100-order-'||lpad(i::text,4,'0'));
+    IF (topup->>'coin_amount')::numeric<>expected_coins[i]
+       OR (topup->>'amount_rupiah')::bigint<>amounts[i]
+       OR (topup->>'expiry_days')::integer<>expected_days[i]
+       OR topup->>'coin_unit_scale'<>'100' THEN
+      RAISE EXCEPTION 'ANDROIDDB_V0_X100_TOPUP_OR_EXPIRY_FAILED:%',amounts[i];
+    END IF;
+    IF i=1 THEN
+      duplicate_topup:=api.androiddb_v0_remote_coin_create_topup(
+        access_token,5000,'androiddb-v0-x100-order-0001');
+      IF (duplicate_topup->>'coin_amount')::numeric<>3750
+         OR duplicate_topup->>'order_id'<>topup->>'order_id' THEN
+        RAISE EXCEPTION 'ANDROIDDB_V0_X100_TOPUP_IDEMPOTENCY_FAILED';
+      END IF;
+    END IF;
+    approval:=api.androiddb_v0_admin_approve_topup(owner_token,(topup->>'order_id')::uuid);
+    IF approval->>'status'<>'approved' THEN
+      RAISE EXCEPTION 'ANDROIDDB_V0_X100_TOPUP_APPROVAL_FAILED:%',i;
+    END IF;
+  END LOOP;
+
+  wallet:=api.androiddb_v0_remote_coin_wallet(access_token);
+  history:=api.androiddb_v0_remote_coin_history(access_token,50);
+  dashboard:=api.androiddb_v0_remote_dashboard(access_token);
+  admin_dashboard:=api.androiddb_v0_admin_dashboard(owner_token,100);
+  admin_wallet:=api.androiddb_v0_admin_wallet(owner_token,x100_rental,50);
+  IF (wallet->>'balance')::numeric<>37500
+     OR jsonb_array_length(wallet->'lots')<>4
+     OR wallet->>'coin_unit_scale'<>'100'
+     OR history->>'coin_unit_scale'<>'100'
+     OR dashboard->>'coin_unit_scale'<>'100'
+     OR admin_dashboard->>'coin_unit_scale'<>'100'
+     OR admin_wallet->>'coin_unit_scale'<>'100' THEN
+    RAISE EXCEPTION 'ANDROIDDB_V0_X100_WALLET_OR_API_SCALE_FAILED';
+  END IF;
+  IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(admin_dashboard->'rental_accounts') r
+    WHERE r->>'id'=x100_rental::text AND (r->>'coin_balance')::numeric=37500) THEN
+    RAISE EXCEPTION 'ANDROIDDB_V0_X100_ADMIN_BALANCE_DISPLAY_FAILED';
+  END IF;
+  IF (SELECT count(*) FROM androiddb_v0.coin_ledger l
+      JOIN androiddb_v0.coin_wallets w ON w.id=l.wallet_id
+      WHERE w.rental_account_id=x100_rental AND l.event_type='topup_credit'
+        AND l.amount_coins IN (3750,7500,11250,15000))<>4 THEN
+    RAISE EXCEPTION 'ANDROIDDB_V0_X100_LEDGER_VALUES_FAILED';
+  END IF;
+
+  rate:=api.androiddb_v0_admin_set_device_rate(owner_token,device_id,'GTX 1050');
+  IF (rate->>'hourly_coins')::numeric<>4500 OR (rate->>'hourly_rupiah')::integer<>6000 THEN
+    RAISE EXCEPTION 'ANDROIDDB_V0_X100_RATE_GTX1050_FAILED';
+  END IF;
+  rate:=api.androiddb_v0_admin_set_device_rate(owner_token,device_id,'GTX 1660');
+  IF (rate->>'hourly_coins')::numeric<>4500 OR (rate->>'hourly_rupiah')::integer<>6000 THEN
+    RAISE EXCEPTION 'ANDROIDDB_V0_X100_RATE_GTX1660_FAILED';
+  END IF;
+  rate:=api.androiddb_v0_admin_set_device_rate(owner_token,device_id,'RTX 3060');
+  IF (rate->>'hourly_coins')::numeric<>5250 OR (rate->>'hourly_rupiah')::integer<>7000 THEN
+    RAISE EXCEPTION 'ANDROIDDB_V0_X100_RATE_RTX3060_FAILED';
+  END IF;
+  rate:=api.androiddb_v0_admin_set_device_rate(owner_token,device_id,'RTX 5060');
+  IF (rate->>'hourly_coins')::numeric<>6000 OR (rate->>'hourly_rupiah')::integer<>8000 THEN
+    RAISE EXCEPTION 'ANDROIDDB_V0_X100_RATE_RTX5060_FAILED';
+  END IF;
+END;
+$$;
+
+SELECT 'PASS: Android DB v0 legacy data converted once, top-up and GPU rates use x100, Rupiah prices and expiry tiers preserved' AS result;
