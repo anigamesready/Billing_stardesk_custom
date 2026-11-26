@@ -17,7 +17,7 @@ const apps = [
     helper: 'android-client/app/src/main/java/com/anigamesready/stardeskclient/GatewayPinnedSocketFactory.java',
     gradle: 'android-client/app/build.gradle',
     base: 'ONLINE_API_BASE',
-    version: ['versionCode 8', 'versionName "0.6.2-isolated-stardesk-db"'],
+    version: ['versionCode 9', 'versionName "0.6.3-isolated-stardesk-route-fix"'],
   },
 ];
 
@@ -51,6 +51,20 @@ for (const app of apps) {
     assert.ok(main.includes('ani-games-db-android-stage-gateway.anigamesready.workers.dev'));
     for (const item of app.version) assert.ok(gradle.includes(item), app.name + ' missing ' + item);
     assert.ok(main.includes('setHostnameVerifier((hostname, session) ->'));
+    if (app.name === 'Remote Android') {
+      const html = readFileSync('android-client/app/src/main/assets/index.html', 'utf8');
+      const gatewayBase = 'https://ani-games-db-android-stage-gateway.anigamesready.workers.dev/stardesk';
+      const worker = readFileSync('edge/cloudflare/ani-games-db-android-stage-ws-relay.mjs', 'utf8');
+      assert.ok(main.includes('private static final String ONLINE_API_BASE = "' + gatewayBase + '";'),
+        'Remote native bridge must use the isolated StarDesk route');
+      assert.ok(html.includes('const ONLINE_API_BASE="' + gatewayBase + '";'),
+        'Remote WebView must use the exact same isolated StarDesk route');
+      assert.ok(main.includes('ONLINE_API_BASE.equals(value.trim())'),
+        'native bridge must reject any API base that differs from its pinned route');
+      assert.ok(worker.includes('const project = url.pathname.startsWith("/stardesk/");') &&
+        worker.includes('const hubName = project ? STAR_DESK_HUB_NAME : HUB_NAME;'),
+        'Gateway Worker must route /stardesk to the isolated StarDesk relay hub');
+    }
   });
 }
 
