@@ -296,7 +296,7 @@ test('Termux User ID-only updater is backup-first and restarts only the StarDesk
     '[ "$CONFIRM" = "APPLY" ]',
     'androiddb_v0_remote_login(\\$1::text,\\$2::text)',
     'to_regprocedure',
-    '$PREFIX/bin/sv restart "$SERVICE_NAME"',
+    '"$PREFIX/bin/sv" restart "$SERVICE_NAME"',
     '127.0.0.1:$API_PORT/health',
   ]) assert.ok(update.includes(token), 'missing User ID-only upgrade safety guard: ' + token);
   for (const forbidden of [
