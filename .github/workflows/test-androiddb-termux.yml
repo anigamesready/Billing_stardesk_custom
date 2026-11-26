@@ -33,12 +33,16 @@ jobs:
         run: |
           set -euo pipefail
           bash -n backend/android-db/termux/repair-admin-v0-live-api.sh
+      - name: Validate read-only Admin v0 live DB audit
+        run: |
+          set -euo pipefail
+          bash -n backend/android-db/termux/audit-admin-v0-live-db.sh
 
       - name: ShellCheck installer and Admin repair scripts
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck
-          shellcheck --severity=error backend/android-db/termux/install.sh backend/android-db/termux/repair-admin-v0-live-api.sh
+          shellcheck --severity=error backend/android-db/termux/install.sh backend/android-db/termux/repair-admin-v0-live-api.sh backend/android-db/termux/audit-admin-v0-live-db.sh
       - name: Validate embedded Node repair controllers
         run: |
           set -euo pipefail
