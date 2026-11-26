@@ -1,3 +1,4 @@
+// Regression gate updated for Remote v0.6.4 User ID-only login and StarDesk v0 migration 026.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
