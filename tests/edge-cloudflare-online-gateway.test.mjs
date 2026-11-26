@@ -100,7 +100,7 @@ test("Relay health checks the dedicated StarDesk hub only",async()=>{
  const env={RELAY_HUB:{getByName:name=>{
   names.push(name);
   return {fetch:async r=>{
-    const p=new URL(r.url).pathname;paths.push(p);
+    const p=new URL(typeof r==="string"?r:r.url).pathname;paths.push(p);
     if(p==="/status")return Response.json({connected:true,connected_since:"test"});
     return Response.json({api:"online",database:"online"});
   }};
