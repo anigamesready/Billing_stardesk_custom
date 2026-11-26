@@ -9,7 +9,7 @@ const apps = [
     helper: 'admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/GatewayPinnedSocketFactory.java',
     gradle: 'admin-androiddb-v0/app/build.gradle',
     base: 'API_BASE',
-    version: ['versionCode 5', 'versionName "0.2.3-gateway-diagnostics"'],
+    version: ['versionCode 6', 'versionName "0.2.4-login-limit-guidance"'],
   },
   {
     name: 'Remote Android',
@@ -51,6 +51,16 @@ for (const app of apps) {
     assert.ok(main.includes('ani-games-db-android-stage-gateway.anigamesready.workers.dev'));
     for (const item of app.version) assert.ok(gradle.includes(item), app.name + ' missing ' + item);
     assert.ok(main.includes('setHostnameVerifier((hostname, session) ->'));
+    if (app.name === 'Admin Android DB v0') {
+      const html = readFileSync('admin-androiddb-v0/app/src/main/assets/index.html', 'utf8');
+      assert.ok(main.includes('connection.getHeaderField("Retry-After")'),
+        'Admin native bridge must preserve the server login cooldown');
+      assert.ok(html.includes('error.retryAfterSeconds=Number(data.retry_after_seconds)||0;') &&
+        html.includes('error.code==="LOGIN_RATE_LIMITED"') &&
+        html.includes('Percobaan login terlalu banyak'),
+        'Admin login must show a localized and bounded cooldown message');
+      assert.ok(html.includes('class="version">v0.2.4</div>'), 'Admin UI version label must match the APK');
+    }
     if (app.name === 'Remote Android') {
       const html = readFileSync('android-client/app/src/main/assets/index.html', 'utf8');
       const gatewayBase = 'https://ani-games-db-android-stage-gateway.anigamesready.workers.dev/stardesk';
