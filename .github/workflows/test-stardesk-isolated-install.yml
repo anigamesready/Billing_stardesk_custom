@@ -68,8 +68,20 @@ jobs:
           psql -v ON_ERROR_STOP=1 -d ani_games_ready_stage -c "CREATE TABLE public.legacy_keep(marker text PRIMARY KEY); INSERT INTO public.legacy_keep VALUES ('untouched');"
           psql -v ON_ERROR_STOP=1 -d postgres -c "CREATE ROLE stardesk_v0_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE;"
           psql -v ON_ERROR_STOP=1 -d postgres -c "CREATE DATABASE stardesk_custom_v0 OWNER stardesk_v0_owner;"
+          sed 's/ani_api_runtime/stardesk_v0_runtime/g' backend/android-db/migrations/000_prerequisites.sql |
+            psql -v ON_ERROR_STOP=1 -d stardesk_custom_v0
+          psql -v ON_ERROR_STOP=1 -d stardesk_custom_v0 <<'SQL'
+          ALTER DATABASE stardesk_custom_v0 OWNER TO stardesk_v0_owner;
+          ALTER SCHEMA public OWNER TO stardesk_v0_owner;
+          ALTER SCHEMA api OWNER TO stardesk_v0_owner;
+          ALTER SCHEMA auth OWNER TO stardesk_v0_owner;
+          ALTER SCHEMA private OWNER TO stardesk_v0_owner;
+          ALTER SCHEMA reporting_private OWNER TO stardesk_v0_owner;
+          GRANT USAGE ON SCHEMA extensions TO stardesk_v0_owner;
+          GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA extensions TO stardesk_v0_owner;
+          ALTER TABLE auth.users OWNER TO stardesk_v0_owner;
+          SQL
           for migration in \
-            000_prerequisites.sql \
             002_core_business_schema.sql \
             003_pc_device_api_functions.sql \
             004_billing_reseller_api.sql \
@@ -94,7 +106,7 @@ jobs:
             023_admin_coin_management_read_api.sql \
             025_admin_androiddb_v0_coin_domain.sql; do
             sed 's/ani_api_runtime/stardesk_v0_runtime/g' "backend/android-db/migrations/$migration" |
-              psql -v ON_ERROR_STOP=1 -d stardesk_custom_v0
+              psql -v ON_ERROR_STOP=1 -d stardesk_custom_v0 -c "SET ROLE stardesk_v0_owner"
           done
           psql -v ON_ERROR_STOP=1 -d postgres <<'SQL'
           CREATE ROLE stardesk_v0_login LOGIN PASSWORD 'test-only-password' INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE;
