@@ -1,11 +1,11 @@
-# Ani Games Ready Remote — Android DB v0 Coin Candidate 0.6.3
+# Ani Games Ready Remote — StarDesk Coin v0.6.4 User ID-only
 
 This source is the isolated Remote Android DB v0 client for the Ani Games Ready Coin domain.
 
 ## Build identity
 - Application ID: `com.anigamesready.stardeskclient`
-- Version: `0.6.3-isolated-stardesk-route-fix`
-- Version code: `9`
+- Version: `0.6.4-stardesk-userid-only`
+- Version code: `10`
 - Remote source: `android-client/`
 - Repository: `anigamesready/Billing_stardesk_custom`
 
@@ -13,7 +13,7 @@ This source is the isolated Remote Android DB v0 client for the Ani Games Ready 
 The client talks only to the fixed HTTPS Android DB gateway via the native Android bridge. Both the WebView and native bridge use the dedicated `/stardesk` route, which selects the StarDesk-only Relay hub and the isolated StarDesk database. It does not expose an editable URL field.
 
 All new Coin account and wallet operations use the separate `androiddb_v0_*` API family:
-- First activation: `androiddb_v0_remote_login`
+- Login User ID-only: `androiddb_v0_remote_login`
 - Refresh: `androiddb_v0_remote_refresh`
 - Logout: `androiddb_v0_remote_logout`
 - Dashboard/PC availability: `androiddb_v0_remote_dashboard`
@@ -22,6 +22,14 @@ All new Coin account and wallet operations use the separate `androiddb_v0_*` API
 - QRIS static top-up order: `androiddb_v0_remote_coin_create_topup`
 
 Access and refresh tokens are stored using AES-GCM backed by Android Keystore. The app keeps no raw token in WebView localStorage.
+
+## Canonical Coin account source
+
+Remote User ID login searches only `androiddb_v0.rental_accounts.code` in the dedicated `stardesk_custom_v0` database. The matching account must have status `active`. The Remote app does not authenticate against `public.rental_accounts`, `remote_play.coin_wallets`, legacy rental timer accounts, or another database.
+
+Create Remote members from **Rental Coin** in the separate **Admin Android DB v0** app. Its `androiddb_v0_admin_create_rental` RPC writes the same `androiddb_v0.rental_accounts` table that Remote login reads. The older Coin domain uses `public.rental_accounts` plus `remote_play.coin_*`; even when those schemas are hosted in the same PostgreSQL database, they are a different account/wallet model and are not automatically interchangeable.
+
+Do not create duplicate accounts or copy coin balances blindly. To locate an existing ID such as `IRFAN19`, use the read-only Termux audit script `backend/android-db/termux/audit-stardesk-coin-account.sh`. It shows whether the ID exists in `androiddb_v0` or only in the older `remote_play/public` domain. Any migration of existing lots must preserve each lot's remaining coins and expiry and must be idempotent.
 
 ## Gateway DNS/TLS compatibility
 The native HTTPS bridge pins TCP to the tested Cloudflare edge IPv4 addresses `104.18.13.15` and `104.18.12.15` for the fixed Gateway hostname. The HTTPS URL uses the dedicated `/stardesk` route while Host header, SNI and Android's default certificate trust/hostname verification continue to use `ani-games-db-android-stage-gateway.anigamesready.workers.dev`. No trust-all certificate callback or cleartext fallback is used.
