@@ -6,8 +6,8 @@ android {
         applicationId "com.anigamesready.stardeskclient"
         minSdk 26
         targetSdk 35
-        versionCode 8
-        versionName "0.6.2-isolated-stardesk-db"
+        versionCode 9
+        versionName "0.6.3-isolated-stardesk-route-fix"
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
