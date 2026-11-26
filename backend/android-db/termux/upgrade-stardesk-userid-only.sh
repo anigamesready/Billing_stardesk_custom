@@ -95,7 +95,7 @@ sed -i \
   "$API_TMP"
 grep -q 'StarDesk Custom Local API' "$API_TMP" || die "Branding API StarDesk tidak cocok."
 node --check "$API_TMP"
-grep -q 'api.androiddb_v0_remote_login($1::text,$2::text)' "$API_TMP" || die "API source bukan route login User ID-only."
+grep -Fq "api.androiddb_v0_remote_login(\$1::text,\$2::text)" "$API_TMP" || die "API source bukan route login User ID-only."
 grep -q 'androiddb_v0_remote_login(text,text)' "$MIGRATION_027" || die "Migrasi 027 tidak memuat login User ID-only."
 grep -q 'DROP TABLE IF EXISTS androiddb_v0.client_credentials' "$MIGRATION_027" || die "Migrasi 027 tidak menghapus tabel aktivasi lama."
 if grep -q 'androiddb_v0_admin_issue_activation:' "$API_TMP"; then
