@@ -152,7 +152,7 @@ else
 fi
 
 HEALTH=""
-for _ in $(seq 1 25); do
+for ((attempt=0; attempt<25; attempt++)); do
   HEALTH="$(curl --fail --silent --show-error --connect-timeout 2 --max-time 5 "http://127.0.0.1:$API_PORT/health" 2>/dev/null || true)"
   if printf '%s' "$HEALTH" | grep -q '"api":"online"' && printf '%s' "$HEALTH" | grep -q '"database":"online"' &&
      "$PREFIX/bin/sv" status "$SERVICE_NAME" 2>&1 | grep -q '^run:'; then
