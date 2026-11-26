@@ -5,7 +5,8 @@ umask 077
 readonly PG_PORT="5432" OLD_DB="ani_games_ready_stage" STAR_DB="stardesk_custom_v0"
 readonly OLD_API_PORT="8788" STAR_API_PORT="8789"
 readonly OLD_API_SERVICE="ani-games-ready-api" OLD_RELAY_SERVICE="ani-games-relay-agent"
-readonly STAR_API_SERVICE="stardesk-custom-v0-api" STAR_RELAY_SERVICE="ani-games-stardesk-relay-agent"
+readonly STAR_API_SERVICE="stardesk-custom-v0-api"
+readonly STAR_RELAY_SERVICE="ani-games-stardesk-relay-agent"
 readonly GATEWAY_HEALTH="https://ani-games-db-android-stage-gateway.anigamesready.workers.dev/stardesk/_ani_gateway/health"
 PG_ADMIN_USER=""
 say(){ printf '[STAR-DESK DB CONTROL] %s\n' "$*"; }
