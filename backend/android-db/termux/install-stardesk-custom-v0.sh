@@ -121,6 +121,7 @@ MIGRATION_FILES=(
   022_coin_unit_scale_100.sql
   023_admin_coin_management_read_api.sql
   025_admin_androiddb_v0_coin_domain.sql
+  026_androiddb_v0_userid_only_remote_login.sql
 )
 for file in "${MIGRATION_FILES[@]}"; do
   [ -s "$SOURCE_ROOT/backend/android-db/migrations/$file" ] || die "Migrasi source hilang: $file"
@@ -218,7 +219,7 @@ CREATE TABLE private.stardesk_custom_install_meta (
   installed_at timestamptz NOT NULL DEFAULT now()
 );
 INSERT INTO private.stardesk_custom_install_meta(singleton,schema_version,runtime_role,api_login_role,source_ref)
-VALUES(true,'androiddb_v0_025','$RUNTIME_ROLE','$API_DB_USER','$SOURCE_REF');
+VALUES(true,'androiddb_v0_026','$RUNTIME_ROLE','$API_DB_USER','$SOURCE_REF');
 REVOKE ALL ON private.stardesk_custom_install_meta FROM PUBLIC;
 SQL
 
@@ -251,7 +252,7 @@ try {
     "(SELECT rolcanlogin FROM pg_roles WHERE rolname=current_user) AS can_login, " +
     "to_regnamespace('androiddb_v0') IS NOT NULL AS coin_schema, " +
     "to_regprocedure('api.androiddb_v0_admin_dashboard(text,integer)') IS NOT NULL AS admin_rpc, " +
-    "to_regprocedure('api.androiddb_v0_remote_login(text,text,text)') IS NOT NULL AS remote_rpc";
+    "to_regprocedure('api.androiddb_v0_remote_login(text,text)') IS NOT NULL AS remote_rpc";
   const r = await pool.query(sql);
   const x = r.rows[0];
   if (x.db !== "stardesk_custom_v0" || x.login_role !== "stardesk_v0_login" ||
