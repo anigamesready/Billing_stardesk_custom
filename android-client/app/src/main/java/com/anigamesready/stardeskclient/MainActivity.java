@@ -207,6 +207,13 @@ public class MainActivity extends Activity {
                 JSONObject parsed;
                 try{parsed=parseJson(response);}catch(Exception ignored){parsed=errorJson("API_RESPONSE_INVALID",response);}
                 parsed.put("http_status",status);
+                String retryAfterHeader=connection.getHeaderField("Retry-After");
+                if(retryAfterHeader!=null){
+                    try{
+                        int retryAfterSeconds=Integer.parseInt(retryAfterHeader.trim());
+                        if(retryAfterSeconds>0) parsed.put("retry_after_seconds",Math.min(900,retryAfterSeconds));
+                    }catch(NumberFormatException ignored){}
+                }
                 if(status<200||status>=300) parsed.put("ok",false);
                 deliverApiResult(requestId,parsed);
             }catch(Exception e){
@@ -235,7 +242,7 @@ public class MainActivity extends Activity {
             String b=android.os.Build.MODEL==null?"Android":android.os.Build.MODEL;
             return (a+" "+b).trim();
         }
-        @JavascriptInterface public String getAppVersion(){return "0.6.3-isolated-stardesk-route-fix";}
+        @JavascriptInterface public String getAppVersion(){return "0.6.4-route-and-login-limit-guidance";}
         @JavascriptInterface public String getApiBase(){return ONLINE_API_BASE;}
         @JavascriptInterface public boolean setApiBase(String value){
             // The client has one approved public API route. Ignore stale/manual loopback preferences.
