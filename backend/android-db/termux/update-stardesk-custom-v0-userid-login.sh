@@ -146,7 +146,7 @@ curl --fail --location --silent --show-error "https://raw.githubusercontent.com/
 grep -q "api.androiddb_v0_remote_login(text,text)" "$TMP_DIR/026.sql" || die "Migrasi User ID-only tidak cocok."
 grep -q 'SELECT api.androiddb_v0_remote_login($1::text,$2::text) AS result' "$TMP_DIR/server.mjs" || die "Source API belum memakai RPC dua parameter."
 grep -q 'callRateLimit(key,5)' "$TMP_DIR/server.mjs" || die "Rate limit login tidak ditemukan."
-node --check "$TMP_DIR/server.mjs" || die "Syntax API baru tidak valid."
+node --check --input-type=module < "$TMP_DIR/server.mjs" || die "Syntax API baru tidak valid."
 sha256sum "$TMP_DIR/026.sql" "$TMP_DIR/server.mjs" > "$TMP_DIR/SOURCE-SHA256SUMS.txt"
 
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -196,7 +196,7 @@ SELECT
 log "Memasang source API StarDesk yang sudah memakai RPC dua parameter..."
 cp "$TMP_DIR/server.mjs" "$SERVER_DIR/server.mjs.new"
 chmod 600 "$SERVER_DIR/server.mjs.new"
-node --check "$SERVER_DIR/server.mjs.new" || die "Syntax API baru gagal."
+node --check --input-type=module < "$SERVER_DIR/server.mjs.new" || die "Syntax API baru gagal."
 mv -f "$SERVER_DIR/server.mjs.new" "$SERVER_DIR/server.mjs"
 
 rollback_api(){
