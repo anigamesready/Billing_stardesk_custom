@@ -1,5 +1,6 @@
 import WebSocket from "ws";
 import { AGENT_PROTOCOL, RELAY_WS_URL, MAX_RESPONSE_BYTES, makeAgentToken, validateEnvelope, relayLookup } from "./protocol.mjs";
+import { createReconnectController } from "./reconnect.mjs";
 
 const SECRET = process.env.RELAY_SHARED_SECRET || "";
 const API_BASE = new URL(process.env.ANI_LOCAL_API_URL || "http://127.0.0.1:8788");
@@ -18,8 +19,6 @@ if (WS_URL.protocol !== "wss:" || WS_URL.hostname !== "ani-games-db-android-stag
 
 let stopping = false;
 let activeSocket = null;
-let reconnectTimer = null;
-let reconnectDelay = 2000;
 let inFlight = 0;
 
 function log(event, fields = {}) {
@@ -90,17 +89,6 @@ async function forwardRequest(socket, raw) {
   }
 }
 
-function scheduleReconnect() {
-  if (stopping || reconnectTimer) return;
-  const delay = Math.min(reconnectDelay, 30000);
-  reconnectDelay = Math.min(reconnectDelay * 2, 30000);
-  reconnectTimer = setTimeout(() => {
-    reconnectTimer = null;
-    connect();
-  }, delay + Math.floor(Math.random() * 1000));
-  reconnectTimer.unref?.();
-}
-
 function connect() {
   if (stopping) return;
   const token = makeAgentToken(SECRET);
@@ -110,12 +98,17 @@ function connect() {
   });
   activeSocket = socket;
   let heartbeat = null;
+  let stableTimer = null;
   let lastPong = Date.now();
 
   socket.on("open", () => {
-    reconnectDelay = 2000;
     lastPong = Date.now();
     log("connected");
+    stableTimer = setTimeout(() => {
+      stableTimer = null;
+      reconnectController.markStable();
+      log("connection_stable", { stableForMs: 60000, backoffResetMs: 2000 });
+    }, 60000);
     heartbeat = setInterval(() => {
       if (socket.readyState !== WebSocket.OPEN) return;
       if (Date.now() - lastPong > 60000) {
@@ -123,7 +116,11 @@ function connect() {
         socket.terminate();
         return;
       }
-      socket.send("AGENT_PING");
+      try {
+        socket.send("AGENT_PING");
+      } catch {
+        socket.terminate();
+      }
     }, 20000);
   });
   socket.on("message", data => {
@@ -135,21 +132,26 @@ function connect() {
     log("handshake_rejected", { status: response.statusCode || 0 });
   });
   socket.on("error", error => log("socket_error", { code: error?.code || "UNKNOWN" }));
-  socket.on("close", code => {
+  socket.on("close", (code, reason) => {
     if (heartbeat) clearInterval(heartbeat);
+    if (stableTimer) clearTimeout(stableTimer);
     if (activeSocket === socket) activeSocket = null;
-    log("disconnected", { code });
-    scheduleReconnect();
+    const closeReason = Buffer.isBuffer(reason) ? reason.toString("utf8").slice(0, 120) : "";
+    log("disconnected", { code, reason: closeReason });
+    const retryInMs = reconnectController.schedule();
+    if (retryInMs !== null) log("reconnect_scheduled", { retryInMs });
   });
 }
+
+const reconnectController = createReconnectController({ connect });
 
 function shutdown(signal) {
   if (stopping) return;
   stopping = true;
-  if (reconnectTimer) clearTimeout(reconnectTimer);
+  reconnectController.stop();
   log("stopping", { signal });
   try { activeSocket?.close(1000, "Agent stopping"); } catch {}
-  setTimeout(() => process.exit(0), 1000).unref?.();
+  setTimeout(() => process.exit(0), 1000);
 }
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
