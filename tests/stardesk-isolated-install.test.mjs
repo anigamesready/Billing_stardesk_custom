@@ -36,6 +36,7 @@ const migrations = [
   '023_admin_coin_management_read_api.sql',
   '025_admin_androiddb_v0_coin_domain.sql',
   '026_androiddb_v0_coin_x100.sql',
+  '027_androiddb_v0_remote_userid_only_login.sql',
 ];
 
 test('StarDesk installer uses dedicated DB, roles, API port, directory and service', () => {
@@ -80,7 +81,7 @@ test('StarDesk installer is fail-closed and does not target legacy DB/API/servic
 });
 
 test('migration bundle is complete and rewrites the NOLOGIN API runtime role', () => {
-  assert.equal(migrations.length, 25);
+  assert.equal(migrations.length, 26);
   assert.ok(installer.includes('sed "s/ani_api_runtime/$RUNTIME_ROLE/g"'));
   for (const name of migrations) {
     const sql = readFileSync(migrationRoot + name, 'utf8');
@@ -243,4 +244,30 @@ test('Coin x100 live upgrade is isolated, backup-first, idempotent and explicit-
     'sv restart ani-games-ready-api',
     'sv restart ani-games-relay-agent',
   ]) assert.ok(!coinUpgrade.includes(forbidden), 'unsafe or legacy target in Coin x100 upgrade: ' + forbidden);
+});
+
+test('Remote renter login requires only User ID and removes Admin activation workflow', () => {
+  const migration = readFileSync(migrationRoot + '027_androiddb_v0_remote_userid_only_login.sql', 'utf8');
+  const remote = readFileSync('android-client/app/src/main/assets/index.html', 'utf8');
+  const admin = readFileSync('admin-androiddb-v0/app/src/main/assets/index.html', 'utf8');
+  const api = readFileSync('backend/android-db/server/server.mjs', 'utf8');
+  for (const token of [
+    'p_rental_code text,p_client_install_id text',
+    'DROP FUNCTION IF EXISTS api.androiddb_v0_admin_issue_activation(text,uuid)',
+    'DROP FUNCTION IF EXISTS api.androiddb_v0_remote_login(text,text,text)',
+    'DROP TABLE IF EXISTS androiddb_v0.client_credentials',
+    'GRANT EXECUTE ON FUNCTION api.androiddb_v0_remote_login(text,text) TO ani_api_runtime',
+    'client_login_userid_only',
+  ]) assert.ok(migration.includes(token), 'missing User ID-only migration contract: ' + token);
+  for (const forbidden of ['p_activation_code','activation_code','client_credentials','admin_issue_activation']) {
+    assert.ok(!migration.includes(forbidden), 'legacy activation path remains in new migration: ' + forbidden);
+  }
+  for (const forbidden of ['activationCode','p_activation_code','Kode Aktivasi','Kode dari Admin','diaktivasi oleh Admin']) {
+    assert.ok(!remote.includes(forbidden), 'activation field or instruction remains in Remote UI: ' + forbidden);
+  }
+  assert.ok(remote.includes('p_rental_code:rentalCode,p_client_install_id:clientId'));
+  assert.ok(!admin.includes('issueActivation') && !admin.includes('Kode Remote'));
+  assert.ok(!admin.includes('androiddb_v0_admin_issue_activation') && !admin.includes('activation_issued'));
+  assert.ok(api.includes('api.androiddb_v0_remote_login($1::text,$2::text)'));
+  assert.ok(!api.includes('p_activation_code'));
 });
