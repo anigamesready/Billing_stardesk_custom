@@ -50,9 +50,9 @@ END;
 SQL
 
 if [ -s "$API_FILE" ]; then
-  if grep -Fq 'SELECT api.androiddb_v0_remote_login($1::text,$2::text) AS result' "$API_FILE"; then
+  if grep -Fq "SELECT api.androiddb_v0_remote_login(\$1::text,\$2::text) AS result" "$API_FILE"; then
     log "API_SOURCE_HANDLER|USER_ID_ONLY_TWO_PARAMETERS"
-  elif grep -Fq 'SELECT api.androiddb_v0_remote_login($1::text,$2::text,$3::text) AS result' "$API_FILE"; then
+  elif grep -Fq "SELECT api.androiddb_v0_remote_login(\$1::text,\$2::text,\$3::text) AS result" "$API_FILE"; then
     log "API_SOURCE_HANDLER|LEGACY_ACTIVATION_THREE_PARAMETERS"
   else
     log "API_SOURCE_HANDLER|UNRECOGNIZED — periksa server.mjs"
