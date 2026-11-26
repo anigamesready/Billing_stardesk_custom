@@ -304,8 +304,8 @@ async function rpcRequest(req, res, name, body) {
     const rentalCode = str(val(body,"p_rental_code"),40).toUpperCase();
     const key = bucketHash("androiddb-v0-remote-login",clientIp(req),rentalCode);
     await callRateLimit(key,5);
-    const result = await scalar("SELECT api.androiddb_v0_remote_login($1::text,$2::text,$3::text) AS result",[
-      rentalCode,str(val(body,"p_activation_code"),64),str(val(body,"p_client_install_id"),128)
+    const result = await scalar("SELECT api.androiddb_v0_remote_login($1::text,$2::text) AS result",[
+      rentalCode,str(val(body,"p_client_install_id"),128)
     ]);
     await clearRateLimit([key]);
     return send(res,200,result);
