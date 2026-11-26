@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const installer = readFileSync('backend/android-db/termux/install-stardesk-custom-v0.sh', 'utf8');
+const coinUpgrade = readFileSync('backend/android-db/termux/upgrade-stardesk-coin-x100.sh', 'utf8');
 const agentInstaller = readFileSync('backend/android-db/relay-agent/install-stardesk-agent.sh', 'utf8');
 const agentUpdater = readFileSync('backend/android-db/relay-agent/update-stardesk-agent.sh', 'utf8');
 const relayAgent = readFileSync('backend/android-db/relay-agent/agent.mjs', 'utf8');
@@ -204,4 +205,42 @@ test('Android DB v0 Coin denomination is idempotently scaled to x100 without cha
   ]) assert.ok(coin.includes(token), 'missing x100 migration contract: ' + token);
   assert.ok(!coin.includes('public.rental_accounts SET'), 'legacy rental-time rows must not be converted');
   assert.ok(!coin.includes('remaining_seconds='), 'legacy rental seconds must not be converted');
+});
+
+test('Coin x100 live upgrade is isolated, backup-first, idempotent and explicit-APPLY', () => {
+  for (const token of [
+    'stardesk_custom_v0',
+    'stardesk_v0_owner',
+    'stardesk_v0_runtime',
+    'ANI_STARDESK_SOURCE_REF',
+    'androiddb_v0.coin_unit_config',
+    'coin_scale',
+    'pg_dump',
+    '--format=custom',
+    'pg_restore --list',
+    'sha256sum',
+    'read -r CONFIRM </dev/tty',
+    '[ "$CONFIRM" = "APPLY" ]',
+    'SET ROLE',
+    '026_androiddb_v0_coin_x100.sql',
+    'POST_SCALE',
+    'assert_scaled',
+    'PRE_RUPIAH',
+    'No need to restart PostgreSQL',
+  ]) assert.ok(coinUpgrade.includes(token), 'missing safe Coin x100 upgrade guard: ' + token);
+  for (const forbidden of [
+    'ani_games_ready_stage',
+    'ani-games-ready-api',
+    'ani-games-relay-agent',
+    'DROP DATABASE',
+    'DROP ROLE',
+    'TRUNCATE TABLE',
+    'initdb',
+    'pg_ctl',
+    'sv up postgres',
+    'sv down postgres',
+    'sv restart postgres',
+    'sv restart ani-games-ready-api',
+    'sv restart ani-games-relay-agent',
+  ]) assert.ok(!coinUpgrade.includes(forbidden), 'unsafe or legacy target in Coin x100 upgrade: ' + forbidden);
 });
