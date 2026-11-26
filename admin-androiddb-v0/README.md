@@ -9,7 +9,7 @@ A standalone Android Owner/Admin app in this repository. It does not patch, repl
 - Project root: `admin-androiddb-v0/`
 
 ## Android DB integration
-The app uses the existing Android DB HTTPS Gateway and the existing Owner/Admin login/session. All business data is read or changed through the explicit token-bound RPC functions already exposed by `backend/android-db/server/server.mjs`. The app does not connect to Supabase or execute SQL against table endpoints.
+The app uses the dedicated StarDesk route on the Android DB HTTPS Gateway and a separate PostgreSQL database (`stardesk_custom_v0`) through its own local API on port `8789`. Owner login, sessions, rental timer domain, Coin wallet, top-ups, Host records and Remote records belong only to StarDesk Custom. It does not use the Ani Games Ready legacy database/API (`ani_games_ready_stage`, port `8788`), does not import or sync its records, and does not connect directly to SQL tables from Android.
 
 The UI contains:
 - Core Owner overview and organization selection.
@@ -22,9 +22,9 @@ The UI contains:
 - Independent Coin-rental v0 account, activation, wallet, top-up approval/rejection, lots/ledger, GPU rates, StarDesk mapping and Host Agent enrollment.
 
 ## Data separation
-One Android PostgreSQL database remains the single source of truth. The legacy timer rental domain continues using the existing core tables and APIs. The AniCoin-only domain remains isolated under schema `androiddb_v0` and must not debit or alter legacy rental seconds or expiry. PC inventory and Owner authentication remain shared core resources. No DB1/DB2 selector or second database is introduced.
+StarDesk Custom and the existing Ani Games Ready rental-timer system are two separate installations with different PostgreSQL databases, database roles, API credentials, local API ports, service names and app build identities. StarDesk uses `stardesk_custom_v0` / API `8789`; the old Ani Games Ready installation retains `ani_games_ready_stage` / API `8788`. There is no DB selector that changes an app between them, no data copy, synchronization, fallback or dual-write.
 
-The `androiddb_v0` module uses its dedicated RPCs. Legacy rental CRUD, PC controls, reports, settings, users, WoL and Remote administration use the existing token-bound core Admin RPCs. The Android app never reads tables directly.
+Inside the StarDesk database, its own Admin/Owner core tables provide organization and PC administration while the `androiddb_v0` schema keeps Coin wallet/lots/ledger/top-ups and Coin rental records separate from StarDesk's timer-style rental records. None of these StarDesk tables or credentials are shared with the old Ani Games Ready database. The Android app uses only token-bound RPCs and never reads tables directly.
 
 ## Gateway DNS/TLS compatibility
 The native HTTPS bridge pins TCP to the tested Cloudflare edge IPv4 addresses `104.18.13.15` and `104.18.12.15` for the fixed Gateway hostname. The HTTPS URL, Host header, SNI and default Android certificate trust/hostname verification continue to use `ani-games-db-android-stage-gateway.anigamesready.workers.dev`. No trust-all certificate callback or cleartext fallback is used. This is specifically for resolver environments that returned an unrelated AWS certificate for the Gateway hostname.

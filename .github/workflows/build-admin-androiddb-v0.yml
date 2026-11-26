@@ -1,4 +1,4 @@
-name: Build Ani Games Admin Android DB v0 Full DB Candidate
+name: Build Ani Games Admin Android DB v0 Gateway Diagnostics Candidate
 
 on:
   push:
@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   build-admin-androiddb-v0:
-    name: Build Admin Android DB v0 0.2.2
+    name: Build Admin Android DB v0 0.2.3
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -98,6 +98,8 @@ jobs:
               "dashboard_billing_users",
               "dashboard_billing_user",
               "create_reseller",
+              "checkGatewayConnection",
+              "__gateway_health",
               "admin_remote_play_dashboard",
               "admin_remote_play_sessions",
               "admin_remote_play_set_rental_permission",
@@ -200,11 +202,13 @@ jobs:
           for route in sorted(ui_rpc_routes - native_routes):
               assert any(line.strip().startswith(route + ":") for line in rpc_lines), "UI RPC call has no Android DB backend allowlist entry: " + route
 
-          for native_route in ["__admin_login", "__admin_refresh", "__admin_logout", "__iot_status", "__iot_power"]:
+          for native_route in ["__admin_login", "__admin_refresh", "__admin_logout", "__iot_status", "__iot_power", "__gateway_health"]:
               assert native_route in Path("admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java").read_text(encoding="utf-8"), "native route missing: " + native_route
 
           java = Path("admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java").read_text(encoding="utf-8")
           assert "/stardesk" in java, "Admin native API base must target the isolated StarDesk database prefix"
+          assert 'connection.setReadTimeout("__gateway_health".equals(route) ? 15000 : 40000);' in java, "Admin native timeout must exceed the Relay request deadline"
+          assert "GATEWAY_TIMEOUT: Gateway/Relay" in java, "Admin timeout error must be actionable"
           tls = Path("admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/GatewayPinnedSocketFactory.java").read_text(encoding="utf-8")
           for token in ["Proxy.NO_PROXY", "GatewayPinnedSocketFactory", "setSSLSocketFactory", "setHostnameVerifier", "getDefaultHostnameVerifier", "AndroidKeyStore", "AES/GCM/NoPadding", "HttpsURLConnection", "ani_admin_androiddb_v0_keystore_v1", "__admin_login", "__admin_refresh", "__admin_logout", "__iot_status", "__iot_power", "/iot/status", "/iot/power", "setRequestMethod(method)", '"GET".equals(method)', "WebChromeClient", "onJsAlert", "onJsConfirm", "onJsPrompt", "JsPromptResult", "JsResult"]:
               assert token in java, "missing native token/API/HTTP method control: " + token
@@ -213,7 +217,7 @@ jobs:
               assert token in tls, "missing pinned Cloudflare TLS control: " + token
           assert "InetAddress.getByName" not in tls and "X509TrustManager" not in tls, "DNS/trust bypass detected in pinned gateway socket factory"
           gradle = Path("admin-androiddb-v0/app/build.gradle").read_text(encoding="utf-8")
-          for token in ['applicationId "com.anigames.billingadmin.androiddbv0"', "versionCode 4", 'versionName "0.2.2-isolated-stardesk-db"']:
+          for token in ['applicationId "com.anigames.billingadmin.androiddbv0"', "versionCode 5", 'versionName "0.2.3-gateway-diagnostics"']:
               assert token in gradle, "Admin Android DB v0 build identity mismatch: " + token
 
           manifest = Path("admin-androiddb-v0/app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
@@ -232,23 +236,23 @@ jobs:
           APK="admin-androiddb-v0/app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
           mkdir -p output
-          cp "$APK" output/Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.2.apk
+          cp "$APK" output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.3.apk
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
           test -n "$AAPT" && test -n "$APKSIGNER"
-          "$AAPT" dump badging output/Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.2.apk | tee output/apk-badging.txt
-          grep -q "package: name='com.anigames.billingadmin.androiddbv0' versionCode='4' versionName='0.2.2-isolated-stardesk-db'" output/apk-badging.txt
+          "$AAPT" dump badging output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.3.apk | tee output/apk-badging.txt
+          grep -q "package: name='com.anigames.billingadmin.androiddbv0' versionCode='5' versionName='0.2.3-gateway-diagnostics'" output/apk-badging.txt
           grep -q "application-label:'Ani Games Admin Android DB v0'" output/apk-badging.txt
-          "$APKSIGNER" verify --verbose output/Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.2.apk
-          "$APKSIGNER" verify --print-certs output/Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.2.apk
-          sha256sum output/Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.2.apk | tee output/SHA256SUMS.txt
-          unzip -t output/Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.2.apk
-          ls -lh output/Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.2.apk
+          "$APKSIGNER" verify --verbose output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.3.apk
+          "$APKSIGNER" verify --print-certs output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.3.apk
+          sha256sum output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.3.apk | tee output/SHA256SUMS.txt
+          unzip -t output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.3.apk
+          ls -lh output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.3.apk
 
       - name: Upload isolated Admin Android DB v0 preview
         uses: actions/upload-artifact@v4
         with:
-          name: Ani-Games-Admin-Android-DB-v0-Full-DB-Preview-0.2.2
+          name: Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.3
           path: output/*
           if-no-files-found: error
           retention-days: 30

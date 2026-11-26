@@ -152,3 +152,28 @@ test('StarDesk Relay updater is pinned, transactional, and cannot retarget legac
   ]) assert.ok(!agentUpdater.includes(forbidden), 'legacy target or secret generation found: ' + forbidden);
   assert.ok(!agentUpdater.includes('cat "$ENV_FILE"'));
 });
+
+
+const adminHtml = readFileSync('admin-androiddb-v0/app/src/main/assets/index.html', 'utf8');
+const adminJava = readFileSync('admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java', 'utf8');
+const dbControl = readFileSync('backend/android-db/termux/stardesk-db-control.sh', 'utf8');
+
+test('Admin login waits past relay deadline and exposes a stage-aware Gateway health check', () => {
+  assert.ok(adminJava.includes('connection.setReadTimeout("__gateway_health".equals(route) ? 15000 : 40000);'));
+  assert.ok(adminJava.includes('GATEWAY_TIMEOUT: Gateway/Relay'));
+  assert.ok(adminHtml.includes('checkGatewayConnection'));
+  assert.ok(adminHtml.includes('__gateway_health'));
+  assert.ok(adminHtml.includes('Tahap 1/2'));
+  assert.ok(adminHtml.includes('Tahap 2/2'));
+  assert.ok(adminHtml.includes('callbacks.route!=="__gateway_health"'));
+});
+
+test('Termux quick-control menu keeps DBs separate and defaults SQL sessions to read-only', () => {
+  for (const token of ['ani_games_ready_stage','stardesk_custom_v0','8788','8789',
+    'ani-games-ready-api','stardesk-custom-v0-api','ani-games-relay-agent',
+    'ani-games-stardesk-relay-agent','default_transaction_read_only=on',
+    '/stardesk/_ani_gateway/health']) assert.ok(dbControl.includes(token), 'missing item: '+token);
+  assert.match(dbControl, /case "\$service" in[\s\S]*stardesk-custom-v0-api[\s\S]*ani-games-stardesk-relay-agent/);
+  assert.doesNotMatch(dbControl, /\bsv\s+(?:up|down|restart|start|stop)\s+(?:postgres|ani-games-ready-api|ani-games-relay-agent)\b/);
+  assert.doesNotMatch(dbControl, /\b(?:DROP\s+DATABASE|DROP\s+ROLE|TRUNCATE\s+TABLE|DELETE\s+FROM|pg_ctl|initdb)\b/i);
+});

@@ -23,6 +23,22 @@ The old Ani Games Ready installation keeps its own database, API port `8788`, AP
 
 There is no import, copy, synchronization, fallback, or dual-write between the legacy rental timer and StarDesk Coin. StarDesk has its own account, activation, wallet, Coin lots/expiry, ledger, top-up, PC rate, Host enrollment, and Remote Play session data.
 
+## Quick DB control menu (Termux)
+
+The menu inspects both databases side by side without merging them. The legacy system is **read-only/status-only**; only the two StarDesk services can be started or restarted. It never restarts PostgreSQL, the old Ani Games API, or the old relay.
+
+Download from the exact StarDesk commit SHA:
+
+```bash
+REF=<40-character-commit-sha>
+curl -fsSL "https://raw.githubusercontent.com/anigamesready/Billing_stardesk_custom/$REF/backend/android-db/termux/stardesk-db-control.sh" -o "$HOME/STAR-DESK-DB-CONTROL.sh" &&
+chmod 700 "$HOME/STAR-DESK-DB-CONTROL.sh" &&
+bash "$HOME/STAR-DESK-DB-CONTROL.sh"
+```
+
+Menu options include read-only status for both DB/API pairs, Gateway-to-Relay health probe, read-only-default psql access to either database, StarDesk-only API/Relay restarts, and StarDesk service logs. There is no database switch, data copy, migration, deletion, or PostgreSQL lifecycle control.
+
+
 ## Install StarDesk database and API
 
 Use the exact 40-character commit SHA supplied for the StarDesk test build. Do not use a branch name or a SHA from another repository.

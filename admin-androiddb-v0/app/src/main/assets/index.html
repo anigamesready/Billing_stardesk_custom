@@ -41,9 +41,10 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
     <div style="margin:12px 0"><label for="username">Username Owner</label><input id="username" autocomplete="username" placeholder="Username Admin"></div>
     <div style="margin:12px 0"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" placeholder="Password Admin"></div>
     <button id="loginButton" class="primary" style="width:100%" onclick="login()">Masuk ke Admin v0</button>
-    <div id="loginMessage" class="msg" style="margin-top:12px">Autentikasi memakai sistem Owner Android DB yang sudah ada.</div>
+    <button id="gatewayCheckButton" style="width:100%;margin-top:8px" onclick="checkGatewayConnection()">Cek koneksi Gateway / DB</button>
+    <div id="loginMessage" class="msg" style="margin-top:12px">Login menggunakan akun Owner StarDesk. Tekan cek koneksi bila verifikasi gagal.</div>
   </div>
-  <div class="bottom-note">Terisolasi • Satu Android DB • Domain Coin v0</div>
+  <div class="bottom-note">Database StarDesk terpisah • Domain Coin v0</div>
 </section>
 
 <main id="appScreen" class="hidden">
@@ -256,21 +257,39 @@ const REFRESH_KEY="androiddb_v0_admin_refresh_token";
 let accessToken="",refreshToken="",adminContext=null,dashboardData=null,requestCounter=0;
 const pendingRequests=new Map();
 window.__adminV0Result=function(id,data){
-  const callbacks=pendingRequests.get(id);if(!callbacks)return;pendingRequests.delete(id);
-  if(data&&data.http_status>=400){const error=new Error(data.message||data.error||("HTTP "+data.http_status));error.code=data.error||data.message||"API_ERROR";callbacks.reject(error);return;}
-  if(data&&data.ok===false){const error=new Error(data.message||data.error||"Permintaan gagal");error.code=data.error||data.message||"API_ERROR";callbacks.reject(error);return;}
+  const callbacks=pendingRequests.get(id);if(!callbacks)return;
+  clearTimeout(callbacks.timer);pendingRequests.delete(id);
+  if(data&&data.http_status>=400&&callbacks.route!=="__gateway_health"){const error=new Error(data.message||data.error||("HTTP "+data.http_status));error.code=data.error||data.message||"API_ERROR";callbacks.reject(error);return;}
+  if(data&&data.ok===false&&callbacks.route!=="__gateway_health"){const error=new Error(data.message||data.error||"Permintaan gagal");error.code=data.error||data.message||"API_ERROR";callbacks.reject(error);return;}
   callbacks.resolve(data);
 };
-function callApi(route,args,token){
+function callApi(route,args,token,timeoutMs){
   return new Promise(function(resolve,reject){
     if(!window.AniAdminV0||typeof AniAdminV0.apiRequest!=="function"){reject(new Error("NATIVE_API_BRIDGE_MISSING"));return;}
     const id="v0_"+(++requestCounter)+"_"+Date.now();
-    pendingRequests.set(id,{resolve:resolve,reject:reject});
+    const limit=Number.isFinite(timeoutMs)?timeoutMs:52000;
+    const timer=setTimeout(function(){
+      if(!pendingRequests.has(id))return;
+      pendingRequests.delete(id);
+      reject(new Error("GATEWAY_TIMEOUT: permintaan "+route+" tidak mendapat jawaban. Periksa Gateway/Relay dan layanan Termux."));
+    },limit);
+    pendingRequests.set(id,{resolve:resolve,reject:reject,timer:timer,route:route});
     try{AniAdminV0.apiRequest(route,JSON.stringify(args||{}),token||"",id);}
-    catch(error){pendingRequests.delete(id);reject(error);}
+    catch(error){clearTimeout(timer);pendingRequests.delete(id);reject(error);}
   });
 }
 function api(name,args){return callApi(name,args||{},accessToken);}
+async function checkGatewayConnection(){
+  const button=el("gatewayCheckButton");if(button)button.disabled=true;
+  setMessage("loginMessage","Memeriksa Gateway StarDesk, Relay Agent, API, dan database…");
+  try{
+    const result=await callApi("__gateway_health",{},"",28000);
+    const healthy=result&&result.gateway==="online"&&result.agent_connected===true&&result.api==="online"&&result.database==="online";
+    const detail=["Gateway: "+val(result&&result.gateway||"unknown"),"Relay: "+val(result&&result.relay||"unknown"),"Agent: "+(result&&result.agent_connected?"terhubung":"belum terhubung"),"API: "+val(result&&result.api||"unknown"),"DB StarDesk: "+val(result&&result.database||"unknown"),"Detail: "+val(result&&result.reason||(healthy?"Semua jalur online":"belum sehat"))].join(" • ");
+    setMessage("loginMessage",detail,!healthy);return healthy;
+  }catch(error){setMessage("loginMessage",error.message||"Gagal memeriksa Gateway StarDesk.",true);return false;}
+  finally{if(button)button.disabled=false;}
+}
 function el(id){return document.getElementById(id);}
 function val(value){return String(value===null||value===undefined?"":value);}
 function esc(value){return val(value).replace(/[&<>"']/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch];});}
@@ -283,13 +302,14 @@ function globalMessage(value,bad){setMessage("globalMessage",value,bad);}
 function saveRefreshToken(){if(!AniAdminV0.saveSecureValue(REFRESH_KEY,refreshToken))throw new Error("SECURE_REFRESH_TOKEN_SAVE_FAILED");}
 function isOwner(ctx){return String(ctx&&ctx.role||"").toLowerCase()==="owner";}
 async function login(){
-  const button=el("loginButton");button.disabled=true;setMessage("loginMessage","Memverifikasi akun Owner ke Android DB…");
+  const button=el("loginButton");button.disabled=true;setMessage("loginMessage","Tahap 1/2 • Memverifikasi akun Owner di database StarDesk…");
   try{
     const username=val(el("username").value).trim(),password=val(el("password").value);
     if(!username||!password)throw new Error("Username dan password wajib diisi.");
-    const result=await callApi("__admin_login",{email:username,password:password},"");
+    const result=await callApi("__admin_login",{email:username,password:password},"",52000);
     if(!result||!result.access_token||!result.refresh_token)throw new Error("ADMIN_LOGIN_RESPONSE_INVALID");
     accessToken=result.access_token;refreshToken=result.refresh_token;saveRefreshToken();
+    setMessage("loginMessage","Tahap 2/2 • Memeriksa hak akses Owner dan organisasi StarDesk…");
     await finishLogin(result.user);
   }catch(error){accessToken="";refreshToken="";setMessage("loginMessage",error.message||error,true);}
   finally{button.disabled=false;}

@@ -242,7 +242,7 @@ public final class MainActivity extends Activity {
                             GatewayPinnedSocketFactory.GATEWAY_HOST, session));
                 connection.setRequestMethod(method);
                 connection.setConnectTimeout(10000);
-                connection.setReadTimeout(18000);
+                connection.setReadTimeout("__gateway_health".equals(route) ? 15000 : 40000);
                 connection.setInstanceFollowRedirects(false);
                 connection.setDoOutput(!"GET".equals(method));
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
@@ -264,7 +264,9 @@ public final class MainActivity extends Activity {
                 if (status < 200 || status >= 300) result.put("ok", false);
                 deliver(requestId, result);
             } catch (Exception ex) {
-                String message = ex.getMessage() == null ? "ANDROID_DB_API_ERROR" : ex.getMessage();
+                String message = ex instanceof java.net.SocketTimeoutException
+                    ? "GATEWAY_TIMEOUT: Gateway/Relay tidak memberi jawaban dalam batas waktu."
+                    : (ex.getMessage() == null ? "ANDROID_DB_API_ERROR" : ex.getMessage());
                 deliver(requestId, error(message, message));
             } finally {
                 if (connection != null) connection.disconnect();
@@ -273,7 +275,7 @@ public final class MainActivity extends Activity {
     }
 
     public final class AdminBridge {
-        @JavascriptInterface public String getAppVersion() { return "0.2.0-full-db"; }
+        @JavascriptInterface public String getAppVersion() { return "0.2.3-gateway-diagnostics"; }
         @JavascriptInterface public String getApiBase() { return API_BASE; }
         @JavascriptInterface public String getSecureValue(String key) { return readSecret(key); }
         @JavascriptInterface public boolean saveSecureValue(String key, String value) {
