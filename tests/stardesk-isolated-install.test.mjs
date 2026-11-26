@@ -167,6 +167,7 @@ const userIdMigration = readFileSync('backend/android-db/migrations/026_androidd
 
 test('Remote uses User ID-only login and WhatsApp registration on the isolated StarDesk endpoint', () => {
   assert.ok(remoteHtml.includes('id="uid"'));
+  assert.ok(remoteHtml.includes('id="uid" class="field" maxlength="40"'), 'User ID input length must match database code constraint');
   assert.ok(remoteHtml.includes('id="registerButton"'));
   assert.ok(remoteHtml.includes('Daftar via WhatsApp'));
   assert.ok(remoteHtml.includes('nativeRpc("androiddb_v0_remote_login",{p_rental_code:rentalCode,p_client_install_id:clientId},"")'));
