@@ -87,7 +87,7 @@ jobs:
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
           "$AAPT" dump badging "$APK" | tee /tmp/remote-badging.txt
-          grep -q "package: name='com.anigamesready.stardeskclient' versionCode='9' versionName='0.6.4-route-and-login-limit-guidance'" /tmp/remote-badging.txt
+          grep -q "package: name='com.anigamesready.stardeskclient' versionCode='10' versionName='0.6.4-route-and-login-limit-guidance'" /tmp/remote-badging.txt
           "$APKSIGNER" verify --verbose "$APK"
           "$APKSIGNER" verify --print-certs "$APK"
           sha256sum "$APK" | tee SHA256SUMS-REMOTE-ANDROIDDB.txt
