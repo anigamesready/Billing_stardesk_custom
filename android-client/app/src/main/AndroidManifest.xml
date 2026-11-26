@@ -5,7 +5,7 @@
     <application
         android:allowBackup="false"
         android:icon="@drawable/ic_launcher"
-        android:label="Ani Games Ready Remote — Android DB v0"
+        android:label="Ani Games Ready Remote Coin x100 Preview 0.6.5"
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="false">
