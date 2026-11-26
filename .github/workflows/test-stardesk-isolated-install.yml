@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/admin-androiddb-v0-full-db-20261126
+      - feature/coin-x100-agent-pairing-20261126
     paths:
       - "backend/android-db/termux/install-stardesk-custom-v0.sh"
       - "backend/android-db/termux/stardesk-db-control.sh"
@@ -122,7 +123,8 @@ jobs:
             021_android_wol_relay.sql \
             022_coin_unit_scale_100.sql \
             023_admin_coin_management_read_api.sql \
-            025_admin_androiddb_v0_coin_domain.sql; do
+            025_admin_androiddb_v0_coin_domain.sql \
+            026_androiddb_v0_coin_x100.sql; do
             { printf 'SET ROLE stardesk_v0_owner;\n'; sed 's/ani_api_runtime/stardesk_v0_runtime/g' "backend/android-db/migrations/$migration"; } |
               psql -v ON_ERROR_STOP=1 -d stardesk_custom_v0
           done
