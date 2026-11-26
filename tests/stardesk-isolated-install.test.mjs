@@ -34,6 +34,7 @@ const migrations = [
   '022_coin_unit_scale_100.sql',
   '023_admin_coin_management_read_api.sql',
   '025_admin_androiddb_v0_coin_domain.sql',
+  '026_androiddb_v0_userid_only_remote_login.sql',
 ];
 
 test('StarDesk installer uses dedicated DB, roles, API port, directory and service', () => {
@@ -48,6 +49,8 @@ test('StarDesk installer uses dedicated DB, roles, API port, directory and servi
     'ANI_STARDESK_SOURCE_REF',
     'androiddb_v0_admin_dashboard',
     'androiddb_v0_remote_login',
+    '026_androiddb_v0_userid_only_remote_login.sql',
+    'androiddb_v0_026',
   ]) assert.ok(installer.includes(token), 'missing isolation identifier: ' + token);
 });
 
@@ -78,7 +81,7 @@ test('StarDesk installer is fail-closed and does not target legacy DB/API/servic
 });
 
 test('migration bundle is complete and rewrites the NOLOGIN API runtime role', () => {
-  assert.equal(migrations.length, 24);
+  assert.equal(migrations.length, 25);
   assert.ok(installer.includes('sed "s/ani_api_runtime/$RUNTIME_ROLE/g"'));
   for (const name of migrations) {
     const sql = readFileSync(migrationRoot + name, 'utf8');
@@ -153,6 +156,38 @@ test('StarDesk Relay updater is pinned, transactional, and cannot retarget legac
   assert.ok(!agentUpdater.includes('cat "$ENV_FILE"'));
 });
 
+
+
+const remoteHtml = readFileSync('android-client/app/src/main/assets/index.html', 'utf8');
+const remoteServer = readFileSync('backend/android-db/server/server.mjs', 'utf8');
+const remoteJava = readFileSync('android-client/app/src/main/java/com/anigamesready/stardeskclient/MainActivity.java', 'utf8');
+const remoteGradle = readFileSync('android-client/app/build.gradle', 'utf8');
+const userIdMigration = readFileSync('backend/android-db/migrations/026_androiddb_v0_userid_only_remote_login.sql', 'utf8');
+
+test('Remote uses User ID-only login and WhatsApp registration on the isolated StarDesk endpoint', () => {
+  assert.ok(remoteHtml.includes('id="uid"'));
+  assert.ok(remoteHtml.includes('id="registerButton"'));
+  assert.ok(remoteHtml.includes('Daftar via WhatsApp'));
+  assert.ok(remoteHtml.includes('nativeRpc("androiddb_v0_remote_login",{p_rental_code:rentalCode,p_client_install_id:clientId},"")'));
+  assert.ok(!/activationCode|p_activation_code/.test(remoteHtml));
+  assert.ok(remoteHtml.includes('native.openWhatsApp(message)'));
+  assert.ok(remoteJava.includes('openWhatsApp(String message)'));
+  assert.ok(remoteJava.includes('wa.me/6282298316902'));
+  assert.ok(remoteHtml.includes('https://ani-games-db-android-stage-gateway.anigamesready.workers.dev/stardesk'));
+  assert.ok(remoteJava.includes('https://ani-games-db-android-stage-gateway.anigamesready.workers.dev/stardesk'));
+  assert.ok(remoteGradle.includes('versionCode 10'));
+  assert.ok(remoteGradle.includes('versionName "0.6.4-stardesk-userid-only"'));
+});
+
+test('User ID login RPC is additive, scoped to androiddb_v0 and never grants direct table access', () => {
+  assert.ok(userIdMigration.includes('p_rental_code text'));
+  assert.ok(userIdMigration.includes('p_client_install_id text'));
+  assert.ok(!userIdMigration.includes('p_activation_code'));
+  assert.ok(userIdMigration.includes("'auth_method','user_id_only'"));
+  assert.ok(userIdMigration.includes('GRANT EXECUTE ON FUNCTION api.androiddb_v0_remote_login(text,text) TO ani_api_runtime'));
+  assert.ok(remoteServer.includes('SELECT api.androiddb_v0_remote_login($1::text,$2::text) AS result'));
+  assert.ok(remoteServer.includes('callRateLimit(key,5)'));
+});
 
 const adminHtml = readFileSync('admin-androiddb-v0/app/src/main/assets/index.html', 'utf8');
 const adminJava = readFileSync('admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java', 'utf8');
