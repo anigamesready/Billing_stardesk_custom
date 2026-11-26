@@ -267,7 +267,8 @@ export class RelayHub {
 export async function handleRequest(request, env) {
   const url = new URL(request.url);
   const origin = request.headers.get("Origin");
-  if (url.pathname === "/agent/connect") {
+  if (url.pathname === "/agent/connect" || url.pathname === "/agent/connect/stardesk") {
+    const hubName = url.pathname === "/agent/connect/stardesk" ? STAR_DESK_HUB_NAME : HUB_NAME;
     if (request.method !== "GET" || request.headers.get("Upgrade") !== "websocket") return json({ error: "WEBSOCKET_UPGRADE_REQUIRED" }, 426);
     const auth = parseAgentProtocols(request);
     if (!auth.base || !(await verifyAgentToken(auth.token, env.RELAY_SHARED_SECRET))) return json({ error: "AGENT_UNAUTHORIZED" }, 401);
