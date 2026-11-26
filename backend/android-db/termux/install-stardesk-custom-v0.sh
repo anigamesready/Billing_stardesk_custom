@@ -128,11 +128,11 @@ done
 chmod 700 "$APP_DIR" "$SERVER_DIR" "$MIGRATIONS_DIR"
 
 log "Membuat role dan database baru $DB_NAME. Tidak ada data rental lama yang disalin."
-psql_admin -d postgres <<SQL >/dev/null
-CREATE ROLE $DB_OWNER_ROLE NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-CREATE DATABASE $DB_NAME OWNER $DB_OWNER_ROLE;
-REVOKE CONNECT ON DATABASE $DB_NAME FROM PUBLIC;
-SQL
+# CREATE DATABASE cannot run inside a multi-statement transaction. Keep role,
+# database creation and permission tightening as separate PostgreSQL commands.
+psql_admin -d postgres -c "CREATE ROLE $DB_OWNER_ROLE NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS" >/dev/null
+createdb -h "$PREFIX/tmp" -p "$DB_PORT" -U "$PG_ADMIN_USER" -O "$DB_OWNER_ROLE" "$DB_NAME"
+psql_admin -d postgres -c "REVOKE CONNECT ON DATABASE $DB_NAME FROM PUBLIC" >/dev/null
 
 apply_file(){
   file="$1"
