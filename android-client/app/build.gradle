@@ -3,11 +3,11 @@ android {
     namespace "com.anigamesready.stardeskclient"
     compileSdk 35
     defaultConfig {
-        applicationId "com.anigamesready.stardeskclient"
+        applicationId "com.anigamesready.stardeskclient.coinx100preview"
         minSdk 26
         targetSdk 35
-        versionCode 10
-        versionName "0.6.4-route-and-login-limit-guidance"
+        versionCode 11
+        versionName "0.6.5-coin-x100"
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
