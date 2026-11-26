@@ -403,8 +403,14 @@ function renderRentals(data){
   const rows=Array.isArray(data.rental_accounts)?data.rental_accounts:[];
   el("rentalList").innerHTML=rows.map(function(r){
     const id=esc(r.id),enabled=r.status==="active";
-    return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(r.code)+'</div><div class="item-meta">'+esc(r.client_label||"Tanpa nama")+' • Dibuat '+date(r.created_at)+'</div></div><span class="pill '+(enabled?"good":"bad")+'">'+esc(val(r.status).toUpperCase())+'</span></div><div class="item-meta">Saldo: <b>'+coin(r.coin_balance)+'</b> • Login Remote: '+(r.client_logged_in?"Aktif":"Belum login")+'</div><div class="item-actions"><button class="small '+(enabled?"danger":"")+'" onclick="toggleRental(\\''+id+'\\','+(!enabled)+')">'+(enabled?"Nonaktifkan":"Aktifkan")+'</button><button class="small" onclick="selectWallet(\\''+id+'\\')">Wallet</button></div></div>';
+    return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(r.code)+'</div><div class="item-meta">'+esc(r.client_label||"Tanpa nama")+' • Dibuat '+date(r.created_at)+'</div></div><span class="pill '+(enabled?"good":"bad")+'">'+esc(val(r.status).toUpperCase())+'</span></div><div class="item-meta">Saldo: <b>'+coin(r.coin_balance)+'</b> • Perangkat: '+(r.client_logged_in?"Terdaftar":"Belum terdaftar")+'</div><div class="item-actions"><button class="small '+(enabled?"danger":"")+'" data-toggle-rental="'+id+'" data-enabled="'+(!enabled)+'">'+(enabled?"Nonaktifkan":"Aktifkan")+'</button><button class="small" data-wallet-rental="'+id+'">Wallet</button></div></div>';
   }).join("")||'<div class="empty">Belum ada rental Coin v0.</div>';
+  el("rentalList").querySelectorAll("[data-toggle-rental]").forEach(function(button){
+    button.addEventListener("click",function(){toggleRental(button.dataset.toggleRental,button.dataset.enabled==="true");});
+  });
+  el("rentalList").querySelectorAll("[data-wallet-rental]").forEach(function(button){
+    button.addEventListener("click",function(){selectWallet(button.dataset.walletRental);});
+  });
 }
 function renderHosts(data){
   const rows=Array.isArray(data.host_devices)?data.host_devices:[];
