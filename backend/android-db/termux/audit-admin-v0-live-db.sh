@@ -7,13 +7,13 @@ DB_NAME="ani_games_ready_stage"
 DB_PORT="5432"
 log(){ printf '[ANI-ADMIN-V0-AUDIT] %s\n' "$*"; }
 die(){ printf '[ANI-ADMIN-V0-AUDIT] STOP: %s\n' "$*" >&2; exit 1; }
-[ -n "\${PREFIX:-}" ] && [ -x "$PREFIX/bin/pkg" ] || die "Khusus Termux Android."
+[ -n "${PREFIX:-}" ] && [ -x "$PREFIX/bin/pkg" ] || die "Khusus Termux Android."
 for bin in psql node; do command -v "$bin" >/dev/null 2>&1 || die "$bin belum tersedia."; done
 [ -s "$ENV_FILE" ] || die "File .env API stage tidak ditemukan."
 set -a
 . "$ENV_FILE"
 set +a
-[ -n "\${DATABASE_URL:-}" ] || die "DATABASE_URL tidak ada."
+[ -n "${DATABASE_URL:-}" ] || die "DATABASE_URL tidak ada."
 node --input-type=module - "$DATABASE_URL" "$DB_NAME" "$DB_PORT" <<'NODE'
 import { URL } from 'node:url';
 const u = new URL(process.argv[2]);
