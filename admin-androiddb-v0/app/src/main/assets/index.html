@@ -243,16 +243,7 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
 
   <section id="remote" class="section">
     <div class="card">
-      <div class="row" style="justify-content:space-between"><h2>Remote Play / Host Control</h2><button class="small" onclick="loadRemoteAdmin()">Refresh</button></div>
-      <div id="remoteAdminSummary" class="list"><div class="empty">Belum dimuat.</div></div>
-      <pre id="remoteAdminRaw" class="msg" style="white-space:pre-wrap;overflow-wrap:anywhere">Data Remote belum dimuat.</pre>
-    </div>
-    <div class="card">
-      <h2>Izin Remote Rental Lama</h2>
-      <div class="form-grid"><div><label>Rental Account ID</label><input id="remoteRentalId"></div><div><label>Device ID</label><input id="remoteDeviceId"></div>
-        <div class="actions wide"><button onclick="setRemoteRentalPermission(true)">Izinkan rental</button><button class="danger" onclick="setRemoteRentalPermission(false)">Cabut rental</button><button onclick="issueRemoteClient()">Kode Client</button><button onclick="setRemoteHostPermission(true)">Izinkan Host</button><button class="danger" onclick="setRemoteHostPermission(false)">Cabut Host</button><button onclick="issueRemoteHost()">Kode Host</button></div>
-      </div>
-    </div>
+      <div class="row" style="justify-content:space-between"><h2>WoL Android Relay</h2><button class="small" onclick="loadWolStatus()">Refresh</button></div>
     <div class="card">
       <div class="row" style="justify-content:space-between"><h2>WoL Relay / Probe</h2><button class="small" onclick="loadWolStatus()">Refresh</button></div>
       <pre id="wolStatus" class="msg" style="white-space:pre-wrap;overflow-wrap:anywhere">Status relay belum dimuat.</pre>
@@ -272,7 +263,7 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
     </div>
   </section>
 
-  <div class="bottom-note">Admin Android DB v0.2 • Satu database Android • Rental timer dan AniCoin tetap terpisah</div>
+  <div class="bottom-note">StarDesk Custom • Satu database • Data User Coin • PC Billing & Host Agent</div>
 </main>
 
 <div id="oneTimeModal" class="modal hidden">
@@ -381,7 +372,7 @@ function showTab(id){
   document.querySelectorAll(".section").forEach(function(x){x.classList.remove("active");});
   document.querySelectorAll(".tabs button").forEach(function(x){x.classList.toggle("active",x.dataset.tab===id);});
   el(id).classList.add("active");
-  const jobs={dashboard:loadDashboard,pairing:loadDashboard,active:loadActivePCs,devices:loadDevices,reports:function(){},settings:loadSettings,users:loadBillingUsers,chat:loadChatStatus,free:loadFreeTest,remote:function(){return Promise.all([loadRemoteAdmin(),loadWolStatus(),checkBlynk()]);},rentals:loadDashboard,hosts:loadDashboard,payments:loadDashboard};
+  const jobs={dashboard:loadDashboard,pairing:loadDashboard,active:loadActivePCs,devices:loadDevices,reports:function(){},settings:loadSettings,users:loadBillingUsers,chat:loadChatStatus,free:loadFreeTest,remote:function(){return Promise.all([loadWolStatus(),checkBlynk()]);},rentals:loadDashboard,hosts:loadDashboard,payments:loadDashboard};
   const fn=jobs[id]||loadDashboard;Promise.resolve().then(fn).catch(e=>globalMessage("Gagal memuat modul: "+e.message,true));
 }
 async function loadDashboard(){
@@ -757,36 +748,6 @@ async function createReseller(){
   if(!name||!slug)return globalMessage("Nama dan slug reseller wajib diisi.",true);
   try{const r=await api("create_reseller",{p_name:name,p_slug:slug});showJson("reportOutput",r);el("resellerName").value="";el("resellerSlug").value="";globalMessage("Reseller berhasil dibuat.");}
   catch(e){globalMessage("Gagal membuat reseller: "+e.message,true);}
-}
-async function loadRemoteAdmin(){
-  try{
-    const [dashboard,sessions]=await Promise.all([api("admin_remote_play_dashboard",{p_limit:100}),api("admin_remote_play_sessions",{p_limit:100})]);
-    const hosts=asArray(dashboard.hosts),rentals=asArray(dashboard.rentals);
-    el("remoteAdminSummary").innerHTML='<div class="stat-grid"><div class="stat"><div class="k">Host remote</div><div class="v">'+hosts.length+'</div></div><div class="stat"><div class="k">Rental remote</div><div class="v">'+rentals.length+'</div></div><div class="stat"><div class="k">Sesi</div><div class="v">'+asArray(sessions.sessions).length+'</div></div></div>';
-    showJson("remoteAdminRaw",{dashboard:dashboard,sessions:sessions});
-  }catch(e){el("remoteAdminSummary").innerHTML='<div class="msg error">'+esc(e.message)+'</div>';showJson("remoteAdminRaw",{ok:false,error:e.message});}
-}
-async function setRemoteRentalPermission(enabled){
-  const id=val(el("remoteRentalId").value).trim();if(!id)return globalMessage("Rental Account ID wajib diisi.",true);
-  if(!confirm((enabled?"Izinkan":"Cabut izin")+" Remote pada rental ini?"))return;
-  try{showCode("Status izin Remote",pretty(await api("admin_remote_play_set_rental_permission",{p_rental_account_id:id,p_enabled:enabled})),"");await loadRemoteAdmin();}
-  catch(e){globalMessage("Gagal ubah izin rental Remote: "+e.message,true);}
-}
-async function setRemoteHostPermission(enabled){
-  const id=val(el("remoteDeviceId").value).trim();if(!id)return globalMessage("Device ID wajib diisi.",true);
-  if(!confirm((enabled?"Izinkan":"Cabut izin")+" PC Host untuk Remote?"))return;
-  try{showJson("remoteAdminRaw",await api("admin_remote_play_set_host_permission",{p_device_id:id,p_enabled:enabled}));await loadRemoteAdmin();}
-  catch(e){globalMessage("Gagal ubah izin Host: "+e.message,true);}
-}
-async function issueRemoteClient(){
-  const id=val(el("remoteRentalId").value).trim();if(!id)return globalMessage("Rental Account ID wajib diisi.",true);
-  try{const r=await api("admin_remote_play_issue_client_credential",{p_rental_account_id:id});showCode("Kode aktivasi client",r.activation_code||r.activationCode||pretty(r),pretty(r));}
-  catch(e){globalMessage("Gagal buat kode client: "+e.message,true);}
-}
-async function issueRemoteHost(){
-  const id=val(el("remoteDeviceId").value).trim();if(!id)return globalMessage("Device ID wajib diisi.",true);
-  try{const r=await api("admin_remote_play_issue_host_enrollment",{p_device_id:id,p_valid_minutes:15});showCode("Kode enrollment Host",r.enrollment_code||r.enrollmentCode||pretty(r),pretty(r));}
-  catch(e){globalMessage("Gagal buat kode Host: "+e.message,true);}
 }
 async function loadWolStatus(){
   try{showJson("wolStatus",await api("wol_relay_status"));}
