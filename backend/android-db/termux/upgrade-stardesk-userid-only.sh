@@ -86,6 +86,14 @@ curl --fail --location --silent --show-error --connect-timeout 10 --max-time 90 
 curl --fail --location --silent --show-error --connect-timeout 10 --max-time 60 "$BASE_URL/backend/android-db/migrations/026_androiddb_v0_coin_x100.sql" -o "$MIGRATION_026"
 curl --fail --location --silent --show-error --connect-timeout 10 --max-time 60 "$BASE_URL/backend/android-db/migrations/027_androiddb_v0_remote_userid_only_login.sql" -o "$MIGRATION_027"
 [ -s "$API_TMP" ] && [ -s "$MIGRATION_026" ] && [ -s "$MIGRATION_027" ] || die "Source API/migrasi kosong."
+# Match the StarDesk-specific branding applied by the fresh installer.
+sed -i \
+  -e 's/Ani Games Ready Local Server/StarDesk Custom Local API/g' \
+  -e 's/Setup Admin Ani Games Ready/Setup StarDesk Custom Owner/g' \
+  -e 's/Database lokal Ani Games Ready. Blynk\\/WoL tidak disentuh./Database khusus StarDesk Custom. Database Ani Games Ready lama tidak disentuh./g' \
+  -e 's/ani-games-ready-local-api/stardesk-custom-v0-api/g' \
+  "$API_TMP"
+grep -q 'StarDesk Custom Local API' "$API_TMP" || die "Branding API StarDesk tidak cocok."
 node --check "$API_TMP"
 grep -q 'api.androiddb_v0_remote_login($1::text,$2::text)' "$API_TMP" || die "API source bukan route login User ID-only."
 grep -q 'androiddb_v0_remote_login(text,text)' "$MIGRATION_027" || die "Migrasi 027 tidak memuat login User ID-only."
