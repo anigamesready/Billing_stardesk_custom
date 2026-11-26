@@ -1,4 +1,4 @@
-name: Build Ani Games Admin Android DB v0 Coin-first PC Control Preview
+name: Build Ani Games Admin Coin Preview 0.2.5 Coin-first PC Control Preview
 
 on:
   push:
@@ -64,7 +64,7 @@ jobs:
 
           html = Path("admin-androiddb-v0/app/src/main/assets/index.html").read_text(encoding="utf-8")
           required = [
-              "Ani Games Admin Android DB v0",
+              "Ani Games Admin Coin Preview 0.2.5",
               "ANDROID DB",
               "admin_context",
               "admin_devices",
@@ -229,11 +229,11 @@ jobs:
               assert token in tls, "missing pinned Cloudflare TLS control: " + token
           assert "InetAddress.getByName" not in tls and "X509TrustManager" not in tls, "DNS/trust bypass detected in pinned gateway socket factory"
           gradle = Path("admin-androiddb-v0/app/build.gradle").read_text(encoding="utf-8")
-          for token in ['applicationId "com.anigames.billingadmin.androiddbv0"', "versionCode 7", 'versionName "0.2.5-coin-first-pc-control"']:
+          for token in ['applicationId "com.anigames.billingadmin.coinpreview"', "versionCode 7", 'versionName "0.2.5-coin-first-pc-control"']:
               assert token in gradle, "Admin Android DB v0 build identity mismatch: " + token
 
           manifest = Path("admin-androiddb-v0/app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
-          assert 'android:label="Ani Games Admin Android DB v0"' in manifest
+          assert 'android:label="Ani Games Admin Coin Preview 0.2.5"' in manifest
           assert 'android:usesCleartextTraffic="false"' in manifest
           PY
           node --check /tmp/admin-androiddb-v0.js
@@ -253,8 +253,8 @@ jobs:
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
           test -n "$AAPT" && test -n "$APKSIGNER"
           "$AAPT" dump badging output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk | tee output/apk-badging.txt
-          grep -q "package: name='com.anigames.billingadmin.androiddbv0' versionCode='7' versionName='0.2.5-coin-first-pc-control'" output/apk-badging.txt
-          grep -q "application-label:'Ani Games Admin Android DB v0'" output/apk-badging.txt
+          grep -q "package: name='com.anigames.billingadmin.coinpreview' versionCode='7' versionName='0.2.5-coin-first-pc-control'" output/apk-badging.txt
+          grep -q "application-label:'Ani Games Admin Coin Preview 0.2.5'" output/apk-badging.txt
           "$APKSIGNER" verify --verbose output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk
           "$APKSIGNER" verify --print-certs output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk
           sha256sum output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk | tee output/SHA256SUMS.txt
