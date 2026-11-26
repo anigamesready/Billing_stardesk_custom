@@ -1,11 +1,11 @@
-# Ani Games Admin Android DB v0 — Preview 0.2.1
+# Ani Games Admin Android DB v0 — Preview 0.2.4
 
 A standalone Android Owner/Admin app in this repository. It does not patch, replace, or share the package identity of Admin V12.x.
 
 ## Identity
 - Package: `com.anigames.billingadmin.androiddbv0`
 - Namespace: `com.anigamesready.adminandroiddbv0`
-- Version: `0.2.1-full-db`, versionCode 3
+- Version: `0.2.4-login-limit-guidance`, versionCode 6
 - Project root: `admin-androiddb-v0/`
 
 ## Android DB integration
