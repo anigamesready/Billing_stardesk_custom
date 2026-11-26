@@ -285,6 +285,7 @@ test('Termux User ID-only updater is backup-first and restarts only the StarDesk
     'stardesk_v0_runtime',
     'stardesk-custom-v0-api',
     'ANI_STARDESK_SOURCE_REF',
+    'StarDesk Custom Local API',
     '026_androiddb_v0_coin_x100.sql',
     '027_androiddb_v0_remote_userid_only_login.sql',
     'androiddb_v0.coin_unit_config',
