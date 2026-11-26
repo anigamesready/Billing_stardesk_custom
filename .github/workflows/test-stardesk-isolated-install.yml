@@ -114,8 +114,8 @@ jobs:
             022_coin_unit_scale_100.sql \
             023_admin_coin_management_read_api.sql \
             025_admin_androiddb_v0_coin_domain.sql; do
-            sed 's/ani_api_runtime/stardesk_v0_runtime/g' "backend/android-db/migrations/$migration" |
-              psql -v ON_ERROR_STOP=1 -d stardesk_custom_v0 -c "SET ROLE stardesk_v0_owner"
+            { printf 'SET ROLE stardesk_v0_owner;\n'; sed 's/ani_api_runtime/stardesk_v0_runtime/g' "backend/android-db/migrations/$migration"; } |
+              psql -v ON_ERROR_STOP=1 -d stardesk_custom_v0
           done
           psql -v ON_ERROR_STOP=1 -d postgres <<'SQL'
           CREATE ROLE stardesk_v0_login LOGIN PASSWORD 'test-only-password' INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE;
