@@ -168,7 +168,7 @@ SQL
     else
       # SECURITY DEFINER business routines must be owned by this non-login DB
       # owner, never by the local PostgreSQL superuser.
-      psql_admin -d "$DB_NAME" -c "SET ROLE $DB_OWNER_ROLE" -f "$MIGRATIONS_DIR/$file" >/dev/null
+      { printf 'SET ROLE %s;\n' "$DB_OWNER_ROLE"; cat "$MIGRATIONS_DIR/$file"; } | psql_admin -d "$DB_NAME" >/dev/null
     fi
   fi
 }
