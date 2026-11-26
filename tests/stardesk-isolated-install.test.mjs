@@ -239,7 +239,12 @@ test('Coin account domain audit is read-only and checks both StarDesk Coin schem
     'remote_play.coin_lots',
     'BEGIN TRANSACTION READ ONLY',
     'COMMIT',
-    'TARGET_CODE'
+    'TARGET_CODE',
+    'api.androiddb_v0_remote_login(text,text)',
+    'api.androiddb_v0_remote_login(text,text,text)',
+    'API_SOURCE_HANDLER|USER_ID_ONLY_TWO_PARAMETERS',
+    'API_SOURCE_HANDLER|LEGACY_ACTIVATION_THREE_PARAMETERS',
+    'schema_version|'
   ]) assert.ok(coinAccountAudit.includes(token), 'Coin account audit missing: '+token);
   assert.doesNotMatch(coinAccountAudit, /INSERT\\s+INTO|UPDATE\\s+\\w|DELETE\\s+FROM|DROP\\s+|TRUNCATE\\s+|ALTER\\s+/i,
     'Coin account audit must not write or alter any data');
