@@ -273,7 +273,7 @@ public final class MainActivity extends Activity {
     }
 
     public final class AdminBridge {
-        @JavascriptInterface public String getAppVersion() { return "0.2.0-full-db"; }
+        @JavascriptInterface public String getAppVersion() { return "0.2.2-session-refresh"; }
         @JavascriptInterface public String getApiBase() { return API_BASE; }
         @JavascriptInterface public String getSecureValue(String key) { return readSecret(key); }
         @JavascriptInterface public boolean saveSecureValue(String key, String value) {
