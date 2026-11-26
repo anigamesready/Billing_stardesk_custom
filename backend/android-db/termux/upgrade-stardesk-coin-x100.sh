@@ -21,6 +21,7 @@ log(){ printf '[STAR-DESK-COIN-X100] %s\n' "$*"; }
 die(){ printf '[STAR-DESK-COIN-X100] STOP: %s\n' "$*" >&2; exit 1; }
 
 [ -n "$PREFIX" ] && [ -x "$PREFIX/bin/psql" ] || die "Jalankan dari Termux Android."
+[ -r /dev/tty ] || die "Jalankan dari sesi Termux interaktif agar konfirmasi APPLY dapat dibaca."
 for bin in psql pg_isready pg_dump pg_restore curl sha256sum readlink date sed; do
   command -v "$bin" >/dev/null 2>&1 || die "$bin belum tersedia. Tidak ada perubahan database."
 done
@@ -38,6 +39,9 @@ for candidate in "$(id -un)" postgres; do
 done
 [ -n "$PG_ADMIN_USER" ] || die "Superuser PostgreSQL lokal tidak ditemukan."
 psql_admin(){ psql -X -h "$PREFIX/tmp" -p "$DB_PORT" -U "$PG_ADMIN_USER" -v ON_ERROR_STOP=1 "$@"; }
+SERVER_MAJOR="$(psql -X -h "$PREFIX/tmp" -p "$DB_PORT" -U "$PG_ADMIN_USER" -d postgres -Atqc "SELECT current_setting('server_version_num')::int / 10000")"
+DUMP_MAJOR="$(pg_dump --version | sed -E 's/^pg_dump \(PostgreSQL\) ([0-9]+).*/\1/')"
+[ "$SERVER_MAJOR" = "$DUMP_MAJOR" ] || die "Versi pg_dump ($DUMP_MAJOR) tidak cocok dengan PostgreSQL server ($SERVER_MAJOR)."
 EXPECTED_PGDATA="$(readlink -f "$PGDATA")"
 SERVER_PGDATA="$(psql_admin -d postgres -Atqc "SHOW data_directory")"
 ACTUAL_PGDATA="$(readlink -f "$SERVER_PGDATA")"
@@ -99,7 +103,7 @@ mkdir -p "$BACKUP_DIR"
 chmod 700 "$HOME/stardesk-backups" "$BACKUP_DIR"
 BACKUP_FILE="$BACKUP_DIR/$DB_NAME-before-coin-x100.dump"
 log "Membuat backup database StarDesk (bukan database Ani Games Ready lama)..."
-pg_dump -h "$PREFIX/tmp" -p "$DB_PORT" -U "$PG_ADMIN_USER" -d "$DB_NAME" --format=custom --no-owner --no-acl --file="$BACKUP_FILE"
+pg_dump -h "$PREFIX/tmp" -p "$DB_PORT" -U "$PG_ADMIN_USER" -d "$DB_NAME" --format=custom --no-owner --file="$BACKUP_FILE"
 [ -s "$BACKUP_FILE" ] || die "Backup database gagal/berukuran nol."
 pg_restore --list "$BACKUP_FILE" >/dev/null || die "Validasi arsip backup gagal."
 sha256sum "$BACKUP_FILE" > "$BACKUP_FILE.sha256"
