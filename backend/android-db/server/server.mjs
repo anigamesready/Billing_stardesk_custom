@@ -232,7 +232,6 @@ const RPC = {
   androiddb_v0_admin_dashboard: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_dashboard($1::text,$2::integer) AS result", args: ["p_limit"] },
   androiddb_v0_admin_create_rental: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_create_rental($1::text,$2::text,$3::text) AS result", args: ["p_code","p_client_label"] },
   androiddb_v0_admin_set_rental_status: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_set_rental_status($1::text,$2::uuid,$3::boolean) AS result", args: ["p_rental_account_id","p_enabled"] },
-  androiddb_v0_admin_issue_activation: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_issue_activation($1::text,$2::uuid) AS result", args: ["p_rental_account_id"] },
   androiddb_v0_admin_wallet: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_wallet($1::text,$2::uuid,$3::integer) AS result", args: ["p_rental_account_id","p_history_limit"] },
   androiddb_v0_admin_approve_topup: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_approve_topup($1::text,$2::uuid) AS result", args: ["p_order_id"] },
   androiddb_v0_admin_reject_topup: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_reject_topup($1::text,$2::uuid,$3::text) AS result", args: ["p_order_id","p_reason"] },
