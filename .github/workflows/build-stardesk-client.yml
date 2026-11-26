@@ -39,7 +39,7 @@ jobs:
           from pathlib import Path
           import re
           h=Path("android-client/app/src/main/assets/index.html").read_text()
-          for token in ["loginForm","retryGateway","activationCode","remote_play_login","remote_play_refresh","remote_coin_dashboard","remote_coin_wallet","remote_coin_history","remote_coin_create_topup","idempotency_key","stardesk_linked","ONLINE • STAR DESK BELUM DIVERIFIKASI","HP hanya mengelola akun","Video tetap dibuka melalui StarDesk Engine secara langsung","n*6000/8000","n<30000","4500","5250","6000","3.750 koin","7.500 koin","11.250 koin","15.000 koin","accountExpiryValid","Masa aktif akun rental sudah berakhir.","activationWrap","registerButton","Daftar via WhatsApp","Perangkat berikutnya cukup memakai User ID.","Perangkat ini belum terdaftar.","toggleActivation"]:
+          for token in ["loginForm","retryGateway","activationCode","remote_play_login","remote_play_refresh","remote_coin_dashboard","remote_coin_wallet","remote_coin_history","remote_coin_create_topup","idempotency_key","stardesk_linked","ONLINE • STAR DESK BELUM DIVERIFIKASI","HP hanya mengelola akun","Video tetap dibuka melalui StarDesk Engine secara langsung","n*6000/8000","n<30000","4500","5250","6000","3.750 koin","7.500 koin","11.250 koin","15.000 koin","accountExpiryValid","Masa aktif akun rental sudah berakhir.","activationWrap","registerButton","Daftar via WhatsApp","Login berikutnya cukup memakai User ID.","Perangkat ini belum terdaftar.","toggleActivation"]:
               assert token.lower() in h.lower(), "missing integration control/contract: "+token
           for forbidden in ["supabase.co","supabase.createclient","functions/v1/stardesk-client-api","PREVIEW-","id=\"apiBase\"","setApiBase","ALAMAT HTTPS SERVER ANDROID DB"]:
               assert forbidden.lower() not in h.lower(), "legacy/demo backend reference remains: "+forbidden
@@ -52,7 +52,7 @@ jobs:
               assert token in java, "missing native security/API bridge: "+token
           gradle=Path("android-client/app/build.gradle").read_text()
           assert 'versionCode 7' in gradle and 'versionName "0.6.1-userid-login-wa-register"' in gradle
-          logout=re.search(r"async function logout\\(\\)\\s*\\{([\\s\\S]*?)\\n\\}",h)
+          logout=re.search(r"async function logout\(\)\s*\{([\s\S]*?)\n\}",h)
           assert logout, "logout handler missing"
           assert 'secretClear("remote_access_token")' in logout.group(1)
           assert 'secretClear("remote_refresh_token")' not in logout.group(1)
