@@ -9,7 +9,7 @@ const apps = [
     helper: 'admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/GatewayPinnedSocketFactory.java',
     gradle: 'admin-androiddb-v0/app/build.gradle',
     base: 'API_BASE',
-    version: ['versionCode 8', 'versionName "0.2.6-coin-x100"'],
+    version: ['versionCode 9', 'versionName "0.2.7-userid-only-remote-login"'],
   },
   {
     name: 'Remote Android',
@@ -17,7 +17,7 @@ const apps = [
     helper: 'android-client/app/src/main/java/com/anigamesready/stardeskclient/GatewayPinnedSocketFactory.java',
     gradle: 'android-client/app/build.gradle',
     base: 'ONLINE_API_BASE',
-    version: ['versionCode 11', 'versionName "0.6.5-coin-x100"'],
+    version: ['versionCode 12', 'versionName "0.6.6-userid-only-login"'],
   },
 ];
 
@@ -59,7 +59,7 @@ for (const app of apps) {
         html.includes('error.code==="LOGIN_RATE_LIMITED"') &&
         html.includes('Percobaan login terlalu banyak'),
         'Admin login must show a localized and bounded cooldown message');
-      assert.ok(html.includes('class="version">v0.2.6</div>'), 'Admin UI version label must match the APK');
+      assert.ok(html.includes('class="version">v0.2.7</div>'), 'Admin UI version label must match the APK');
     }
     if (app.name === 'Remote Android') {
       const html = readFileSync('android-client/app/src/main/assets/index.html', 'utf8');
@@ -90,5 +90,18 @@ for (const app of apps) {
 test('Admin Android DB v0: uses distinct Gateway health and API timeouts', () => {
   const main = readFileSync('admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java', 'utf8');
   assert.ok(main.includes('connection.setReadTimeout("__gateway_health".equals(route) ? 15000 : 40000);'));
-  assert.ok(main.includes('getAppVersion() { return "0.2.6-coin-x100"; }'));
+  assert.ok(main.includes('getAppVersion() { return "0.2.7-userid-only-remote-login"; }'));
+});
+
+test('Remote UI has only User ID login and does not show Admin activation flow', () => {
+  const html = readFileSync('android-client/app/src/main/assets/index.html', 'utf8');
+  const admin = readFileSync('admin-androiddb-v0/app/src/main/assets/index.html', 'utf8');
+  assert.ok(html.includes('Masuk cukup dengan User ID rental yang terdaftar.'));
+  for (const forbidden of ['activationCode','p_activation_code','Kode Aktivasi','Kode dari Admin','issueActivation']) {
+    assert.ok(!html.includes(forbidden), 'Remote login activation regression: ' + forbidden);
+  }
+  assert.ok(html.includes('p_rental_code:rentalCode,p_client_install_id:clientId'));
+  for (const forbidden of ['issueActivation','androiddb_v0_admin_issue_activation','activation_issued','Kode Remote']) {
+    assert.ok(!admin.includes(forbidden), 'Admin activation workflow reintroduced: ' + forbidden);
+  }
 });
