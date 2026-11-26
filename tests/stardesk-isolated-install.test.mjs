@@ -67,7 +67,9 @@ test('StarDesk installer is fail-closed and does not target legacy DB/API/servic
     'SERVICE_DIR',
     '/dev/tcp/127.0.0.1/$API_PORT',
     'pg_isready',
-    'status postgres',
+    'POSTGRES_SERVICE_STATUS',
+    'SHOW data_directory',
+    'ANI_STARDESK_SOURCE_REF',
   ]) assert.ok(installer.includes(guard), 'missing fail-closed guard: ' + guard);
 });
 
@@ -89,4 +91,20 @@ test('StarDesk relay installer targets API 8789 and the dedicated relay route/se
   assert.ok(!agentInstaller.includes('sv down ani-games-relay-agent'));
   assert.ok(!agentInstaller.includes('sv down ani-games-ready-api'));
   assert.ok(!agentInstaller.includes('openssl rand'));
+});
+
+test('StarDesk installer accepts only the already-running, identity-verified PostgreSQL cluster', () => {
+  assert.ok(installer.includes('pg_isready -h "$PREFIX/tmp"'));
+  assert.ok(installer.includes('SHOW data_directory'));
+  assert.ok(installer.includes('SERVER_MAJOR'));
+  assert.ok(installer.includes('POSTGRES_SERVICE_STATUS'));
+  for (const forbidden of ['sv up postgres', 'sv down postgres', 'sv-enable postgres', 'pg_ctl start', 'initdb']) {
+    assert.ok(!installer.includes(forbidden), 'PostgreSQL lifecycle mutation found: ' + forbidden);
+  }
+});
+
+test('StarDesk installer requires caller to pin the exact source commit', () => {
+  assert.ok(installer.includes('SOURCE_REF="${ANI_STARDESK_SOURCE_REF:-}"'));
+  assert.ok(installer.includes('ANI_STARDESK_SOURCE_REF wajib diisi'));
+  assert.ok(!installer.includes('890bae3e2ae16dffe530e04d0929d066f38832b2'));
 });
