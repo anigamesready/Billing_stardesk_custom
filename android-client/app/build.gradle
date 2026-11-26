@@ -7,7 +7,7 @@ android {
         minSdk 26
         targetSdk 35
         versionCode 8
-        versionName "0.6.1-androiddb-v0-coin-gateway-pin"
+        versionName "0.6.2-isolated-stardesk-db"
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
