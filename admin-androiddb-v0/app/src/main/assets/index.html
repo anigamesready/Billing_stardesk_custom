@@ -397,7 +397,7 @@ function renderRentals(data){
   const rows=Array.isArray(data.rental_accounts)?data.rental_accounts:[];
   el("rentalList").innerHTML=rows.map(function(r){
     const id=esc(r.id),enabled=r.status==="active";
-    return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(r.code)+'</div><div class="item-meta">'+esc(r.client_label||"Tanpa nama")+' • Dibuat '+date(r.created_at)+'</div></div><span class="pill '+(enabled?"good":"bad")+'">'+esc(val(r.status).toUpperCase())+'</span></div><div class="item-meta">Saldo: <b>'+coin(r.coin_balance)+'</b> • Remote login: '+(r.client_logged_in?"Aktif":"Belum login")+' • Aktivasi: '+(r.activation_issued?"Pernah diterbitkan":"Belum diterbitkan")+'</div><div class="item-actions"><button class="small primary" data-id="'+id+'" onclick="issueActivation(this.dataset.id)">Kode Remote</button><button class="small '+(enabled?"danger":"")+'" onclick="toggleRental(\''+id+'\','+(!enabled)+')">'+(enabled?"Nonaktifkan":"Aktifkan")+'</button><button class="small" onclick="selectWallet(\''+id+'\')">Wallet</button></div></div>';
+    return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(r.code)+'</div><div class="item-meta">'+esc(r.client_label||"Tanpa nama")+' • Dibuat '+date(r.created_at)+'</div></div><span class="pill '+(enabled?"good":"bad")+'">'+esc(val(r.status).toUpperCase())+'</span></div><div class="item-meta">Saldo: <b>'+coin(r.coin_balance)+'</b> • Remote login: '+(r.client_logged_in?"Aktif":"Belum login")+'</div><div class="item-actions"><button class="small '+(enabled?"danger":"")+'" onclick="toggleRental(\''+id+'\','+(!enabled)+')">'+(enabled?"Nonaktifkan":"Aktifkan")+'</button><button class="small" onclick="selectWallet(\''+id+'\')">Wallet</button></div></div>';
   }).join("")||'<div class="empty">Belum ada rental Coin v0.</div>';
 }
 function renderHosts(data){
@@ -433,13 +433,6 @@ async function toggleRental(id,enabled){
   if(!confirm((enabled?"Aktifkan":"Nonaktifkan")+" akun ini? Penonaktifan akan mencabut token Remote aktif."))return;
   try{const r=await api("androiddb_v0_admin_set_rental_status",{p_rental_account_id:id,p_enabled:enabled});if(r.ok!==true)throw new Error("Perubahan status tidak dikonfirmasi.");await loadDashboard();globalMessage("Status rental diperbarui.");}
   catch(error){globalMessage("Gagal mengubah rental: "+val(error.message||error),true);}
-}
-async function issueActivation(id){
-  const member=(dashboardData&&Array.isArray(dashboardData.rental_accounts)?dashboardData.rental_accounts:[]).find(x=>x.id===id)||{};
-  const code=val(member.code)||id;
-  if(!confirm("Terbitkan kode aktivasi satu kali untuk "+code+"? Kode lama dan login sebelumnya akan dicabut."))return;
-  try{const r=await api("androiddb_v0_admin_issue_activation",{p_rental_account_id:id});if(r.ok!==true||!r.activation_code)throw new Error("Kode aktivasi tidak tersedia.");showCode("KODE AKTIVASI REMOTE",r.activation_code,"ID Rental "+code+" • Berlaku "+date(r.expires_at)+" • Satu kali pakai.");await loadDashboard();}
-  catch(error){globalMessage("Gagal menerbitkan kode: "+val(error.message||error),true);}
 }
 async function saveRate(id){
   const gpu=el("gpu_"+id).value;if(!gpu){globalMessage("Pilih GPU terlebih dahulu.",true);return;}
