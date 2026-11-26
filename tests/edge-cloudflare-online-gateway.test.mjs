@@ -59,11 +59,8 @@ test("Admin Bearer token survives Cloudflare Gateway and WebSocket Relay forward
    return {fetch:async request=>{
     assert.equal(new URL(request.url).pathname,"/proxy");
     envelope=await request.json();
-    return Response.json({
-     status:200,
-     headers:{"content-type":"application/json"},
-     bodyBase64:Buffer.from(JSON.stringify({ok:true})).toString("base64")
-    });
+    // RelayHub restores the agent envelope to the final upstream HTTP response.
+    return Response.json({ok:true});
    }};
   }}
  };
