@@ -3,7 +3,7 @@ DO $$
 DECLARE
   owner_login jsonb;
   owner_token text;
-  org_id uuid;
+  v_org_id uuid;
   legacy_v0_rental uuid;
   x100_rental uuid;
   device_id uuid;
@@ -65,12 +65,12 @@ BEGIN
 
   owner_login:=api.admin_login('CI-OWNER','CI-Admin-New-Password-2026');
   owner_token:=owner_login->>'token';
-  org_id:=(owner_login->>'org_id')::uuid;
-  IF coalesce(owner_token,'')='' OR org_id IS NULL THEN
+  v_org_id:=(owner_login->>'org_id')::uuid;
+  IF coalesce(owner_token,'')='' OR v_org_id IS NULL THEN
     RAISE EXCEPTION 'ANDROIDDB_V0_X100_OWNER_LOGIN_FAILED';
   END IF;
   SELECT d.id INTO device_id FROM public.devices d
-    WHERE d.client_id='V0-CI-RTX5060' AND d.org_id=org_id LIMIT 1;
+    WHERE d.client_id='V0-CI-RTX5060' AND d.org_id=v_org_id LIMIT 1;
   IF device_id IS NULL THEN RAISE EXCEPTION 'ANDROIDDB_V0_X100_PC_FIXTURE_MISSING'; END IF;
 
   topup:=api.androiddb_v0_admin_create_rental(owner_token,'V0-X100-TEST','AniCoin x100 test');
@@ -94,7 +94,7 @@ BEGIN
       duplicate_topup:=api.androiddb_v0_remote_coin_create_topup(
         access_token,5000,'androiddb-v0-x100-order-0001');
       IF (duplicate_topup->>'coin_amount')::numeric<>3750
-         OR duplicate_topup->>'order_id'<>topup->>'order_id' THEN
+         OR (duplicate_topup->>'order_id')::uuid<>(topup->>'order_id')::uuid THEN
         RAISE EXCEPTION 'ANDROIDDB_V0_X100_TOPUP_IDEMPOTENCY_FAILED';
       END IF;
     END IF;
