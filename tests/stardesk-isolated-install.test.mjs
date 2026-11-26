@@ -190,6 +190,41 @@ test('User ID login RPC is additive, scoped to androiddb_v0 and never grants dir
   assert.ok(remoteServer.includes('callRateLimit(key,5)'));
 });
 
+
+const userIdUpdater = readFileSync('backend/android-db/termux/update-stardesk-custom-v0-userid-login.sh', 'utf8');
+
+test('existing StarDesk v0 updater is restricted to the dedicated DB/API and validates backup + APPLY', () => {
+  for (const token of [
+    'stardesk_custom_v0',
+    'stardesk_v0_owner',
+    'stardesk_v0_runtime',
+    'stardesk_v0_login',
+    'ani-games-stardesk-custom-v0',
+    'stardesk-custom-v0-api',
+    'ANI_STARDESK_SOURCE_REF',
+    '026_androiddb_v0_remote_login',
+    'pg_dump',
+    'pg_dumpall',
+    'pg_restore --list',
+    'sha256sum -c',
+    'Ketik APPLY',
+    'androiddb_v0_026',
+    'api.androiddb_v0_remote_login(text,text)',
+    'callRateLimit(key,5)',
+    'sv restart "$SERVICE_NAME"',
+    'STAR_DESK_USER_ID_RPC_PROBE_FAILED'
+  ]) assert.ok(userIdUpdater.includes(token), 'User ID updater missing guard: '+token);
+  for (const forbidden of [
+    'ani_games_ready_stage',
+    'ani-games-ready-api',
+    'ani-games-relay-agent',
+    '8788',
+    'initdb',
+    'sv restart postgres',
+    'sv up postgres'
+  ]) assert.ok(!userIdUpdater.includes(forbidden), 'User ID updater must never touch legacy target: '+forbidden);
+});
+
 const adminHtml = readFileSync('admin-androiddb-v0/app/src/main/assets/index.html', 'utf8');
 const adminJava = readFileSync('admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java', 'utf8');
 const dbControl = readFileSync('backend/android-db/termux/stardesk-db-control.sh', 'utf8');
