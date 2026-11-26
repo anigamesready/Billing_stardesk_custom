@@ -5,6 +5,7 @@ on:
     branches:
       - feature/admin-androiddb-v0-isolated-20261125
       - feature/admin-androiddb-v0-full-db-20261126
+      - feature/remote-userid-only-login-20261126
       - feature/coin-x100-agent-pairing-20261126
     paths:
       - "admin-androiddb-v0/**"
@@ -14,6 +15,8 @@ on:
       - "backend/android-db/migrations/006_admin_local_auth_and_rpc.sql"
       - "backend/android-db/migrations/009_admin_business_routines.sql"
       - "backend/android-db/migrations/011_billing_control_android_rpcs.sql"
+      - "backend/android-db/migrations/027_androiddb_v0_remote_userid_only_login.sql"
+      - "tests/remote-userid-only-login.test.mjs"
       - "backend/android-db/migrations/026_androiddb_v0_coin_x100.sql"
       - ".github/workflows/test-androiddb-remote-play.yml"
       - ".github/workflows/build-admin-androiddb-v0.yml"
@@ -66,7 +69,7 @@ jobs:
 
           html = Path("admin-androiddb-v0/app/src/main/assets/index.html").read_text(encoding="utf-8")
           required = [
-              "Ani Games Admin Coin x100 Preview 0.2.6",
+              "Ani Games Admin Coin x100 0.2.7",
               "ANDROID DB",
               "admin_context",
               "admin_devices",
@@ -122,7 +125,6 @@ jobs:
               "__iot_power",
               "androiddb_v0_admin_dashboard",
               "androiddb_v0_admin_create_rental",
-              "androiddb_v0_admin_issue_activation",
               "androiddb_v0_admin_wallet",
               "androiddb_v0_admin_approve_topup",
               "androiddb_v0_admin_reject_topup",
@@ -145,6 +147,10 @@ jobs:
               "DB1",
               "DB2",
               "schedule_shutdown",
+              "issueActivation",
+              "androiddb_v0_admin_issue_activation",
+              "activation_issued",
+              "Kode Remote",
               "CREATE TABLE",
               "DROP TABLE",
               "TRUNCATE TABLE",
@@ -190,7 +196,7 @@ jobs:
               "wol_relay_status", "wol_relay_create_enrollment", "wol_relay_enqueue",
               "wol_relay_command_status", "wol_relay_probe_request", "wol_relay_probe_status",
               "androiddb_v0_admin_dashboard", "androiddb_v0_admin_create_rental",
-              "androiddb_v0_admin_set_rental_status", "androiddb_v0_admin_issue_activation",
+              "androiddb_v0_admin_set_rental_status",
               "androiddb_v0_admin_wallet", "androiddb_v0_admin_approve_topup",
               "androiddb_v0_admin_reject_topup", "androiddb_v0_admin_set_device_rate",
               "androiddb_v0_admin_link_stardesk_device", "androiddb_v0_admin_set_host_permission",
@@ -238,15 +244,16 @@ jobs:
               assert token in coin_test, "Android DB v0 x100 regression fixture missing: " + token
           assert "Ringkasan AniCoin ×100" in html, "Admin must identify the x100 Coin denomination"
           gradle = Path("admin-androiddb-v0/app/build.gradle").read_text(encoding="utf-8")
-          for token in ['applicationId "com.anigames.billingadmin.coinx100preview"', "versionCode 8", 'versionName "0.2.6-coin-x100"']:
+          for token in ['applicationId "com.anigames.billingadmin.coinx100preview"', "versionCode 9", 'versionName "0.2.7-userid-only-remote-login"']:
               assert token in gradle, "Admin Android DB v0 build identity mismatch: " + token
 
           manifest = Path("admin-androiddb-v0/app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
-          assert 'android:label="Ani Games Admin Coin x100 Preview 0.2.6"' in manifest
+          assert 'android:label="Ani Games Admin Coin x100 0.2.7"' in manifest
           assert 'android:usesCleartextTraffic="false"' in manifest
           PY
           node --check /tmp/admin-androiddb-v0.js
           node --test tests/android-gateway-dns-pin.test.mjs
+          node --test tests/remote-userid-only-login.test.mjs
           node --test tests/stardesk-isolated-install.test.mjs
 
       - name: Build isolated Admin APK
@@ -257,23 +264,23 @@ jobs:
           APK="admin-androiddb-v0/app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
           mkdir -p output
-          cp "$APK" output/Ani-Games-Admin-Coin-x100-Preview-0.2.6.apk
+          cp "$APK" output/Ani-Games-Admin-Coin-x100-UserID-Only-0.2.7.apk
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
           test -n "$AAPT" && test -n "$APKSIGNER"
-          "$AAPT" dump badging output/Ani-Games-Admin-Coin-x100-Preview-0.2.6.apk | tee output/apk-badging.txt
-          grep -q "package: name='com.anigames.billingadmin.coinx100preview' versionCode='8' versionName='0.2.6-coin-x100'" output/apk-badging.txt
-          grep -q "application-label:'Ani Games Admin Coin x100 Preview 0.2.6'" output/apk-badging.txt
-          "$APKSIGNER" verify --verbose output/Ani-Games-Admin-Coin-x100-Preview-0.2.6.apk
-          "$APKSIGNER" verify --print-certs output/Ani-Games-Admin-Coin-x100-Preview-0.2.6.apk
-          sha256sum output/Ani-Games-Admin-Coin-x100-Preview-0.2.6.apk | tee output/SHA256SUMS.txt
-          unzip -t output/Ani-Games-Admin-Coin-x100-Preview-0.2.6.apk
-          ls -lh output/Ani-Games-Admin-Coin-x100-Preview-0.2.6.apk
+          "$AAPT" dump badging output/Ani-Games-Admin-Coin-x100-UserID-Only-0.2.7.apk | tee output/apk-badging.txt
+          grep -q "package: name='com.anigames.billingadmin.coinx100preview' versionCode='9' versionName='0.2.7-userid-only-remote-login'" output/apk-badging.txt
+          grep -q "application-label:'Ani Games Admin Coin x100 0.2.7'" output/apk-badging.txt
+          "$APKSIGNER" verify --verbose output/Ani-Games-Admin-Coin-x100-UserID-Only-0.2.7.apk
+          "$APKSIGNER" verify --print-certs output/Ani-Games-Admin-Coin-x100-UserID-Only-0.2.7.apk
+          sha256sum output/Ani-Games-Admin-Coin-x100-UserID-Only-0.2.7.apk | tee output/SHA256SUMS.txt
+          unzip -t output/Ani-Games-Admin-Coin-x100-UserID-Only-0.2.7.apk
+          ls -lh output/Ani-Games-Admin-Coin-x100-UserID-Only-0.2.7.apk
 
       - name: Upload isolated Admin AniCoin x100 preview
         uses: actions/upload-artifact@v4
         with:
-          name: Ani-Games-Admin-Coin-x100-Preview-0.2.6
+          name: Ani-Games-Admin-Coin-x100-UserID-Only-0.2.7
           path: output/*
           if-no-files-found: error
           retention-days: 30
