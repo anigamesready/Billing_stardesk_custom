@@ -103,9 +103,13 @@ export async function handleRequest(request, env) {
   const routedUrl = new URL(url);
   routedUrl.pathname = routePath;
   const headers = corsFor(request);
-  if (routePath === "/_ani_gateway/health") {
+  const projectPrefix = routePath === "/stardesk" || routePath.startsWith("/stardesk/");
+  const effectivePath = projectPrefix ? (routePath.slice("/stardesk".length) || "/") : routePath;
+  const healthRoute = effectivePath === "/_ani_gateway/health";
+  if (healthRoute) {
     try {
-      const relayHealth = await env.RELAY_SERVICE.fetch(new Request("https://relay.internal/_relay/health", {
+      const relayHealth = await env.RELAY_SERVICE.fetch(new Request(
+        projectPrefix ? "https://relay.internal/_relay/stardesk/health" : "https://relay.internal/_relay/health", {
         headers: { "cache-control": "no-store" }
       }));
       const detail = await relayHealth.json();
@@ -138,11 +142,12 @@ export async function handleRequest(request, env) {
   if (routePath.startsWith("/_ani_gateway/")) {
     return controlRequest(request, env, routedUrl);
   }
+  if (projectPrefix && effectivePath.startsWith("/_ani_gateway/")) return json({ error: "LOCAL_ONLY_ROUTE" }, 403, headers);
 
-  if (isLoopbackOnlyRoute(routePath)) return json({ error: "LOCAL_ONLY_ROUTE" }, 403, headers);
-  if (!isApiRoute(routePath)) return json({ error: "ROUTE_NOT_ALLOWED" }, 404, headers);
-  if (routePath === "/iot/status" && !["GET", "OPTIONS"].includes(request.method)) return json({ error: "METHOD_NOT_ALLOWED" }, 405, headers);
-  if (routePath === "/iot/power" && !["POST", "OPTIONS"].includes(request.method)) return json({ error: "METHOD_NOT_ALLOWED" }, 405, headers);
+  if (isLoopbackOnlyRoute(effectivePath)) return json({ error: "LOCAL_ONLY_ROUTE" }, 403, headers);
+  if (!isApiRoute(effectivePath)) return json({ error: "ROUTE_NOT_ALLOWED" }, 404, headers);
+  if (effectivePath === "/iot/status" && !["GET", "OPTIONS"].includes(request.method)) return json({ error: "METHOD_NOT_ALLOWED" }, 405, headers);
+  if (effectivePath === "/iot/power" && !["POST", "OPTIONS"].includes(request.method)) return json({ error: "METHOD_NOT_ALLOWED" }, 405, headers);
   if (!["GET", "POST", "OPTIONS"].includes(request.method)) return json({ error: "METHOD_NOT_ALLOWED" }, 405, headers);
 
   const origin = request.headers.get("Origin");
