@@ -67,6 +67,21 @@ The installer fails closed if the StarDesk database, any StarDesk role, applicat
 
 Once preflight passes, the installer creates only `stardesk_custom_v0`, its dedicated owner/runtime/login roles, its source folder, and the API service on port `8789`. It does not copy any records from the old rental database. API credentials and the one-time Owner bootstrap token are kept in `server/.env` with mode `600`; secret values are never printed.
 
+## Update an existing StarDesk v0 database to Remote User ID-only login
+
+Do **not** rerun the initial installer against an existing installation. Use the dedicated updater instead. It verifies the database name/owner, three StarDesk roles, local API port 8789, API service/process, active PostgreSQL data directory and cluster version. It requires a pinned commit SHA.
+
+Download the updater from the exact same commit before running it:
+
+```bash
+REF=<40-character-commit-sha>
+curl -fsSL "https://raw.githubusercontent.com/anigamesready/Billing_stardesk_custom/$REF/backend/android-db/termux/update-stardesk-custom-v0-userid-login.sh" -o "$HOME/update-stardesk-custom-v0-userid-login.sh"
+chmod 700 "$HOME/update-stardesk-custom-v0-userid-login.sh"
+ANI_STARDESK_SOURCE_REF="$REF" bash "$HOME/update-stardesk-custom-v0-userid-login.sh"
+```
+
+The updater first makes and checksum-verifies a full custom-format database dump, cluster-role backup, and API source backup. It then requires the exact confirmation word APPLY. It applies migration 026 only to stardesk_custom_v0, updates only server.mjs in the StarDesk API directory, and restarts only stardesk-custom-v0-api. It checks the new two-parameter RPC route and health response after restart. It does not restart PostgreSQL, the StarDesk Relay Agent, the legacy Ani Games API/relay, or change the legacy database. If API verification fails, the old StarDesk API source is restored and only the StarDesk API service is restarted.
+
 ## Install the dedicated Relay Agent
 
 Run this only after the dedicated API health endpoint reports both API and database online:
@@ -99,7 +114,7 @@ Create a new StarDesk Owner. It is not automatically copied from the old system.
 
 ## Database and Coin domain
 
-A fresh StarDesk database receives migrations `000`, `002`–`023`, and `025_admin_androiddb_v0_coin_domain.sql`. Historical catalog snapshot `001` is not replayed.
+A fresh StarDesk database receives migrations `000`, `002`–`023`, `025_admin_androiddb_v0_coin_domain.sql`, and `026_androiddb_v0_userid_only_remote_login.sql`. Historical catalog snapshot `001` is not replayed.
 
 The dedicated `androiddb_v0` schema contains 14 tables:
 - `rental_accounts`, `client_credentials`, `client_sessions`
