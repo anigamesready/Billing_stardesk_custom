@@ -39,6 +39,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y shellcheck
           shellcheck --severity=error backend/android-db/termux/install.sh backend/android-db/termux/repair-admin-v0-live-api.sh
+      - name: Validate embedded Node repair controllers
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          source = Path("backend/android-db/termux/repair-admin-v0-live-api.sh").read_text()
+          blocks = re.findall(r"<<'NODE'\n([\s\S]*?)\nNODE", source)
+          assert len(blocks) == 3, f"expected 3 embedded Node controllers, found {len(blocks)}"
+          for index, block in enumerate(blocks, start=1):
+              Path(f"/tmp/admin-repair-node-{index}.mjs").write_text(block)
+          PY
+          for file in /tmp/admin-repair-node-*.mjs; do node --check "$file"; done
+
 
       - name: Verify install safety gates and release contents
         run: |
