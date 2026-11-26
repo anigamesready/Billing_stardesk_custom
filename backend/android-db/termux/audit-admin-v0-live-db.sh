@@ -93,10 +93,12 @@ WITH checks(label, present) AS (
 )
 SELECT label || '|' || CASE WHEN present THEN 'OK' ELSE 'MISSING' END FROM checks
 UNION ALL
-SELECT 'coin.scale|' || COALESCE((SELECT coin_scale::text FROM remote_play.coin_unit_config WHERE singleton IS TRUE),'NOT_SET')
-WHERE to_regclass('remote_play.coin_unit_config') IS NOT NULL
-UNION ALL
 SELECT 'db.role.ani_api_runtime|' || CASE WHEN EXISTS(SELECT 1 FROM pg_roles WHERE rolname='ani_api_runtime' AND NOT rolcanlogin) THEN 'OK' ELSE 'MISSING' END
 ORDER BY 1;
 "
+if [ "$(psql_admin -d "$DB_NAME" -Atqc "SELECT to_regclass('remote_play.coin_unit_config') IS NOT NULL")" = "t" ]; then
+  psql_admin -d "$DB_NAME" -P pager=off -Atqc "SELECT 'coin.scale|' || COALESCE((SELECT coin_scale::text FROM remote_play.coin_unit_config WHERE singleton IS TRUE),'NOT_SET')"
+else
+  printf 'coin.scale|MISSING_TABLE\\n'
+fi
 log "Selesai. Kirim output audit ini; tidak ada rahasia yang ditampilkan."
