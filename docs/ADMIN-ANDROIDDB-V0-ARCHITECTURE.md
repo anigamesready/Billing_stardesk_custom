@@ -105,3 +105,46 @@ Workflow `Test Remote Play and Sunshine pairing on PostgreSQL` run 45616600311 s
 - Node gateway syntax and API source check.
 
 This is SQL/API contract testing, not proof of the active database or physical Android/PC streaming.
+
+
+## 26 November 2026 — User ID-only Remote and Admin session recovery candidate
+
+This section supersedes the version numbers and activation workflow above for the isolated candidate branch `fix/admin-session-refresh-remote-userid-only-20261126`. The stable `main` branch and previously issued APKs are not changed.
+
+### Candidate source versions
+
+| Component | Candidate version | Package / schema | Status |
+|---|---|---|---|
+| Admin Android DB v0 | 0.2.2, versionCode 4 | `com.anigames.billingadmin.androiddbv0` | Source changes committed; automated build/regression running |
+| Remote Android DB v0 | 0.6.2, versionCode 8 | `com.anigamesready.stardeskclient` | Source changes committed; automated build/regression running |
+| Node Android DB API | User-ID-only login contract | `api.androiddb_v0_remote_login(text,text)` | Source + migration 026 committed |
+| Termux installer | Upgrade-aware | Migrations 025 then 026 | Source updated; never applies an existing-DB migration silently |
+
+### Remote login contract (migration 026)
+
+The Remote app now uses exactly one login field: the rental User ID. There is no activation-code input, activation-code request, or Admin approval step in the new client login path.
+
+The Node API rate-limits failed login attempts by client IP and normalized rental code. The SQL function validates the active v0 rental account, creates a 12-hour access token and 30-day rotating refresh token, and keeps one active device session per rental by rotating the existing session row. A second device using the same User ID invalidates the previous access and refresh tokens. The app stores refresh token and the last User ID in Android Keystore-backed encrypted preferences; its local Keluar action does not revoke the registered device session. Switching to another User ID best-effort revokes the old access token before clearing its local credentials.
+
+**Security trade-off:** User-ID-only access means an easily guessed or shared rental ID can be claimed by another person. Keep rental IDs sufficiently random and private. The server rate-limits failed attempts and permits only one active session per rental, but this is not equivalent to password or second-factor authentication.
+
+The old `androiddb_v0.client_credentials` table and Admin issuance RPC are retained for historical/data compatibility. The new v0.6.2 client does not call them. The new login function drops the old three-argument RPC overload; the installer detects the old/new signature and requires a validated backup plus explicit typed `APPLY` before upgrading an existing database. It does not delete rental, wallet, lot, ledger, or top-up data.
+
+### Admin 0.2.2 session recovery
+
+The Admin UI uses a single shared refresh promise so simultaneous menu loads cannot race to rotate the same refresh token. On `AUTH_REQUIRED` / `ADMIN_SESSION_EXPIRED`, a request refreshes the session once and retries that request once. Permanent refresh/session errors clear the stored refresh token; transient network errors do not erase it. The app waits for the Admin dashboard to load before showing the authenticated screen. The old Owner-side “Kode Remote” activation action is removed from the v0 Admin UI; its database compatibility RPC is not deleted.
+
+### Gateway and Redmi relay boundary
+
+An automated regression test sends a placeholder `Authorization: Bearer` value through the Cloudflare Gateway and WebSocket Relay worker proxy envelope, then checks that the value is preserved in the RelayHub request. This verifies the Worker source path only.
+
+The repository currently does not contain the persistent local WebSocket relay-agent program that runs on the Redmi/Termux device and forwards RelayHub envelopes to the local Node API. Therefore a passing Worker test cannot prove that the live Redmi agent forwards the Authorization header, and it cannot prove that the screenshot's `AUTH_REQUIRED` is resolved on the active server. Do not claim live Admin access is fixed until the installed Redmi agent version, active gateway/relay health, and an authenticated Admin rental-list RPC have been checked end-to-end.
+
+### Verification and deployment boundary
+
+- CI uses disposable PostgreSQL databases for fresh-install and core-only upgrade tests. It does not connect to or modify the user's live Redmi database.
+- The new User-ID-only migration must not be applied to the user's active database until the installer has created and validated a fresh backup and the user explicitly enters `APPLY`.
+- Admin and Remote APKs must be built from this repository branch and checked for version/package, signature and ZIP/APK integrity.
+- A green GitHub build is only a candidate build. It is not evidence of real-device login, live API authentication, PC session lifecycle, StarDesk connection, or a successful production deployment.
+- Remote PC Connect and Coin debit/settlement remain locked: the project still lacks a production, device-tested start/connected/stop/settlement contract.
+
