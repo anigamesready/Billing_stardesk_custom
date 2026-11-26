@@ -45,7 +45,7 @@ import android.security.keystore.KeyProperties;
 
 public final class MainActivity extends Activity {
     private static final String API_BASE =
-        "https://ani-games-db-android-stage-gateway.anigamesready.workers.dev";
+        "https://ani-games-db-android-stage-gateway.anigamesready.workers.dev/stardesk";
     private static final String KEY_ALIAS = "ani_admin_androiddb_v0_keystore_v1";
     private static final String SECURE_PREFS = "ani_admin_androiddb_v0_secure";
     private static final int MAX_RESPONSE_BYTES = 1024 * 1024;
