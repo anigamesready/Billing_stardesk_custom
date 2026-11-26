@@ -261,6 +261,13 @@ public final class MainActivity extends Activity {
                     ? connection.getInputStream() : connection.getErrorStream();
                 JSONObject result = parseResponse(readBounded(stream));
                 result.put("http_status", status);
+                String retryAfterHeader = connection.getHeaderField("Retry-After");
+                if (retryAfterHeader != null) {
+                    try {
+                        int retryAfterSeconds = Integer.parseInt(retryAfterHeader.trim());
+                        if (retryAfterSeconds > 0) result.put("retry_after_seconds", Math.min(900, retryAfterSeconds));
+                    } catch (NumberFormatException ignored) { }
+                }
                 if (status < 200 || status >= 300) result.put("ok", false);
                 deliver(requestId, result);
             } catch (Exception ex) {
@@ -275,7 +282,7 @@ public final class MainActivity extends Activity {
     }
 
     public final class AdminBridge {
-        @JavascriptInterface public String getAppVersion() { return "0.2.3-gateway-diagnostics"; }
+        @JavascriptInterface public String getAppVersion() { return "0.2.4-login-limit-guidance"; }
         @JavascriptInterface public String getApiBase() { return API_BASE; }
         @JavascriptInterface public String getSecureValue(String key) { return readSecret(key); }
         @JavascriptInterface public boolean saveSecureValue(String key, String value) {
