@@ -84,7 +84,7 @@ BEGIN
      OR to_regclass('androiddb_v0.client_credentials') IS NOT NULL
      OR to_regprocedure('api.androiddb_v0_remote_login(text,text)') IS NULL
      OR NOT has_function_privilege('ani_api_runtime','api.androiddb_v0_remote_login(text,text)','EXECUTE')
-     OR has_function_privilege('ani_api_runtime','api.androiddb_v0_remote_login(text,text,text)','EXECUTE') THEN
+ THEN
     RAISE EXCEPTION 'ANDROIDDB_V0_USERID_ONLY_LOGIN_CONTRACT_FAILED';
   END IF;
   IF EXISTS(SELECT 1 FROM jsonb_array_elements(api.androiddb_v0_admin_dashboard(owner_token,100)->'rental_accounts') r
