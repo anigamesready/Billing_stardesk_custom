@@ -9,7 +9,6 @@ DECLARE
   legacy_rental_id uuid;
   v0_rental_id uuid;
   create_result jsonb;
-  activation_result jsonb;
   remote_login jsonb;
   refresh_result jsonb;
   topup_result jsonb;
@@ -29,7 +28,6 @@ DECLARE
   heartbeat_result jsonb;
   access_token text;
   refresh_token text;
-  activation_code text;
   host_token text;
   order_id uuid;
   rejected_order_id uuid;
@@ -75,17 +73,21 @@ BEGIN
     RAISE EXCEPTION 'ANDROIDDB_V0_RENTAL_NOT_STORED_IN_V0_SCHEMA';
   END IF;
 
-  activation_result:=api.androiddb_v0_admin_issue_activation(owner_token,v0_rental_id);
-  activation_code:=activation_result->>'activation_code';
-  IF length(coalesce(activation_code,''))<>16 THEN
-    RAISE EXCEPTION 'ANDROIDDB_V0_ACTIVATION_CODE_INVALID';
+  -- Seed a DB client session directly for pre-x100 domain tests.
+  -- The actual User ID-only login contract is tested after migration 027.
+  access_token:=encode(extensions.gen_random_bytes(32),'hex');
+  refresh_token:=encode(extensions.gen_random_bytes(32),'hex');
+  IF length(access_token)<>64 OR length(refresh_token)<>64 THEN
+    RAISE EXCEPTION 'ANDROIDDB_V0_CLIENT_SESSION_FIXTURE_FAILED';
   END IF;
-  remote_login:=api.androiddb_v0_remote_login('V0-CI-MEMBER',activation_code,'v0-android-test-device-0001');
-  access_token:=remote_login->>'access_token';
-  refresh_token:=remote_login->>'refresh_token';
-  IF length(coalesce(access_token,''))<>64 OR length(coalesce(refresh_token,''))<>64 THEN
-    RAISE EXCEPTION 'ANDROIDDB_V0_REMOTE_LOGIN_FAILED';
-  END IF;
+  INSERT INTO androiddb_v0.client_sessions(
+    rental_account_id,token_hash,refresh_token_hash,client_install_id,expires_at,refresh_expires_at
+  ) VALUES (
+    v0_rental_id,
+    encode(extensions.digest(access_token,'sha256'),'hex'),
+    encode(extensions.digest(refresh_token,'sha256'),'hex'),
+    'v0-android-test-device-0001',now()+interval '12 hours',now()+interval '30 days'
+  );
   refresh_result:=api.androiddb_v0_remote_refresh(refresh_token);
   access_token:=refresh_result->>'access_token';
   refresh_token:=refresh_result->>'refresh_token';
@@ -189,8 +191,7 @@ BEGIN
   END IF;
   admin_dashboard:=api.androiddb_v0_admin_dashboard(owner_token,100);
   IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(admin_dashboard->'rental_accounts') r
-      WHERE r->>'id'=v0_rental_id::text AND r->>'activation_issued'='true'
-        AND (r->>'coin_balance')::numeric=60) THEN
+      WHERE r->>'id'=v0_rental_id::text AND (r->>'coin_balance')::numeric=60) THEN
     RAISE EXCEPTION 'ANDROIDDB_V0_ADMIN_RENTAL_OVERVIEW_FAILED';
   END IF;
   admin_wallet:=api.androiddb_v0_admin_wallet(owner_token,v0_rental_id,50);
@@ -242,10 +243,10 @@ BEGIN
   END IF;
   IF NOT has_function_privilege('ani_api_runtime','api.androiddb_v0_admin_dashboard(text,integer)','EXECUTE')
      OR NOT has_function_privilege('ani_api_runtime','api.androiddb_v0_remote_dashboard(text)','EXECUTE')
-     OR NOT has_function_privilege('ani_api_runtime','api.androiddb_v0_remote_login(text,text,text)','EXECUTE') THEN
+ THEN
     RAISE EXCEPTION 'ANDROIDDB_V0_RUNTIME_FUNCTION_GRANT_MISSING';
   END IF;
 END;
 $$;
 
-SELECT 'PASS: Android DB v0 isolated rentals, activation, top-up, wallet lots, expiry model, GPU rates, Host enrollment, Remote dashboard, Owner controls and legacy timer isolation' AS result;
+SELECT 'PASS: Android DB v0 isolated rentals, sessions, top-up, wallet lots, expiry model, GPU rates, Host enrollment, Remote dashboard, Owner controls and legacy timer isolation' AS result;
