@@ -7,8 +7,8 @@ android {
         applicationId "com.anigames.billingadmin.androiddbv0"
         minSdk 26
         targetSdk 35
-        versionCode 6
-        versionName "0.2.4-login-limit-guidance"
+        versionCode 7
+        versionName "0.2.5-coin-first-pc-control"
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
