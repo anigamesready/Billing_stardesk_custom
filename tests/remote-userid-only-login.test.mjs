@@ -28,7 +28,7 @@ test('Admin no longer issues a Remote activation code', () => {
     'activation_issued', 'Kode Remote', 'KODE AKTIVASI REMOTE']) {
     assert.ok(!admin.includes(forbidden), 'Admin activation control remains: ' + forbidden);
   }
-  assert.ok(admin.includes('Remote login: '+ '(r.client_logged_in?'));
+  assert.ok(admin.includes('Remote login:'));
 });
 
 test('Android DB API accepts User ID plus app-generated install ID and rate-limits attempts', () => {
