@@ -10,7 +10,7 @@ readonly GATEWAY_HEALTH="https://ani-games-db-android-stage-gateway.anigamesread
 PG_ADMIN_USER=""
 say(){ printf '[STAR-DESK DB CONTROL] %s\n' "$*"; }
 pause(){ printf '\nTekan Enter untuk kembali ke menu…'; read -r _ || true; }
-need_termux(){ [ -n "\${PREFIX:-}" ] && [ -x "$PREFIX/bin/pkg" ] || { say "Menu ini hanya untuk Termux Android."; return 1; }; }
+need_termux(){ [ -n "${PREFIX:-}" ] && [ -x "$PREFIX/bin/pkg" ] || { say "Menu ini hanya untuk Termux Android."; return 1; }; }
 find_pg_admin(){
   [ -n "$PG_ADMIN_USER" ] && return 0
   local candidate
@@ -54,7 +54,7 @@ open_database_readonly(){
   if ! find_pg_admin; then say "Akun PostgreSQL lokal tidak tersedia."; return 1; fi
   if ! db_exists "$db"; then say "Database $db belum ditemukan."; return 1; fi
   say "Membuka $db dengan default_transaction_read_only=on. Jangan ubah mode read-only atau jalankan perintah tulis."
-  PGOPTIONS="\${PGOPTIONS:+$PGOPTIONS }-c default_transaction_read_only=on" psql -X -h "$PREFIX/tmp" -p "$PG_PORT" -U "$PG_ADMIN_USER" -d "$db"
+  PGOPTIONS="${PGOPTIONS:+$PGOPTIONS }-c default_transaction_read_only=on" psql -X -h "$PREFIX/tmp" -p "$PG_PORT" -U "$PG_ADMIN_USER" -d "$db"
 }
 restart_stardesk_service(){
   local service="$1" service_dir="$PREFIX/var/service/$1"

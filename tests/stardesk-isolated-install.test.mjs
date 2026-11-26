@@ -176,4 +176,5 @@ test('Termux quick-control menu keeps DBs separate and defaults SQL sessions to 
   assert.match(dbControl, /case "\$service" in[\s\S]*stardesk-custom-v0-api[\s\S]*ani-games-stardesk-relay-agent/);
   assert.doesNotMatch(dbControl, /\bsv\s+(?:up|down|restart|start|stop)\s+(?:postgres|ani-games-ready-api|ani-games-relay-agent)\b/);
   assert.doesNotMatch(dbControl, /\b(?:DROP\s+DATABASE|DROP\s+ROLE|TRUNCATE\s+TABLE|DELETE\s+FROM|pg_ctl|initdb)\b/i);
+  assert.doesNotMatch(dbControl, /\\\\\$\\{/i, "shell variable expansion must not contain a literal escape");
 });
