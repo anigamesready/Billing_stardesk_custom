@@ -1,4 +1,4 @@
-name: Build Ani Games Admin Android DB v0 Gateway Diagnostics Candidate
+name: Build Ani Games Admin Android DB v0 Coin-first PC Control Preview
 
 on:
   push:
@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   build-admin-androiddb-v0:
-    name: Build Admin Android DB v0 0.2.4
+    name: Build Admin Android DB v0 0.2.5
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -67,18 +67,12 @@ jobs:
               "Ani Games Admin Android DB v0",
               "ANDROID DB",
               "admin_context",
-              "admin_rental_accounts_global",
-              "admin_create_rental_global",
-              "admin_update_rental_global",
-              "admin_disable_rental_global",
-              "admin_delete_rental_global",
               "admin_devices",
               "admin_device_state",
               "admin_rename_device",
               "admin_disconnect_device",
               "admin_command",
               "admin_command_status",
-              "admin_active_sessions",
               "admin_selected_sessions",
               "admin_start_trial",
               "create_device_recovery_enrollment",
@@ -93,8 +87,24 @@ jobs:
               "admin_set_free_test_policy",
               "admin_get_billing_stop_pause_policy",
               "admin_set_billing_stop_pause_policy",
-              "save_theme",
               "admin_change_password",
+              "Pairing PC",
+              "PC Aktif",
+              "Windows Control",
+              "User Billing Control",
+              "Chat ke Windows",
+              "FREE TEST 10 MENIT",
+              "WoL Android Relay",
+              "Data User Coin",
+              "generatePcPairingCode",
+              "loadActivePCs",
+              "startSelectedFreeTest",
+              "loadFreeTest",
+              "waitDeviceCommand",
+              "populateHostPairingSelect",
+              "admin_selected_sessions",
+              "admin_command_status",
+              "androiddb_v0_admin_issue_host_enrollment",
               "dashboard_billing_users",
               "dashboard_billing_user",
               "create_reseller",
@@ -126,7 +136,6 @@ jobs:
               "androiddb_v0_admin_issue_host_enrollment",
               "AniCoin",
               "androiddb_v0",
-              "legacy",
               "reportOutput",
               "orgSelect",
           ]
@@ -198,10 +207,17 @@ jobs:
           ui_rpc_routes.update(re.findall(r'\bapi\(\s*"([^"]+)"', html))
           ui_rpc_routes.update(["admin_set_free_test_policy", "admin_set_billing_stop_pause_policy"])
           native_routes = {"__admin_login", "__admin_refresh", "__admin_logout", "__iot_status", "__iot_power", "__gateway_health"}
-          assert len(ui_rpc_routes) >= 50, "Admin v0 UI RPC coverage unexpectedly shrank"
+          assert len(ui_rpc_routes) >= 45, "Admin v0 UI RPC coverage unexpectedly shrank"
           for route in sorted(ui_rpc_routes - native_routes):
               assert any(line.strip().startswith(route + ":") for line in rpc_lines), "UI RPC call has no Android DB backend allowlist entry: " + route
 
+          for forbidden in ["id=\\"legacy\\"", 'data-tab="legacy"', "Rental Lama", "admin_rental_accounts_global", "admin_create_rental_global", "admin_update_rental_global", "admin_disable_rental_global", "admin_delete_rental_global", "saveOrgTheme", "save_theme", "Tampilan / Theme organisasi", 'id="themeName"']:
+              assert forbidden.lower() not in html.lower(), "obsolete timer/theme UI remains in Admin: " + forbidden
+          assert all(token in html for token in ['data-tab="pairing"', 'data-tab="active"', 'data-tab="devices"', 'data-tab="chat"', 'data-tab="free"']), "required Admin navigation tab missing"
+          assert "payload.session_id=session.id" in html, "Pause/Resume/Stop must send the active session ID"
+          assert "waitDeviceCommand(cid,24000)" in html, "Windows controls must wait for PC command ACK"
+          assert "waitDeviceCommand(request.command_id,24000)" in html, "Free Test must wait for PC command ACK"
+          assert "BELUM TERHUBUNG KE RECEIVER PC" in html and "disabled" in html, "Chat Windows must not claim delivery without a verified PC receiver"
           for native_route in ["__admin_login", "__admin_refresh", "__admin_logout", "__iot_status", "__iot_power", "__gateway_health"]:
               assert native_route in Path("admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java").read_text(encoding="utf-8"), "native route missing: " + native_route
 
@@ -219,7 +235,7 @@ jobs:
               assert token in tls, "missing pinned Cloudflare TLS control: " + token
           assert "InetAddress.getByName" not in tls and "X509TrustManager" not in tls, "DNS/trust bypass detected in pinned gateway socket factory"
           gradle = Path("admin-androiddb-v0/app/build.gradle").read_text(encoding="utf-8")
-          for token in ['applicationId "com.anigames.billingadmin.androiddbv0"', "versionCode 6", 'versionName "0.2.4-login-limit-guidance"']:
+          for token in ['applicationId "com.anigames.billingadmin.androiddbv0"', "versionCode 7", 'versionName "0.2.5-coin-first-pc-control"']:
               assert token in gradle, "Admin Android DB v0 build identity mismatch: " + token
 
           manifest = Path("admin-androiddb-v0/app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
@@ -238,23 +254,23 @@ jobs:
           APK="admin-androiddb-v0/app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
           mkdir -p output
-          cp "$APK" output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.4.apk
+          cp "$APK" output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
           test -n "$AAPT" && test -n "$APKSIGNER"
-          "$AAPT" dump badging output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.4.apk | tee output/apk-badging.txt
-          grep -q "package: name='com.anigames.billingadmin.androiddbv0' versionCode='6' versionName='0.2.4-login-limit-guidance'" output/apk-badging.txt
+          "$AAPT" dump badging output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk | tee output/apk-badging.txt
+          grep -q "package: name='com.anigames.billingadmin.androiddbv0' versionCode='7' versionName='0.2.5-coin-first-pc-control'" output/apk-badging.txt
           grep -q "application-label:'Ani Games Admin Android DB v0'" output/apk-badging.txt
-          "$APKSIGNER" verify --verbose output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.4.apk
-          "$APKSIGNER" verify --print-certs output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.4.apk
-          sha256sum output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.4.apk | tee output/SHA256SUMS.txt
-          unzip -t output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.4.apk
-          ls -lh output/Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.4.apk
+          "$APKSIGNER" verify --verbose output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk
+          "$APKSIGNER" verify --print-certs output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk
+          sha256sum output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk | tee output/SHA256SUMS.txt
+          unzip -t output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk
+          ls -lh output/Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5.apk
 
-      - name: Upload isolated Admin Android DB v0 preview
+      - name: Upload isolated Admin Android DB v0 coin-first PC control preview
         uses: actions/upload-artifact@v4
         with:
-          name: Ani-Games-Admin-Android-DB-v0-Gateway-Diagnostics-Preview-0.2.4
+          name: Ani-Games-Admin-Android-DB-v0-Coin-First-PC-Control-Preview-0.2.5
           path: output/*
           if-no-files-found: error
           retention-days: 30
