@@ -294,7 +294,7 @@ test('Termux User ID-only updater is backup-first and restarts only the StarDesk
     'SHA256SUMS.txt',
     'read -r CONFIRM </dev/tty',
     '[ "$CONFIRM" = "APPLY" ]',
-    'androiddb_v0_remote_login($1::text,$2::text)',
+    'androiddb_v0_remote_login(\\$1::text,\\$2::text)',
     'to_regprocedure',
     'sv restart "$SERVICE_NAME"',
     '127.0.0.1:$API_PORT/health',
