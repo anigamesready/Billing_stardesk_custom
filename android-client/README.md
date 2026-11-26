@@ -1,16 +1,16 @@
-# Ani Games Ready Remote — Android DB v0 Coin Preview 0.6.1
+# Ani Games Ready Remote — Android DB v0 Coin Candidate 0.6.3
 
 This source is the isolated Remote Android DB v0 client for the Ani Games Ready Coin domain.
 
 ## Build identity
 - Application ID: `com.anigamesready.stardeskclient`
-- Version: `0.6.1-androiddb-v0-coin`
-- Version code: `7`
+- Version: `0.6.3-isolated-stardesk-route-fix`
+- Version code: `9`
 - Remote source: `android-client/`
 - Repository: `anigamesready/Billing_stardesk_custom`
 
 ## Backend contract
-The client talks only to the fixed HTTPS Android DB gateway via the native Android bridge. It does not expose an editable URL field.
+The client talks only to the fixed HTTPS Android DB gateway via the native Android bridge. Both the WebView and native bridge use the dedicated `/stardesk` route, which selects the StarDesk-only Relay hub and the isolated StarDesk database. It does not expose an editable URL field.
 
 All new Coin account and wallet operations use the separate `androiddb_v0_*` API family:
 - First activation: `androiddb_v0_remote_login`
@@ -24,7 +24,7 @@ All new Coin account and wallet operations use the separate `androiddb_v0_*` API
 Access and refresh tokens are stored using AES-GCM backed by Android Keystore. The app keeps no raw token in WebView localStorage.
 
 ## Gateway DNS/TLS compatibility
-The native HTTPS bridge pins TCP to the tested Cloudflare edge IPv4 addresses `104.18.13.15` and `104.18.12.15` for the fixed Gateway hostname. The HTTPS URL, Host header, SNI and Android's default certificate trust/hostname verification continue to use `ani-games-db-android-stage-gateway.anigamesready.workers.dev`. No trust-all certificate callback or cleartext fallback is used.
+The native HTTPS bridge pins TCP to the tested Cloudflare edge IPv4 addresses `104.18.13.15` and `104.18.12.15` for the fixed Gateway hostname. The HTTPS URL uses the dedicated `/stardesk` route while Host header, SNI and Android's default certificate trust/hostname verification continue to use `ani-games-db-android-stage-gateway.anigamesready.workers.dev`. No trust-all certificate callback or cleartext fallback is used.
 
 ## Coin rules
 - Rp8.000 = 60 Coin.
