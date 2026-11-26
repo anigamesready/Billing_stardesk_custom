@@ -5,8 +5,11 @@ on:
       - feature/androiddb-online-remote-admin-20261125
       - feature/admin-androiddb-v0-isolated-20261125
       - feature/admin-androiddb-v0-full-db-20261126
+      - feature/coin-x100-agent-pairing-20261126
     paths:
       - "android-client/**"
+      - "backend/android-db/migrations/026_androiddb_v0_coin_x100.sql"
+      - "backend/android-db/tests/020_androiddb_v0_coin_x100_smoke.sql"
       - "tests/android-gateway-dns-pin.test.mjs"
       - ".github/workflows/build-stardesk-client.yml"
   workflow_dispatch:
@@ -40,7 +43,7 @@ jobs:
           from pathlib import Path
           import re
           h=Path("android-client/app/src/main/assets/index.html").read_text()
-          for token in ["loginForm","apiBase","activationCode","androiddb_v0_remote_login","androiddb_v0_remote_refresh","androiddb_v0_remote_dashboard","androiddb_v0_remote_coin_wallet","androiddb_v0_remote_coin_history","androiddb_v0_remote_coin_create_topup","idempotency_key","stardesk_linked","Koneksi dikunci","*60/8000","Math.round","75 koin","112,5 koin","150 koin","ONLINE_API_BASE","n<300","45","52.5","60"]:
+          for token in ["loginForm","apiBase","activationCode","androiddb_v0_remote_login","androiddb_v0_remote_refresh","androiddb_v0_remote_dashboard","androiddb_v0_remote_coin_wallet","androiddb_v0_remote_coin_history","androiddb_v0_remote_coin_create_topup","idempotency_key","stardesk_linked","Koneksi dikunci","*6000/8000","Math.round","3.750 koin","7.500 koin","11.250 koin","15.000 koin","ONLINE_API_BASE","n<30000","4500","5250","6000","coin_unit_scale","100"]:
               assert token.lower() in h.lower(), "missing integration control/contract: "+token
           for forbidden in ["supabase.co","supabase.createclient","functions/v1/stardesk-client-api","PREVIEW-"]:
               assert forbidden.lower() not in h.lower(), "legacy/demo backend reference remains: "+forbidden
@@ -68,8 +71,10 @@ jobs:
               assert token in tls, "missing pinned Cloudflare TLS control: "+token
           assert "InetAddress.getByName" not in tls and "X509TrustManager" not in tls, "DNS/trust bypass detected in pinned gateway socket factory"
           gradle=Path("android-client/app/build.gradle").read_text()
-          assert 'versionCode 10' in gradle and 'versionName "0.6.4-route-and-login-limit-guidance"' in gradle
+          assert 'applicationId "com.anigamesready.stardeskclient.coinx100preview"' in gradle
+          assert 'versionCode 11' in gradle and 'versionName "0.6.5-coin-x100"' in gradle
           manifest=Path("android-client/app/src/main/AndroidManifest.xml").read_text()
+          assert 'android:label="Ani Games Ready Remote Coin x100 Preview 0.6.5"' in manifest
           assert 'android:usesCleartextTraffic="false"' in manifest
           assert '<uses-permission android:name="android.permission.INTERNET"' in manifest
           PY
@@ -87,14 +92,15 @@ jobs:
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
           "$AAPT" dump badging "$APK" | tee /tmp/remote-badging.txt
-          grep -q "package: name='com.anigamesready.stardeskclient' versionCode='10' versionName='0.6.4-route-and-login-limit-guidance'" /tmp/remote-badging.txt
+          grep -q "package: name='com.anigamesready.stardeskclient.coinx100preview' versionCode='11' versionName='0.6.5-coin-x100'" /tmp/remote-badging.txt
+          grep -q "application-label:'Ani Games Ready Remote Coin x100 Preview 0.6.5'" /tmp/remote-badging.txt
           "$APKSIGNER" verify --verbose "$APK"
           "$APKSIGNER" verify --print-certs "$APK"
           sha256sum "$APK" | tee SHA256SUMS-REMOTE-ANDROIDDB.txt
           unzip -t "$APK"
       - uses: actions/upload-artifact@v4
         with:
-          name: Ani-Games-Ready-Remote-AndroidDB-v0-Coin-v0.6.4-Isolated-Route-Login-Limit
+          name: Ani-Games-Ready-Remote-Coin-x100-Preview-0.6.5
           path: |
             android-client/app/build/outputs/apk/debug/app-debug.apk
             SHA256SUMS-REMOTE-ANDROIDDB.txt
