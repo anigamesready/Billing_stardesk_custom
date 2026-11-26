@@ -6,7 +6,7 @@ on:
       - feature/admin-androiddb-v0-full-db-20261126
     paths:
       - "backend/android-db/termux/install-stardesk-custom-v0.sh"
-      - "backend/android-db/relay-agent/install-stardesk-agent.sh"
+      - "backend/android-db/relay-agent/**"
       - "backend/android-db/migrations/**"
       - "backend/android-db/server/**"
       - "tests/stardesk-isolated-install.test.mjs"
@@ -53,13 +53,18 @@ jobs:
           set -euo pipefail
           bash -n backend/android-db/termux/install-stardesk-custom-v0.sh
           bash -n backend/android-db/relay-agent/install-stardesk-agent.sh
+          bash -n backend/android-db/relay-agent/update-stardesk-agent.sh
           bash -n backend/android-db/termux/audit-admin-v0-live-db.sh
           shellcheck -s bash backend/android-db/termux/install-stardesk-custom-v0.sh
           shellcheck -s bash backend/android-db/relay-agent/install-stardesk-agent.sh
+          shellcheck -s bash backend/android-db/relay-agent/update-stardesk-agent.sh
       - name: Test StarDesk isolation guards and source contracts
         run: |
           node --test tests/stardesk-isolated-install.test.mjs
           node --test tests/android-gateway-dns-pin.test.mjs
+          npm install --prefix backend/android-db/relay-agent --omit=dev --no-audit --no-fund
+          npm run --prefix backend/android-db/relay-agent check
+          npm test --prefix backend/android-db/relay-agent
       - name: Apply isolated migration bundle to a fresh test database
         shell: bash
         run: |
