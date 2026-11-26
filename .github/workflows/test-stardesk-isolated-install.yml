@@ -12,6 +12,7 @@ on:
       - "backend/android-db/migrations/027_androiddb_v0_remote_userid_only_login.sql"
       - "backend/android-db/server/server.mjs"
       - "backend/android-db/termux/upgrade-stardesk-coin-x100.sh"
+      - "backend/android-db/termux/upgrade-stardesk-userid-only.sh"
       - "backend/android-db/termux/stardesk-db-control.sh"
       - "backend/android-db/relay-agent/**"
       - "backend/android-db/migrations/**"
@@ -60,12 +61,14 @@ jobs:
           set -euo pipefail
           bash -n backend/android-db/termux/install-stardesk-custom-v0.sh
           bash -n backend/android-db/termux/upgrade-stardesk-coin-x100.sh
+          bash -n backend/android-db/termux/upgrade-stardesk-userid-only.sh
           bash -n backend/android-db/relay-agent/install-stardesk-agent.sh
           bash -n backend/android-db/relay-agent/update-stardesk-agent.sh
           bash -n backend/android-db/termux/audit-admin-v0-live-db.sh
           bash -n backend/android-db/termux/stardesk-db-control.sh
           shellcheck -s bash backend/android-db/termux/install-stardesk-custom-v0.sh
           shellcheck -s bash backend/android-db/termux/upgrade-stardesk-coin-x100.sh
+          shellcheck -s bash backend/android-db/termux/upgrade-stardesk-userid-only.sh
           shellcheck -s bash backend/android-db/termux/stardesk-db-control.sh
           shellcheck -s bash backend/android-db/relay-agent/install-stardesk-agent.sh
           shellcheck -s bash backend/android-db/relay-agent/update-stardesk-agent.sh
