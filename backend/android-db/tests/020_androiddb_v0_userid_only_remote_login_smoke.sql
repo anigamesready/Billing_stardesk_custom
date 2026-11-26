@@ -5,7 +5,7 @@ DECLARE
   login_result jsonb;
   login_again jsonb;
   owner_token text;
-  org_id uuid;
+  v_org uuid;
   rental_id uuid;
   first_access text;
   first_refresh text;
@@ -18,8 +18,8 @@ DECLARE
 BEGIN
   login_result:=api.admin_login('CI-OWNER','CI-Admin-New-Password-2026');
   owner_token:=login_result->>'token';
-  org_id:=(login_result->>'org_id')::uuid;
-  IF coalesce(owner_token,'')='' OR org_id IS NULL THEN
+  v_org:=(login_result->>'org_id')::uuid;
+  IF coalesce(owner_token,'')='' OR v_org IS NULL THEN
     RAISE EXCEPTION 'ANDROIDDB_V0_USER_ID_OWNER_LOGIN_FAILED';
   END IF;
 
@@ -30,7 +30,7 @@ BEGIN
 
   PERFORM api.androiddb_v0_admin_create_rental(owner_token,'V0-CI-USERID','User ID Only Test');
   SELECT id INTO rental_id FROM androiddb_v0.rental_accounts
-  WHERE org_id=org_id AND code='V0-CI-USERID';
+  WHERE androiddb_v0.rental_accounts.org_id=v_org AND code='V0-CI-USERID';
   IF rental_id IS NULL THEN RAISE EXCEPTION 'ANDROIDDB_V0_USER_ID_RENTAL_CREATE_FAILED'; END IF;
 
   -- No activation credential is issued or supplied. A valid active User ID is
