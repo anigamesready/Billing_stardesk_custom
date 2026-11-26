@@ -1,11 +1,11 @@
-# Ani Games Ready Remote — Coin x100 Preview 0.6.5
+# Ani Games Ready Remote — Coin x100 User ID-only Preview 0.6.6
 
 This source is the isolated Remote Android DB v0 client for the Ani Games Ready Coin domain.
 
 ## Build identity
 - Application ID: `com.anigamesready.stardeskclient`
 - Package: `com.anigamesready.stardeskclient.coinx100preview`
-- Version: `0.6.5-coin-x100`, versionCode `11`
+- Version: `0.6.6-userid-only-login`, versionCode `12`
 - Install mode: side-by-side with the earlier Remote 0.6.4
 - Version code: `9`
 - Remote source: `android-client/`
@@ -15,7 +15,7 @@ This source is the isolated Remote Android DB v0 client for the Ani Games Ready 
 The client talks only to the fixed HTTPS Android DB gateway via the native Android bridge. Both the WebView and native bridge use the dedicated `/stardesk` route, which selects the StarDesk-only Relay hub and the isolated StarDesk database. It does not expose an editable URL field.
 
 All new Coin account and wallet operations use the separate `androiddb_v0_*` API family:
-- First activation: `androiddb_v0_remote_login`
+- Login: `androiddb_v0_remote_login` with only the rental User ID and the Android-generated installation ID.
 - Refresh: `androiddb_v0_remote_refresh`
 - Logout: `androiddb_v0_remote_logout`
 - Dashboard/PC availability: `androiddb_v0_remote_dashboard`
@@ -24,6 +24,15 @@ All new Coin account and wallet operations use the separate `androiddb_v0_*` API
 - QRIS static top-up order: `androiddb_v0_remote_coin_create_topup`
 
 Access and refresh tokens are stored using AES-GCM backed by Android Keystore. The app keeps no raw token in WebView localStorage.
+
+
+## Renter login
+
+- The renter enters only the registered rental User ID. There is no Admin-issued activation code, no Admin approval step and no second verification screen.
+- The Android app supplies its installation ID automatically; it is not displayed as another login field.
+- The server validates that the rental exists and is active, rate-limits failed attempts, and keeps one active Remote installation/session per rental ID. A new login replaces the previous active installation.
+- Owner can still enable/disable a rental account; disabling it revokes its active Remote sessions. This is account-status control, not per-login approval.
+- User ID-only login deliberately uses the User ID as the renter's only entered credential. Anyone who learns a User ID may be able to claim that account's single active Remote session; do not treat a User ID as a secret password.
 
 ## Gateway DNS/TLS compatibility
 The native HTTPS bridge pins TCP to the tested Cloudflare edge IPv4 addresses `104.18.13.15` and `104.18.12.15` for the fixed Gateway hostname. The HTTPS URL uses the dedicated `/stardesk` route while Host header, SNI and Android's default certificate trust/hostname verification continue to use `ani-games-db-android-stage-gateway.anigamesready.workers.dev`. No trust-all certificate callback or cleartext fallback is used.
@@ -50,8 +59,8 @@ The native HTTPS bridge pins TCP to the tested Cloudflare edge IPv4 addresses `1
 Migration `025_admin_androiddb_v0_coin_domain.sql` creates a separate `androiddb_v0` schema. It is additive and is not applied to the active Android DB by this source build. For an existing Termux database, the installer requires a validated backup and explicit typed `APPLY` before installing the new schema. Do not apply the migration to a different Supabase project or the old rental DB.
 
 ## Tests
-The PostgreSQL workflow applies the full Android DB migration chain to disposable PostgreSQL and checks:
-- separate v0 rental creation and activation/login/refresh,
+Migration `027_androiddb_v0_remote_userid_only_login.sql` removes the Admin-issued Remote activation function, the old three-argument login RPC and the activation-code table. It exposes only `androiddb_v0_remote_login(text,text)` and removes activation status from Admin dashboard data. The PostgreSQL workflow applies the full Android DB migration chain to disposable PostgreSQL and checks:
+- separate v0 rental creation and User ID-only login/refresh,
 - top-up idempotency, approval/rejection, Coin lot and ledger,
 - GPU tariff and StarDesk mapping,
 - Host enrollment/heartbeat readiness,
