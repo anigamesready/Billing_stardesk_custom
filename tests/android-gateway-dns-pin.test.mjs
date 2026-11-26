@@ -9,7 +9,7 @@ const apps = [
     helper: 'admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/GatewayPinnedSocketFactory.java',
     gradle: 'admin-androiddb-v0/app/build.gradle',
     base: 'API_BASE',
-    version: ['versionCode 6', 'versionName "0.2.4-login-limit-guidance"'],
+    version: ['versionCode 7', 'versionName "0.2.5-coin-first-pc-control"'],
   },
   {
     name: 'Remote Android',
@@ -59,7 +59,7 @@ for (const app of apps) {
         html.includes('error.code==="LOGIN_RATE_LIMITED"') &&
         html.includes('Percobaan login terlalu banyak'),
         'Admin login must show a localized and bounded cooldown message');
-      assert.ok(html.includes('class="version">v0.2.4</div>'), 'Admin UI version label must match the APK');
+      assert.ok(html.includes('class="version">v0.2.5</div>'), 'Admin UI version label must match the APK');
     }
     if (app.name === 'Remote Android') {
       const html = readFileSync('android-client/app/src/main/assets/index.html', 'utf8');
@@ -90,5 +90,5 @@ for (const app of apps) {
 test('Admin Android DB v0: uses distinct Gateway health and API timeouts', () => {
   const main = readFileSync('admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java', 'utf8');
   assert.ok(main.includes('connection.setReadTimeout("__gateway_health".equals(route) ? 15000 : 40000);'));
-  assert.ok(main.includes('getAppVersion() { return "0.2.4-login-limit-guidance"; }'));
+  assert.ok(main.includes('getAppVersion() { return "0.2.5-coin-first-pc-control"; }'));
 });
