@@ -268,7 +268,7 @@ public class MainActivity extends Activity {
             String b=android.os.Build.MODEL==null?"Android":android.os.Build.MODEL;
             return (a+" "+b).trim();
         }
-        @JavascriptInterface public String getAppVersion(){return "0.6.0-direct-stardesk-data-plane-preview";}
+        @JavascriptInterface public String getAppVersion(){return "0.6.1-userid-login-wa-register";}
         @JavascriptInterface public String getApiBase(){return API_BASE;}
         @JavascriptInterface public void checkGateway(String requestId){
             if(requestId==null||requestId.length()>100) return;
