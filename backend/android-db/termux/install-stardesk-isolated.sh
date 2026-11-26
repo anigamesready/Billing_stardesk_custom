@@ -24,7 +24,7 @@ log(){ printf '[ANI-STARDESK-ISOLATED] %s\n' "$*"; }
 die(){ printf '[ANI-STARDESK-ISOLATED] STOP: %s\n' "$*" >&2; exit 1; }
 
 [ -n "${PREFIX:-}" ] && [ -x "$PREFIX/bin/pkg" ] || die "Khusus Termux Android."
-for bin in psql createdb pg_dumpall curl node npm openssl sha256sum pg_isready; do
+for bin in psql createdb pg_dumpall curl node npm openssl sha256sum pg_isready nohup; do
   command -v "$bin" >/dev/null 2>&1 || die "$bin belum tersedia."
 done
 [ ! -e "$APP_DIR" ] || die "Folder $APP_DIR sudah ada. Installer tidak akan menimpa instalasi/backup sebelumnya."
@@ -52,6 +52,10 @@ NEW_DB_EXISTS="$(psql_admin -d postgres -Atqc "SELECT 1 FROM pg_database WHERE d
 [ -z "$NEW_DB_EXISTS" ] || die "Database $DB_NAME sudah ada. Tidak ada migrasi/overwrite otomatis."
 SUPERUSER="$(psql_admin -d postgres -Atqc "SELECT rolsuper FROM pg_roles WHERE rolname=current_user")"
 [ "$SUPERUSER" = "t" ] || die "Koneksi PostgreSQL lokal bukan superuser; tidak akan membuat role/database parsial."
+for role in ani_stardesk_api_runtime ani_stardesk_api_login; do
+  ROLE_EXISTS="$(psql_admin -d postgres -Atqc "SELECT 1 FROM pg_roles WHERE rolname='$role'")"
+  [ -z "$ROLE_EXISTS" ] || die "Role khusus $role sudah ada. Tidak akan memakai ulang role dari instalasi parsial."
+done
 
 # Verify the old database is not selected as the new target and record its
 # database OID for a before/after non-modification check.
@@ -122,6 +126,9 @@ BLYNK_TOKEN=""
 printf '\nToken Blynk untuk sistem StarDesk ini (opsional; input disembunyikan, kosongkan bila tidak dipakai): ' >/dev/tty
 IFS= read -r -s BLYNK_TOKEN </dev/tty || die "Gagal membaca token Blynk."
 printf '\n' >/dev/tty
+if [ -n "$BLYNK_TOKEN" ]; then
+  [[ "$BLYNK_TOKEN" =~ ^[A-Za-z0-9._-]{16,512}$ ]] || die "Token Blynk harus satu baris ASCII aman; tidak disimpan."
+fi
 
 log "Membuat database baru $DB_NAME; database lama $OLD_DB_NAME tidak dipilih."
 createdb -h "$PREFIX/tmp" -p "$DB_PORT" -U "$PG_ADMIN_USER" -O "$PG_ADMIN_USER" --encoding=UTF8 --template=template0 "$DB_NAME"
