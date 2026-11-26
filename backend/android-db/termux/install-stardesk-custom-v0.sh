@@ -33,11 +33,18 @@ for bin in psql pg_isready createdb node npm curl openssl sv sha256sum; do
 done
 [ -x "$PREFIX/share/termux-services/svlogger" ] || die "svlogger Termux tidak ditemukan."
 [ -f "$PGDATA/PG_VERSION" ] || die "Cluster PostgreSQL existing tidak ditemukan. Tidak akan initdb atau membuat cluster baru."
-[ -d "$PREFIX/var/service/postgres" ] || die "Service PostgreSQL Termux tidak ditemukan."
 export SVDIR="$PREFIX/var/service"
 export LOGDIR="$PREFIX/var/log"
-"$PREFIX/bin/sv" status postgres 2>&1 | grep -q '^run:' || die "PostgreSQL harus sudah berjalan melalui service yang ada; script tidak akan restart/adopsi proses."
-pg_isready -h "$PREFIX/tmp" -p "$DB_PORT" >/dev/null 2>&1 || die "PostgreSQL lokal belum siap."
+POSTGRES_SERVICE_STATUS="service directory missing"
+if [ -d "$PREFIX/var/service/postgres" ]; then
+  POSTGRES_SERVICE_STATUS="$("$PREFIX/bin/sv" status postgres 2>&1 || true)"
+fi
+if [[ "$POSTGRES_SERVICE_STATUS" == run:* ]]; then
+  log "PostgreSQL service runit aktif."
+else
+  log "Service runit postgres tidak berstatus run ($POSTGRES_SERVICE_STATUS). Mengecek hanya proses PostgreSQL yang sudah berjalan; tidak akan menyalakan atau me-restart service."
+fi
+pg_isready -h "$PREFIX/tmp" -p "$DB_PORT" >/dev/null 2>&1 || die "PostgreSQL existing belum siap pada socket Termux/port $DB_PORT. Installer tidak akan menjalankan atau me-restart PostgreSQL."
 NODE_MAJOR="$(node -p 'Number(process.versions.node.split(".")[0])')"
 [ "$NODE_MAJOR" -ge 20 ] || die "Node.js 20+ diperlukan."
 
@@ -48,6 +55,16 @@ for candidate in "$OS_DB_USER" postgres; do
   fi
 done
 [ -n "$PG_ADMIN_USER" ] || die "Superuser PostgreSQL lokal tidak ditemukan."
+
+# Verify that the responding server is the Termux cluster selected above.
+# Never point this installer at another local/remote PostgreSQL instance.
+EXPECTED_PGDATA="$(readlink -f "$PGDATA")"
+SERVER_PGDATA="$(psql_admin -d postgres -Atqc "SHOW data_directory")"
+ACTUAL_PGDATA="$(readlink -f "$SERVER_PGDATA")"
+[ -n "$EXPECTED_PGDATA" ] && [ "$EXPECTED_PGDATA" = "$ACTUAL_PGDATA" ] || die "Cluster target tidak cocok. PGDATA Termux=$EXPECTED_PGDATA, server merespons dari=$ACTUAL_PGDATA. Tidak ada database yang dibuat."
+CLUSTER_MAJOR="$(cut -d. -f1 "$PGDATA/PG_VERSION")"
+SERVER_MAJOR="$(psql_admin -d postgres -Atqc "SELECT current_setting('server_version_num')::int / 10000")"
+[ "$CLUSTER_MAJOR" = "$SERVER_MAJOR" ] || die "Major version PostgreSQL tidak cocok (data=$CLUSTER_MAJOR, server=$SERVER_MAJOR). Tidak ada perubahan."
 
 # Fail closed on any collision. No upgrade or overwrite path is included.
 DB_EXISTS="$(psql_admin -d postgres -Atqc "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'")"
@@ -62,8 +79,8 @@ if (echo >"/dev/tcp/127.0.0.1/$API_PORT") >/dev/null 2>&1; then
   die "Port $API_PORT sudah dipakai service lain. Tidak ada perubahan."
 fi
 
-SOURCE_REF="${ANI_STARDESK_SOURCE_REF:-890bae3e2ae16dffe530e04d0929d066f38832b2}"
-[[ "$SOURCE_REF" =~ ^[0-9a-fA-F]{40}$ ]] || die "ANI_STARDESK_SOURCE_REF wajib SHA commit 40 karakter yang dipin."
+SOURCE_REF="${ANI_STARDESK_SOURCE_REF:-}"
+[[ "$SOURCE_REF" =~ ^[0-9a-fA-F]{40}$ ]] || die "ANI_STARDESK_SOURCE_REF wajib diisi dengan SHA commit 40 karakter yang sama dengan versi installer yang diunduh."
 TMP_DIR="$(mktemp -d "$PREFIX/tmp/stardesk-v0-install.XXXXXX")"
 cleanup(){ [ -z "${TMP_DIR:-}" ] || [ ! -d "$TMP_DIR" ] || rm -rf -- "$TMP_DIR"; }
 trap cleanup EXIT
