@@ -8,7 +8,7 @@
   },
   "scripts": {
     "start": "node agent.mjs",
-    "check": "node --check agent.mjs && node --check protocol.mjs",
+    "check": "node --check agent.mjs && node --check protocol.mjs && node --check reconnect.mjs",
     "test": "node --test protocol.test.mjs"
   },
   "dependencies": {
