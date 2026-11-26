@@ -82,7 +82,7 @@ function nativeRpc(name,payload={},token=""){
 window.__onNativeApiResult=(id,result)=>{
  const p=pendingApi.get(String(id));if(!p)return;pendingApi.delete(String(id));
  const status=Number(result?.http_status||200);
- if(status<200||status>=300||result?.ok===false){p.reject(new Error(result?.error||result?.message||"ANDROID_DB_REQUEST_FAILED"));return}
+ if(status<200||status>=300||result?.ok===false){const error=new Error(result?.error||result?.message||"ANDROID_DB_REQUEST_FAILED");error.code=result?.error||result?.message||"ANDROID_DB_REQUEST_FAILED";error.retryAfterSeconds=Number(result?.retry_after_seconds)||0;p.reject(error);return}
  p.resolve(result||{});
 };
 function secretGet(k){try{return native?.getSecureValue(k)||""}catch(_){return""}}
@@ -109,7 +109,7 @@ function renderProfile(){
  else $("walletLock").classList.add("hidden");
 }
 function renderPCs(){
- const hosts=state.hosts||[];$("pcSummary").textContent=hosts.length+" PC terdaftar di Android DB. Status diperbarui dari server.";
+ const hosts=state.hosts||[];$("pcSummary").textContent=hosts.length+" PC terdaftar. Status Host Agent PC berasal dari heartbeat Windows, terpisah dari Relay Agent Redmi.";
  if(!hosts.length){$("pcList").innerHTML='<div class="history"><b>Belum ada PC terdaftar</b><small>Belum ada device untuk organisasi User ID ini.</small></div>';return}
  $("pcList").innerHTML=hosts.map(p=>{
   const billingOnline=!!p.billing_online,agentOnline=!!p.host_agent_online,agentReady=!!p.host_agent_ready,rate=!!p.rate_configured,linked=!!p.stardesk_linked,available=!!p.available;
@@ -184,8 +184,11 @@ async function login(e){
   toast("Login Android DB berhasil.");
  }catch(err){
   state.accessToken="";state.refreshToken="";
-  $("loginNotice").textContent="Login gagal: "+String(err?.message||err);
-  setConnectionBadge("GATEWAY OFFLINE / LOGIN GAGAL",false);toast("Login gagal: "+String(err?.message||err));
+  const limited=err?.code==="LOGIN_RATE_LIMITED"||err?.message==="LOGIN_RATE_LIMITED";
+  const seconds=Math.max(1,Math.min(900,Number(err?.retryAfterSeconds)||900));
+  const message=limited?"Percobaan login terlalu banyak. Login dikunci sementara. Coba lagi dalam sekitar "+Math.ceil(seconds/60)+" menit; jangan ulangi sebelum waktunya habis.":String(err?.message||err);
+  $("loginNotice").textContent="Login gagal: "+message;
+  setConnectionBadge(limited?"LOGIN DIBATASI SEMENTARA":"GATEWAY OFFLINE / LOGIN GAGAL",false);toast("Login gagal: "+message);
  }finally{button.disabled=false;button.textContent="MASUK KE DASHBOARD"}
 }
 async function logout(){
