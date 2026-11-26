@@ -101,17 +101,7 @@ jobs:
           GRANT stardesk_v0_runtime TO stardesk_v0_login;
           GRANT CONNECT ON DATABASE stardesk_custom_v0 TO stardesk_v0_login;
           SQL
-          psql -v ON_ERROR_STOP=1 -d stardesk_custom_v0 <<'SQL'
-          DO $
-          BEGIN
-            IF current_database() <> 'stardesk_custom_v0'
-              OR to_regnamespace('androiddb_v0') IS NULL
-              OR to_regprocedure('api.androiddb_v0_admin_dashboard(text,integer)') IS NULL
-              OR to_regprocedure('api.androiddb_v0_remote_login(text,text,text)') IS NULL
-              OR pg_has_role('stardesk_v0_login','ani_api_runtime','MEMBER') THEN
-              RAISE EXCEPTION 'STAR_DESK_ISOLATION_ASSERTION_FAILED';
-            END IF;
-          END $;
-          SQL
+          ISOLATION_OK="$(psql -At -d stardesk_custom_v0 -c "SELECT (current_database()='stardesk_custom_v0' AND to_regnamespace('androiddb_v0') IS NOT NULL AND to_regprocedure('api.androiddb_v0_admin_dashboard(text,integer)') IS NOT NULL AND to_regprocedure('api.androiddb_v0_remote_login(text,text,text)') IS NOT NULL AND NOT pg_has_role('stardesk_v0_login','ani_api_runtime','MEMBER'))::int")"
+          test "$ISOLATION_OK" = "1"
           LEGACY_MARKER="$(psql -At -d ani_games_ready_stage -c "SELECT marker FROM public.legacy_keep")"
           test "$LEGACY_MARKER" = "untouched"
