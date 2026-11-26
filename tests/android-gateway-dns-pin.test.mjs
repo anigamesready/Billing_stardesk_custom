@@ -9,7 +9,7 @@ const apps = [
     helper: 'admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/GatewayPinnedSocketFactory.java',
     gradle: 'admin-androiddb-v0/app/build.gradle',
     base: 'API_BASE',
-    version: ['versionCode 3', 'versionName "0.2.1-gateway-dns-pin"'],
+    version: ['versionCode 4', 'versionName "0.2.2-session-refresh"'],
   },
   {
     name: 'Remote Android',
@@ -17,7 +17,7 @@ const apps = [
     helper: 'android-client/app/src/main/java/com/anigamesready/stardeskclient/GatewayPinnedSocketFactory.java',
     gradle: 'android-client/app/build.gradle',
     base: 'ONLINE_API_BASE',
-    version: ['versionCode 7', 'versionName "0.6.1-androiddb-v0-coin-gateway-pin"'],
+    version: ['versionCode 8', 'versionName "0.6.2-androiddb-v0-userid-only"'],
   },
 ];
 
