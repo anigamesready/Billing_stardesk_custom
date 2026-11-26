@@ -16,7 +16,7 @@ DECLARE
   dashboard jsonb;
   error_text text;
 BEGIN
-  login_result:=api.admin_login('CI-OWNER','CI-Admin-New-Password-2026');
+  login_result:=api.admin_login('stardesk-owner-smoke','StarDesk-Smoke-Pass-2026!');
   owner_token:=login_result->>'token';
   v_org:=(login_result->>'org_id')::uuid;
   IF coalesce(owner_token,'')='' OR v_org IS NULL THEN
@@ -104,9 +104,9 @@ BEGIN
     IF error_text<>'ANDROIDDB_V0_INVALID_CREDENTIALS' THEN RAISE; END IF;
   END;
 
-  IF has_table_privilege('ani_api_runtime','androiddb_v0.rental_accounts','SELECT')
-     OR has_table_privilege('ani_api_runtime','androiddb_v0.client_sessions','SELECT')
-     OR NOT has_function_privilege('ani_api_runtime','api.androiddb_v0_remote_login(text,text)','EXECUTE') THEN
+  IF has_table_privilege('stardesk_v0_runtime','androiddb_v0.rental_accounts','SELECT')
+     OR has_table_privilege('stardesk_v0_runtime','androiddb_v0.client_sessions','SELECT')
+     OR NOT has_function_privilege('stardesk_v0_runtime','api.androiddb_v0_remote_login(text,text)','EXECUTE') THEN
     RAISE EXCEPTION 'ANDROIDDB_V0_USER_ID_ONLY_RUNTIME_PRIVILEGE_CONTRACT_FAILED';
   END IF;
 END;
