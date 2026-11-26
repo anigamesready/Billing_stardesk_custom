@@ -34,6 +34,7 @@ const migrations = [
   '022_coin_unit_scale_100.sql',
   '023_admin_coin_management_read_api.sql',
   '025_admin_androiddb_v0_coin_domain.sql',
+  '026_androiddb_v0_coin_x100.sql',
 ];
 
 test('StarDesk installer uses dedicated DB, roles, API port, directory and service', () => {
@@ -78,7 +79,7 @@ test('StarDesk installer is fail-closed and does not target legacy DB/API/servic
 });
 
 test('migration bundle is complete and rewrites the NOLOGIN API runtime role', () => {
-  assert.equal(migrations.length, 24);
+  assert.equal(migrations.length, 25);
   assert.ok(installer.includes('sed "s/ani_api_runtime/$RUNTIME_ROLE/g"'));
   for (const name of migrations) {
     const sql = readFileSync(migrationRoot + name, 'utf8');
@@ -179,4 +180,28 @@ test('Termux quick-control menu keeps DBs separate and defaults SQL sessions to 
   assert.doesNotMatch(dbControl, /\bsv\s+(?:up|down|restart|start|stop)\s+(?:postgres|ani-games-ready-api|ani-games-relay-agent)\b/);
   assert.doesNotMatch(dbControl, /\b(?:DROP\s+DATABASE|DROP\s+ROLE|TRUNCATE\s+TABLE|DELETE\s+FROM|pg_ctl|initdb)\b/i);
   assert.doesNotMatch(dbControl, /\\\\\$\\{/i, "shell variable expansion must not contain a literal escape");
+});
+
+test('Android DB v0 Coin denomination is idempotently scaled to x100 without changing Rupiah prices', () => {
+  const coin = readFileSync(migrationRoot + '026_androiddb_v0_coin_x100.sql', 'utf8');
+  for (const token of [
+    'androiddb_v0.coin_unit_config',
+    'coin_scale IN (1,100)',
+    'IF current_scale = 1 THEN',
+    'balance=balance*100',
+    'coin_amount=coin_amount*100',
+    'original_coins=original_coins*100',
+    'remaining_coins=remaining_coins*100',
+    'amount_coins=amount_coins*100',
+    'reserved_coins=reserved_coins*100',
+    'debited_coins=debited_coins*100',
+    'hourly_coins=hourly_coins*100',
+    'p_amount_rupiah::numeric*60*unit_scale/8000',
+    'coins:=45*unit_scale',
+    'coins:=52.5*unit_scale',
+    'coins:=60*unit_scale',
+    'amount_rupiah',
+  ]) assert.ok(coin.includes(token), 'missing x100 migration contract: ' + token);
+  assert.ok(!coin.includes('public.rental_accounts SET'), 'legacy rental-time rows must not be converted');
+  assert.ok(!coin.includes('remaining_seconds='), 'legacy rental seconds must not be converted');
 });
