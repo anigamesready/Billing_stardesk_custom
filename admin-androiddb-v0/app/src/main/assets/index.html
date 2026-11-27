@@ -588,15 +588,39 @@ async function loadAgentPCs(){
     const rows=Array.isArray(result.agents)?result.agents:[];
     window.__agentPCs=rows;
     host.innerHTML=rows.map(d=>{
-      const id=esc(d.agent_device_id),online=d.status==="online",revoked=d.status==="revoked";
+      const id=esc(d.agent_device_id);
+      const online=d.status==="online";
+      const revoked=d.status==="revoked";
       const coinValue=formatCoinUnits(d.hourly_coin_units);
-      return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(d.display_name)+'</div><div class="item-meta">'+esc(d.computer_name||"Windows PC")+' • '+esc(d.gpu_name||d.gpu_class||"GPU belum dilaporkan")+'</div></div><span class="pill '+(online?"good":revoked?"bad":"warn")+'">'+(online?"AGENT ONLINE":revoked?"REVOKED":"OFFLINE")+'</span></div>'+
-      '<div class="item-meta">Agent ID: '+id+'<br>Windows: '+esc(d.windows_version||"—")+' • Agent '+esc(d.agent_version||"—")+'<br>Heartbeat: '+date(d.last_heartbeat_at)+'<br>Tarif saat ini: '+esc(d.gpu_class)+' • Rp'+Number(d.hourly_rupiah||0).toLocaleString("id-ID")+' / jam • '+coinValue+' AniCoin / jam</div>'+
-      (!revoked?'<div class="form-grid" style="margin-top:10px"><div><label>Nama PC</label><input id="agentname_'+id+'" maxlength="120" value="'+esc(d.display_name)+'"></div><div><label>GPU / tipe PC</label><input id="agentgpu_'+id+'" maxlength="120" value="'+esc(d.gpu_class)+'"></div><div><label>Harga Rupiah / jam</label><input id="agentrupiah_'+id+'" inputmode="numeric" maxlength="9" value="'+esc(d.hourly_rupiah)+'"></div><div><label>Tarif AniCoin / jam</label><input id="agentcoin_'+id+'" inputmode="decimal" maxlength="10" value="'+esc(coinValue)+'"></div></div>'+
-      '<div class="item-actions"><button class="small primary" onclick="updateAgentPC(\\''+id+'\\')">Simpan nama & tarif</button><button class="small" onclick="sendAgentCommand(\\''+id+'\\',\\'message\\')">Kirim pesan</button><button class="small" onclick="sendAgentCommand(\\''+id+'\\',\\'logoff\\')">Logoff Windows</button><button class="small" onclick="sendAgentCommand(\\''+id+'\\',\\'restart\\')">Restart Windows</button><button class="small danger" onclick="sendAgentCommand(\\''+id+'\\',\\'shutdown\\')">Shutdown</button><button class="small danger" onclick="revokeAgentPC(\\''+id+'\\')">Cabut pairing</button></div>':'<div class="hint" style="margin-top:8px">Agent ini sudah dicabut aksesnya. Pasangkan ulang dengan instalasi baru.</div>')+'</div>';
+      const controls=revoked
+        ? '<div class="hint" style="margin-top:8px">Agent ini sudah dicabut aksesnya. Pasangkan ulang dengan instalasi baru.</div>'
+        : '<div class="form-grid" style="margin-top:10px">'+
+          '<div><label>Nama PC</label><input id="agentname_'+id+'" maxlength="120" value="'+esc(d.display_name||"")+'"></div>'+
+          '<div><label>GPU / tipe PC</label><input id="agentgpu_'+id+'" maxlength="120" value="'+esc(d.gpu_class||"")+'"></div>'+
+          '<div><label>Harga Rupiah / jam</label><input id="agentrupiah_'+id+'" inputmode="numeric" maxlength="9" value="'+esc(d.hourly_rupiah)+'"></div>'+
+          '<div><label>Tarif AniCoin / jam</label><input id="agentcoin_'+id+'" inputmode="decimal" maxlength="10" value="'+esc(coinValue)+'"></div>'+
+          '</div>'+
+          '<div class="item-actions">'+
+          '<button class="small primary" data-agent-id="'+id+'" onclick="updateAgentPC(this.dataset.agentId)">Simpan nama & tarif</button>'+
+          '<button class="small" data-agent-id="'+id+'" data-command="message" onclick="sendAgentCommand(this.dataset.agentId,this.dataset.command)">Kirim pesan</button>'+
+          '<button class="small" data-agent-id="'+id+'" data-command="logoff" onclick="sendAgentCommand(this.dataset.agentId,this.dataset.command)">Logoff Windows</button>'+
+          '<button class="small" data-agent-id="'+id+'" data-command="restart" onclick="sendAgentCommand(this.dataset.agentId,this.dataset.command)">Restart Windows</button>'+
+          '<button class="small danger" data-agent-id="'+id+'" data-command="shutdown" onclick="sendAgentCommand(this.dataset.agentId,this.dataset.command)">Shutdown</button>'+
+          '<button class="small danger" data-agent-id="'+id+'" onclick="revokeAgentPC(this.dataset.agentId)">Cabut pairing</button>'+
+          '</div>';
+      return '<div class="item">'+
+        '<div class="item-head"><div><div class="item-title">'+esc(d.display_name||"PC tanpa nama")+'</div>'+
+        '<div class="item-meta">'+esc(d.computer_name||"Windows PC")+' • '+esc(d.gpu_name||d.gpu_class||"GPU belum dilaporkan")+'</div></div>'+
+        '<span class="pill '+(online?"good":revoked?"bad":"warn")+'">'+(online?"AGENT ONLINE":revoked?"REVOKED":"OFFLINE")+'</span></div>'+
+        '<div class="item-meta">Agent ID: '+id+'<br>Windows: '+esc(d.windows_version||"—")+' • Agent '+esc(d.agent_version||"—")+
+        '<br>Heartbeat: '+date(d.last_heartbeat_at)+'<br>Tarif saat ini: '+esc(d.gpu_class||"—")+' • '+money(d.hourly_rupiah)+' / jam • '+coinValue+' AniCoin / jam</div>'+
+        controls+'</div>';
     }).join("")||'<div class="empty">Belum ada Windows Agent yang dipasangkan.</div>';
     globalMessage("Data Agent PC berhasil dimuat. "+rows.filter(x=>x.status==="online").length+" Agent online.");
-  }catch(e){host.innerHTML='<div class="msg error">'+esc(e.message||e)+'</div>';globalMessage("Gagal membaca Agent PC: "+(e.message||e),true);}
+  }catch(e){
+    host.innerHTML='<div class="msg error">'+esc(e.message||e)+'</div>';
+    globalMessage("Gagal membaca Agent PC: "+(e.message||e),true);
+  }
 }
 async function pairAgentPC(){
   const code=val(el("agentPairCode").value).trim(),name=val(el("agentPairName").value).trim(),gpu=val(el("agentPairGpu").value).trim();
