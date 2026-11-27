@@ -291,7 +291,7 @@ test("Tray publishes OCR engine and English tessdata with the one-click app", ()
   const project = read("win-agent/Agent.Tray/Agent.Tray.csproj");
   const installer = read("win-agent/installer/AniGamesReady-StarDesk-Agent.iss");
   assert.match(project, /TesseractOCR.*5\.5\.2/);
-  assert.match(project, /TesseractOCR\.Languages\.English.*5\.5\.2/);
+  assert.match(project, /TesseractOCR\.Languages\.English.*1\.0\.0/);
   assert.match(installer, /Agent\.Tray\\\*/);
   assert.match(installer, /recursesubdirs createallsubdirs/);
 });
