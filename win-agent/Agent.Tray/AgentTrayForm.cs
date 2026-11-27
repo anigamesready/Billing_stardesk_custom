@@ -12,6 +12,8 @@ public sealed class AgentTrayForm : Form
     private readonly Label codeLabel = new();
     private readonly Button copyButton = new();
     private readonly Button refreshButton = new();
+    private readonly Button syncButton = new();
+    private readonly Label starDeskLabel = new();
     private readonly NotifyIcon trayIcon;
     private readonly System.Windows.Forms.Timer refreshTimer = new();
     private AgentStatus? currentStatus;
@@ -24,7 +26,7 @@ public sealed class AgentTrayForm : Form
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = true;
-        ClientSize = new Size(520, 330);
+        ClientSize = new Size(520, 350);
         BackColor = Color.FromArgb(7, 16, 31);
         ForeColor = Color.FromArgb(237, 246, 255);
         Font = new Font("Segoe UI", 9F);
@@ -65,18 +67,30 @@ public sealed class AgentTrayForm : Form
         copyButton.Click += (_, _) => CopyPairingCode();
         Controls.Add(copyButton);
 
+        starDeskLabel.SetBounds(22, 248, 475, 18);
+        starDeskLabel.ForeColor = Color.FromArgb(151, 225, 255);
+        starDeskLabel.Text = "StarDesk: belum disinkronkan";
+        starDeskLabel.AutoEllipsis = true;
+        Controls.Add(starDeskLabel);
+
         refreshButton.Text = "Refresh status";
-        refreshButton.SetBounds(190, 266, 135, 38);
+        refreshButton.SetBounds(190, 274, 135, 38);
         refreshButton.Click += (_, _) => RefreshStatus();
         Controls.Add(refreshButton);
+
+        syncButton.Text = "Sinkronkan StarDesk";
+        syncButton.SetBounds(335, 274, 162, 38);
+        syncButton.Click += async (_, _) => await SyncStarDeskAsync();
+        syncButton.Enabled = false;
+        Controls.Add(syncButton);
 
         var foot = new Label
         {
             Text = "Tutup jendela atau tekan X untuk menyembunyikan ke system tray. Service Agent tetap berjalan.",
             ForeColor = Color.FromArgb(125, 151, 178),
             AutoSize = false,
-            Location = new Point(22, 309),
-            Size = new Size(475, 18),
+            Location = new Point(22, 322),
+            Size = new Size(475, 22),
             Font = new Font("Segoe UI", 8F)
         };
         Controls.Add(foot);
@@ -84,6 +98,7 @@ public sealed class AgentTrayForm : Form
         var menu = new ContextMenuStrip();
         menu.Items.Add("Buka Ani Games Ready Agent", null, (_, _) => ShowWindow());
         menu.Items.Add("Salin kode pairing", null, (_, _) => CopyPairingCode());
+        menu.Items.Add("Sinkronkan StarDesk", null, async (_, _) => await SyncStarDeskAsync());
         menu.Items.Add("Sembunyikan ke tray", null, (_, _) => HideWindow());
 
         trayIcon = new NotifyIcon
@@ -115,6 +130,8 @@ public sealed class AgentTrayForm : Form
             deviceIdLabel.Text = "";
             codeLabel.Text = "";
             copyButton.Enabled = false;
+            syncButton.Enabled = false;
+            starDeskLabel.Text = "StarDesk: service belum siap";
             return;
         }
 
@@ -135,6 +152,10 @@ public sealed class AgentTrayForm : Form
             ? "PAIRING SUDAH SELESAI"
             : "KODE: " + currentStatus.PairingCode;
         copyButton.Enabled = !currentStatus.IsPaired && !string.IsNullOrWhiteSpace(currentStatus.PairingCode);
+        syncButton.Enabled = currentStatus.IsPaired;
+        starDeskLabel.Text = string.IsNullOrWhiteSpace(currentStatus.StarDeskDeviceId)
+            ? "StarDesk: belum disinkronkan"
+            : "StarDesk ID: " + currentStatus.StarDeskDeviceId + " • " + (currentStatus.LastStarDeskSyncUtc?.ToLocalTime().ToString("dd MMM HH:mm:ss") ?? "tersimpan");
         trayIcon.Text = "Ani Games Ready Agent • " + currentStatus.State;
     }
 
@@ -151,6 +172,42 @@ public sealed class AgentTrayForm : Form
         Clipboard.SetText(code);
         MessageBox.Show("Kode pairing berhasil disalin. Masukkan kode ini pada menu Agent PC di Admin Owner.",
             "Ani Games Ready Agent", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    private async Task SyncStarDeskAsync()
+    {
+        RefreshStatus();
+        if (currentStatus?.IsPaired != true)
+        {
+            MessageBox.Show("Pairing Windows Agent harus selesai terlebih dahulu.",
+                "Ani Games Ready Agent", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        syncButton.Enabled = false;
+        syncButton.Text = "Membaca StarDesk...";
+        try
+        {
+            var capture = await Task.Run(StarDeskUiCapture.Read);
+            await AgentCapturePipeClient.SyncAsync(capture);
+            MessageBox.Show(
+                "StarDesk berhasil disinkronkan ke Android DB.\n\nDevice ID: " + capture.DeviceId +
+                "\nKode verifikasi tidak ditampilkan dan disimpan dalam bentuk terenkripsi.",
+                "Ani Games Ready Agent", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            RefreshStatus();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                "Sinkronisasi StarDesk belum berhasil.\n\n" + ex.Message +
+                "\n\nBuka StarDesk Windows pada menu Remote Assist yang menampilkan Device ID dan Verification Code, lalu coba lagi.",
+                "Ani Games Ready Agent", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+        finally
+        {
+            syncButton.Text = "Sinkronkan StarDesk";
+            RefreshStatus();
+        }
     }
 
     private void OnFormClosing(object? sender, FormClosingEventArgs e)
