@@ -134,6 +134,7 @@ test("StarDesk 1.6.x temporary code is read from Verification Method visual row"
   assert.match(capture, /verificationmethod/);
   assert.match(capture, /CodeValueRegex/);
   assert.match(capture, /BoundingRectangle/);
+  assert.match(capture, /Current\.IsOffscreen/);
   assert.match(capture, /FindVerificationCode/);
   assert.match(capture, /RemoteSessionStateKnown/);
   assert.match(capture, /DetectRemoteSession/);

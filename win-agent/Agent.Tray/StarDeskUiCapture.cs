@@ -121,6 +121,13 @@ public static class StarDeskUiCapture
 
     private static void AddElementText(AutomationElement element, List<AccessibleText> values)
     {
+        try
+        {
+            // Ignore stale, collapsed, minimized, or scrolled-out UI nodes.
+            if (element.Current.IsOffscreen) return;
+        }
+        catch { }
+
         Rectangle bounds;
         try
         {
