@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 umask 077
 
-# Additive Agent 027 upgrade for an EXISTING isolated StarDesk Custom installation.
+# Additive Agent 027 + manual tariff 028 upgrade for an EXISTING isolated StarDesk Custom installation.
 # Never touches legacy Ani Games Ready DB/API/service.
 APP_DIR="$HOME/ani-games-stardesk-custom-v0"
 SERVER_DIR="$APP_DIR/server"
@@ -21,8 +21,8 @@ OS_DB_USER="$(id -un)"
 PG_ADMIN_USER=""
 SOURCE_REF="${ANI_STARDESK_SOURCE_REF:-}"
 
-log(){ printf '[STAR-DESK-AGENT-027] %s\n' "$*"; }
-die(){ printf '[STAR-DESK-AGENT-027] STOP: %s\n' "$*" >&2; exit 1; }
+log(){ printf '[STAR-DESK-AGENT-028] %s\n' "$*"; }
+die(){ printf '[STAR-DESK-AGENT-028] STOP: %s\n' "$*" >&2; exit 1; }
 psql_admin(){ psql -X -h "$PREFIX/tmp" -p "$DB_PORT" -U "$PG_ADMIN_USER" -v ON_ERROR_STOP=1 "$@"; }
 
 [ -n "${PREFIX:-}" ] && [ -x "$PREFIX/bin/pkg" ] || die "Khusus Termux Android."
@@ -58,7 +58,7 @@ ROLE_CHECK="$(psql_admin -d postgres -Atqc "SELECT count(*) FROM pg_roles WHERE 
 [ "$ROLE_CHECK" = "3" ] || die "Role isolated StarDesk tidak lengkap."
 META="$(psql_admin -d "$DB_NAME" -Atqc "SELECT schema_version||'|'||runtime_role||'|'||api_login_role FROM private.stardesk_custom_install_meta WHERE singleton")"
 [ -n "$META" ] || die "Metadata install StarDesk Custom tidak ditemukan."
-[[ "$META" == androiddb_v0_025\|stardesk_v0_runtime\|stardesk_v0_login || "$META" == androiddb_v0_027_agent\|stardesk_v0_runtime\|stardesk_v0_login || "$META" == androiddb_v0_028_manual_rates\|stardesk_v0_runtime\|stardesk_v0_login ]] || die "Metadata database tidak cocok: $META"
+[[ "$META" == androiddb_v0_025\|stardesk_v0_runtime\|stardesk_v0_login || "$META" == androiddb_v0_026\|stardesk_v0_runtime\|stardesk_v0_login || "$META" == androiddb_v0_027_agent\|stardesk_v0_runtime\|stardesk_v0_login || "$META" == androiddb_v0_028_manual_rates\|stardesk_v0_runtime\|stardesk_v0_login ]] || die "Metadata database tidak cocok: $META"
 
 TMP_DIR="$(mktemp -d "$PREFIX/tmp/stardesk-admin-028.XXXXXX")"
 cleanup(){ [ -z "${TMP_DIR:-}" ] || [ ! -d "$TMP_DIR" ] || rm -rf -- "$TMP_DIR"; }

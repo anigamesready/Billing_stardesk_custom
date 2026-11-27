@@ -113,7 +113,7 @@ test("Windows Agent tray can hide without stopping the Service", () => {
 test("Fresh install and live upgrade apply migration 028 only to isolated StarDesk Custom", () => {
   for (const token of ["027_windows_agent_domain.sql","028_manual_pc_tariffs.sql","androiddb_v0_028_manual_rates","stardesk_custom_v0"])
     assert.ok(installer.includes(token), "installer missing: " + token);
-  for (const token of ['DB_NAME="stardesk_custom_v0"','API_PORT="8789"','stardesk-custom-v0-api',"028_manual_pc_tariffs.sql","rpc_route_check","AUTH_REQUIRED","androiddb_v0_028_manual_rates"])
+  for (const token of ['DB_NAME="stardesk_custom_v0"','API_PORT="8789"','stardesk-custom-v0-api',"028_manual_pc_tariffs.sql","rpc_route_check","AUTH_REQUIRED","androiddb_v0_025","androiddb_v0_026","androiddb_v0_027_agent","androiddb_v0_028_manual_rates"])
     assert.ok(upgrader.includes(token), "upgrade safety check missing: " + token);
   assert.ok(!upgrader.includes('API_PORT="8788"'));
   assert.ok(!upgrader.includes("ani_games_ready_stage"));
