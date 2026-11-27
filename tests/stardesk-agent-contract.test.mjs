@@ -45,6 +45,7 @@ test("Manual hourly tariffs accept free GPU labels and keep Coin precision at x1
     assert.ok(ratesMigration.includes("DROP CONSTRAINT IF EXISTS " + constraint));
   assert.ok(ratesMigration.includes("p_hourly_coin_units::numeric/100"));
   assert.ok(ratesMigration.includes("p_hourly_coin_units NOT BETWEEN 1 AND 100000000"));
+  assert.ok(ratesMigration.includes("ALTER COLUMN hourly_coins TYPE numeric(16,8)"));
   for (const rpc of ["androiddb_v0_admin_set_device_custom_rate: { auth: \"admin\"","androiddb_v0_admin_agent_pair_manual: { auth: \"admin\"","androiddb_v0_admin_agent_update_pc_manual: { auth: \"admin\""])
     assert.ok(server.includes(rpc));
 });

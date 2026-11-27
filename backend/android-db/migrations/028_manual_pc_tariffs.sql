@@ -3,6 +3,9 @@
 BEGIN;
 
 ALTER TABLE androiddb_v0.pc_coin_rates
+  ALTER COLUMN hourly_coins TYPE numeric(16,8) USING hourly_coins::numeric(16,8);
+
+ALTER TABLE androiddb_v0.pc_coin_rates
   DROP CONSTRAINT IF EXISTS pc_coin_rates_gpu_class_check;
 ALTER TABLE androiddb_v0.pc_coin_rates
   ADD CONSTRAINT pc_coin_rates_gpu_class_check
