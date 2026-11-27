@@ -12,5 +12,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Agent.Shared\Agent.Shared.csproj" />
+    <PackageReference Include="TesseractOCR" Version="5.5.2" />
+    <PackageReference Include="TesseractOCR.Languages.English" Version="5.5.2" />
   </ItemGroup>
 </Project>

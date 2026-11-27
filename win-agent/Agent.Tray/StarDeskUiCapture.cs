@@ -42,8 +42,8 @@ public static class StarDeskUiCapture
 
     private sealed record AccessibleText(string Text, Rectangle Bounds);
     private sealed record WindowInfo(
-        IntPtr Handle, int ProcessId, string Title,
-        bool WasVisible, bool WasMinimized, long Area);
+        IntPtr Handle, int ProcessId, string ProcessName, string Title,
+        bool WasVisible, bool WasMinimized, long Area, bool IsMainWindow);
     private sealed record CopyCaptureResult(
         string Text, bool ButtonFound, bool ActionInvoked,
         bool ClipboardChanged, bool PairParsed, string Action);
@@ -52,6 +52,9 @@ public static class StarDeskUiCapture
     private static readonly object CopyAttemptLock = new();
     private static DateTime lastCopyAttemptUtc = DateTime.MinValue;
     private static readonly TimeSpan AutoCopyCooldown = TimeSpan.FromSeconds(25);
+    private static readonly object OcrAttemptLock = new();
+    private static DateTime lastOcrAttemptUtc = DateTime.MinValue;
+    private static readonly TimeSpan AutoOcrCooldown = TimeSpan.FromSeconds(6);
 
     private static readonly HashSet<string> NonCodes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -82,11 +85,6 @@ public static class StarDeskUiCapture
     [DllImport("user32.dll")]
     private static extern bool IsIconic(IntPtr hwnd);
     [DllImport("user32.dll")]
-    private static extern bool ShowWindowAsync(IntPtr hwnd, int command);
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool SetWindowPos(
-        IntPtr hwnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
-    [DllImport("user32.dll")]
     private static extern bool GetWindowRect(IntPtr hwnd, out NativeRect rect);
     [DllImport("user32.dll")]
     private static extern uint GetClipboardSequenceNumber();
@@ -95,11 +93,12 @@ public static class StarDeskUiCapture
 
     public static StarDeskCaptureSnapshot ReadPartial(bool forceCopy = false)
     {
-        var windows = FindStarDeskWindows();
+        var windows = FindStarDeskWindows(out var helperProcessesIgnored);
         if (windows.Count == 0)
             return new StarDeskCaptureSnapshot(
                 "", "", "StarDesk",
-                Diagnostics: "Jendela StarDesk tidak ditemukan; proses mungkin sudah ditutup, bukan hanya disembunyikan.");
+                Diagnostics: "Proses utama StarDesk tidak ditemukan; helper USB/Monitor diabaikan=" +
+                    helperProcessesIgnored + ". Pastikan StarDesk Desktop masih berjalan.");
 
         StarDeskCaptureSnapshot? best = null;
         var bestScore = long.MinValue;
@@ -111,9 +110,8 @@ public static class StarDeskUiCapture
         {
             try
             {
-                MakeWindowTemporarilyAvailable(window.Handle);
-                Thread.Sleep(220);
-
+                // Never select title-matching helper processes or raise a hidden
+                // StarDesk window. Capture the exact main-process HWND in place.
                 var root = AutomationElement.FromHandle(window.Handle);
                 var nodes = CollectAccessibleText(root);
                 var deviceId = FindDeviceId(nodes);
@@ -141,8 +139,36 @@ public static class StarDeskUiCapture
                     }
                 }
 
+                var ocr = new StarDeskOcrResult("", "", false, false, "not-needed");
+                if (string.IsNullOrWhiteSpace(deviceId) ||
+                    string.IsNullOrWhiteSpace(verificationCode) ||
+                    !session.Known)
+                {
+                    if (ShouldAttemptOcr(forceCopy))
+                    {
+                        ocr = StarDeskScreenOcr.Read(
+                            window.Handle, window.WasVisible, window.WasMinimized);
+
+                        if ((string.IsNullOrWhiteSpace(deviceId) ||
+                             string.IsNullOrWhiteSpace(verificationCode)) &&
+                            !string.IsNullOrWhiteSpace(ocr.DeviceId) &&
+                            !string.IsNullOrWhiteSpace(ocr.VerificationCode))
+                        {
+                            deviceId = ocr.DeviceId;
+                            verificationCode = ocr.VerificationCode;
+                        }
+
+                        if (!session.Known && ocr.PageRecognized)
+                            session = (true, ocr.RemoteSessionActive);
+                    }
+                    else
+                    {
+                        ocr = new StarDeskOcrResult("", "", false, false, "cooldown");
+                    }
+                }
+
                 var diagnostics = BuildDiagnostics(
-                    windows.Count, window, nodes.Count, deviceId, verificationCode, copy);
+                    windows.Count, window, nodes.Count, deviceId, verificationCode, copy, ocr);
                 var candidate = new StarDeskCaptureSnapshot(
                     deviceId, verificationCode, window.Title,
                     session.Known, session.Active, diagnostics);
@@ -169,10 +195,6 @@ public static class StarDeskUiCapture
                 if (best is null)
                     best = failed;
             }
-            finally
-            {
-                RestoreOriginalWindowState(window);
-            }
         }
 
         if (best is not null)
@@ -188,55 +210,102 @@ public static class StarDeskUiCapture
             Diagnostics: "Jendela StarDesk ada, tetapi pohon aksesibilitas tidak mengembalikan elemen yang bisa dibaca.");
     }
 
-    private static List<WindowInfo> FindStarDeskWindows()
+    private static List<WindowInfo> FindStarDeskWindows(out int helperProcessesIgnored)
     {
-        var processIds = new HashSet<int>();
+        helperProcessesIgnored = 0;
+        var mainProcesses = new Dictionary<int, (string Name, IntPtr MainHandle)>();
+
         foreach (var process in Process.GetProcesses())
         {
             try
             {
-                if (process.ProcessName.Contains("stardesk", StringComparison.OrdinalIgnoreCase))
-                    processIds.Add(process.Id);
+                var name = process.ProcessName;
+                if (IsStarDeskHelperProcess(name))
+                {
+                    helperProcessesIgnored++;
+                    continue;
+                }
+
+                if (!IsStarDeskMainProcess(name))
+                    continue;
+
+                mainProcesses[process.Id] = (name, process.MainWindowHandle);
             }
             catch { }
             finally { process.Dispose(); }
         }
 
-        var result = new List<WindowInfo>();
+        var windows = new Dictionary<IntPtr, WindowInfo>();
+        foreach (var process in mainProcesses)
+        {
+            if (process.Value.MainHandle != IntPtr.Zero)
+                AddMainWindowCandidate(
+                    process.Value.MainHandle, process.Key, process.Value.Name,
+                    true, windows);
+        }
+
         EnumWindows((hwnd, _) =>
         {
             try
             {
                 GetWindowThreadProcessId(hwnd, out var rawPid);
                 var pid = unchecked((int)rawPid);
-                var title = GetWindowTitle(hwnd);
-                if (!processIds.Contains(pid) &&
-                    !title.Contains("StarDesk", StringComparison.OrdinalIgnoreCase))
+                if (!mainProcesses.TryGetValue(pid, out var info))
                     return true;
 
-                if (!GetWindowRect(hwnd, out var rect))
-                    return true;
-
-                var width = Math.Max(0, rect.Right - rect.Left);
-                var height = Math.Max(0, rect.Bottom - rect.Top);
-                var area = (long)width * height;
-                if (width < 260 || height < 180)
-                    return true;
-
-                result.Add(new WindowInfo(
-                    hwnd, pid, title,
-                    IsWindowVisible(hwnd), IsIconic(hwnd), area));
+                AddMainWindowCandidate(
+                    hwnd, pid, info.Name, hwnd == info.MainHandle, windows);
             }
             catch { }
             return true;
         }, IntPtr.Zero);
 
-        // Main window normally has the largest client frame. This prevents
-        // helper/pop-up windows owned by the same process from winning capture.
-        return result
-            .OrderByDescending(x => x.Title.Contains("StarDesk", StringComparison.OrdinalIgnoreCase))
+        return windows.Values
+            .OrderByDescending(x => x.IsMainWindow)
             .ThenByDescending(x => x.Area)
             .ToList();
+    }
+
+    private static bool IsStarDeskMainProcess(string processName)
+    {
+        var name = (processName ?? "").Trim();
+        return name.StartsWith("StarDesk", StringComparison.OrdinalIgnoreCase) &&
+               !IsStarDeskHelperProcess(name);
+    }
+
+    private static bool IsStarDeskHelperProcess(string processName)
+    {
+        var name = (processName ?? "").ToLowerInvariant();
+        return name.Contains("usbip", StringComparison.Ordinal) ||
+               name.Contains("monitor", StringComparison.Ordinal) ||
+               name.Contains("helper", StringComparison.Ordinal) ||
+               name.Contains("updater", StringComparison.Ordinal) ||
+               name.Contains("crash", StringComparison.Ordinal);
+    }
+
+    private static void AddMainWindowCandidate(
+        IntPtr hwnd, int processId, string processName,
+        bool isMainWindow, IDictionary<IntPtr, WindowInfo> windows)
+    {
+        if (hwnd == IntPtr.Zero)
+            return;
+
+        var title = GetWindowTitle(hwnd);
+        if (IsStarDeskHelperProcess(title))
+            return;
+
+        if (!GetWindowRect(hwnd, out var rect))
+            return;
+
+        var width = Math.Max(0, rect.Right - rect.Left);
+        var height = Math.Max(0, rect.Bottom - rect.Top);
+        if (width < 320 || height < 220)
+            return;
+
+        windows[hwnd] = new WindowInfo(
+            hwnd, processId, processName, title,
+            IsWindowVisible(hwnd), IsIconic(hwnd),
+            (long)width * height, isMainWindow);
     }
 
     private static string GetWindowTitle(IntPtr hwnd)
@@ -244,27 +313,6 @@ public static class StarDeskUiCapture
         var builder = new StringBuilder(512);
         var length = GetWindowText(hwnd, builder, builder.Capacity);
         return length > 0 ? builder.ToString(0, length) : "";
-    }
-
-    private static void MakeWindowTemporarilyAvailable(IntPtr hwnd)
-    {
-        if (!IsWindowVisible(hwnd) || IsIconic(hwnd))
-        {
-            ShowWindowAsync(hwnd, SwShowNoActivate);
-            SetWindowPos(hwnd, new IntPtr(1), 0, 0, 0, 0,
-                SwpNoSize | SwpNoMove | SwpNoActivate | SwpShowWindow);
-        }
-    }
-
-    private static void RestoreOriginalWindowState(WindowInfo window)
-    {
-        if (!window.WasVisible)
-        {
-            ShowWindowAsync(window.Handle, SwHide);
-            return;
-        }
-        if (window.WasMinimized)
-            ShowWindowAsync(window.Handle, SwMinimize);
     }
 
     private static List<AccessibleText> CollectAccessibleText(AutomationElement root)
@@ -533,6 +581,19 @@ public static class StarDeskUiCapture
         });
     }
 
+    private static bool ShouldAttemptOcr(bool force)
+    {
+        lock (OcrAttemptLock)
+        {
+            var now = DateTime.UtcNow;
+            if (!force && now - lastOcrAttemptUtc < AutoOcrCooldown)
+                return false;
+
+            lastOcrAttemptUtc = now;
+            return true;
+        }
+    }
+
     private static bool ShouldAttemptCopy(bool force)
     {
         lock (CopyAttemptLock)
@@ -642,20 +703,20 @@ public static class StarDeskUiCapture
         int nodeCount,
         string deviceId,
         string verificationCode,
-        CopyCaptureResult copy)
+        CopyCaptureResult copy,
+        StarDeskOcrResult ocr)
     {
         var idState = string.IsNullOrWhiteSpace(deviceId) ? "tidak" : "terbaca";
         var codeState = string.IsNullOrWhiteSpace(verificationCode) ? "tidak" : "terbaca";
         var buttonState = copy.Action == "cooldown"
             ? "belum diuji (cooldown)"
             : copy.ButtonFound ? "ditemukan" : "tidak ditemukan";
-        var actionState = copy.Action;
-        var clipboardState = copy.ClipboardChanged ? "berubah" : "tidak berubah";
-        var parsedState = copy.PairParsed ? "valid" :
-            copy.ClipboardChanged ? "format tidak cocok" : "belum";
-        return $"Window={windowCount}; utama={window.Title}; area={window.Area}; " +
-               $"UIA={nodeCount} elemen; ID={idState}; kode={codeState}; " +
-               $"Copy={buttonState}; aksi={actionState}; clipboard={clipboardState}; pasangan={parsedState}.";
+
+        return $"proses={window.ProcessName}; jendela={window.Title}; HWND utama={window.IsMainWindow}; " +
+               $"terlihat={window.WasVisible}; minimized={window.WasMinimized}; luas={window.Area}; " +
+               $"kandidat={windowCount}; UIA={nodeCount}; ID={idState}; kode={codeState}; " +
+               $"Copy={buttonState}; aksi={copy.Action}; clipboard berubah={copy.ClipboardChanged}; " +
+               $"pasangan Copy={copy.PairParsed}; OCR={ocr.Detail}.";
     }
 
     private static double ScoreNearLabel(
