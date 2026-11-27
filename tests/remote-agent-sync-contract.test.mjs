@@ -173,3 +173,33 @@ test("Windows Agent version metadata is bumped together for the auto-sync build"
   assert.match(read("win-agent/Agent.Service/Agent.Service.csproj"), /<Version>0\.2\.2<\/Version>/);
   assert.match(read("win-agent/installer/AniGamesReady-StarDesk-Agent.iss"), /AppVersion "0\.2\.2"/);
 });
+
+
+test("StarDesk capture rejects the STARDESK title and never scans arbitrary text for an eight-character code", () => {
+  const capture = read("win-agent/Agent.Tray/StarDeskUiCapture.cs");
+  assert.match(capture, /"STARDESK"/);
+  assert.match(capture, /TryParseCopiedCredentials/);
+  assert.match(capture, /Verification Method/);
+  assert.doesNotMatch(capture, /foreach \(var node in nodes\)\s*if \(TryCodeToken\(node\.Text, out var candidate\)\)/);
+});
+
+test("StarDesk uses its Copy button, restores clipboard, and handles tray-hidden windows", () => {
+  const capture = read("win-agent/Agent.Tray/StarDeskUiCapture.cs");
+  assert.match(capture, /ControlType\.Button/);
+  assert.match(capture, /InvokePattern\.Invoke/);
+  assert.match(capture, /Clipboard\.GetDataObject/);
+  assert.match(capture, /Clipboard\.SetDataObject\(previous, true\)/);
+  assert.match(capture, /SwShowNoActivate/);
+  assert.match(capture, /IsIconic/);
+  assert.match(capture, /RestoreOriginalWindowState/);
+  assert.match(capture, /EnumWindows/);
+});
+
+test("Copied credentials parser requires a Device ID and one unambiguous valid code", () => {
+  const capture = read("win-agent/Agent.Tray/StarDeskUiCapture.cs");
+  assert.match(capture, /LabelledCodeRegex/);
+  assert.match(capture, /DeviceValueRegex/);
+  assert.match(capture, /candidates\.Length != 1/);
+  assert.match(capture, /verificationCode = candidates\[0\]/);
+  assert.match(capture, /TryParseCopiedCredentials\(copied, out _, out _\)/);
+});

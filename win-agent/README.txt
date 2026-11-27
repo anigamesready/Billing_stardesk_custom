@@ -1,5 +1,5 @@
 ANI GAMES READY — STAR DESK WINDOWS AGENT
-Preview version 0.2.2
+Preview version 0.2.3
 
 PERSYARATAN
 - Windows 10 / Windows 11 x64.
@@ -7,7 +7,7 @@ PERSYARATAN
 - Izin Administrator untuk memasang Windows Service.
 
 CARA INSTAL PALING MUDAH (SATU KLIK)
-1. Unduh file Ani-Games-Ready-StarDesk-Agent-Setup-0.2.2-win-x64.exe.
+1. Unduh file Ani-Games-Ready-StarDesk-Agent-Setup-0.2.3-win-x64.exe.
 2. Klik dua kali Setup.exe.
 3. Saat Windows menampilkan UAC, pilih Yes.
 4. Installer otomatis memasang atau memperbarui Windows Service dan tray Agent.
@@ -31,8 +31,8 @@ FITUR
 
 BATASAN PREVIEW
 - Agent Online hanya berarti heartbeat Windows aktif.
-- Agent memantau jendela StarDesk Remote Support otomatis setiap 4 detik selama Windows user login. Device ID dibaca dari label Device ID; kode 8 karakter dibaca dari elemen di bawah label Verification Method (layout StarDesk 1.6.x).
-- Kode diperiksa stabil minimal dua kali; ketika indikator remote sedang mengontrol PC aktif, sinkronisasi ditahan. Setelah indikator sesi hilang dan kode stabil/berubah, Agent mengirim nilai terbaru otomatis. Jika UI tidak dapat dibaca, tombol manual **Sinkronkan StarDesk** tetap menyediakan form fallback.
+- Agent memantau StarDesk otomatis setiap 4 detik. Bila teks UI Automation tidak lengkap, Agent menekan tombol Copy milik StarDesk untuk menyalin Device ID dan Verification Code langsung dari aplikasi.
+- Jika StarDesk diminimalkan atau disembunyikan ke tray tetapi prosesnya masih berjalan, Agent membangunkan jendela tanpa mengambil fokus, melakukan Copy, lalu mengembalikan keadaan jendela semula. Kode baru harus stabil sebelum dikirim. Tombol manual tetap tersedia sebagai fallback.
 - Device ID bernomor yang tampil berkelompok (contoh 259 397 349) dinormalisasi menjadi 259397349 saat disimpan. Kode temporer hanya berada di memori selama proses capture dan tidak dicatat ke log atau file status.
 - Agent mengirim kode baru melalui local named pipe ber-ACL ke Windows Service. API Android DB mengenkripsi verification code dengan AES-256-GCM sebelum disimpan; plaintext tidak disimpan di file status Agent dan tidak dikirim ke Remote APK. Watcher tidak melakukan request jaringan selama kode tidak berubah.
 - Device ID disimpan untuk pemetaan PC. Verification code bersifat sensitif dan bisa berubah/berakhir; ciphertext-nya tidak dipakai sebagai kode Remote Assist permanen.
@@ -47,7 +47,7 @@ Jalankan sebagai Administrator:
 Identitas dan credential di ProgramData dipertahankan agar reinstall dapat memakai Agent Device ID yang sama. Cabut pairing dari Admin sebelum PC dipensiunkan.
 
 
-UPDATE DARI PREVIEW 0.1.0 KE 0.2.2 (TANPA PAIRING ULANG)\n\nCara paling mudah: jalankan Setup.exe satu kali. Setup mendeteksi service lama, menghentikannya sementara, mengganti Agent, lalu menjalankannya kembali tanpa menghapus credential atau pairing. Tidak perlu menjalankan update.ps1 secara manual.
+UPDATE DARI PREVIEW 0.1.0 KE 0.2.3 (TANPA PAIRING ULANG)\n\nCara paling mudah: jalankan Setup.exe satu kali. Setup mendeteksi service lama, menghentikannya sementara, mengganti Agent, lalu menjalankannya kembali tanpa menghapus credential atau pairing. Tidak perlu menjalankan update.ps1 secara manual.
 1. Ekstrak ZIP update ke satu folder.
 2. Klik kanan PowerShell, pilih Run as administrator.
 3. Jalankan:
@@ -60,9 +60,15 @@ UPDATE DARI PREVIEW 0.1.0 KE 0.2.2 (TANPA PAIRING ULANG)\n\nCara paling mudah: j
 9. Bila berhasil, Device ID dan waktu sinkron tampil di tray dan menu Agent PC Admin. Verification Code tidak ditampilkan kembali.
 
 
-FITUR OTOMATIS 0.2.2
+FITUR OTOMATIS 0.2.3
 - Auto-sync membaca halaman Remote Support setiap 4 detik selama tray Agent berjalan.
 - Verification Code 8 karakter diambil berdasarkan posisi di bawah label Verification Method; Device ID dinormalisasi otomatis.
 - Jika UI menyatakan PC sedang dikontrol, sinkronisasi ditahan sampai sesi selesai. Nilai harus stabil dua pembacaan; bila status sesi tidak terdeteksi, Agent menunggu setidaknya 15 detik dan empat pembacaan.
 - Hanya kode yang berubah (atau transisi sesi aktif ke selesai) dikirim ke server. Tidak ada polling jaringan selama kode tetap sama.
 - Kode plaintext hanya berada di memori dan dikirim lewat named pipe lokal; API mengenkripsi kode sebelum database menyimpan ciphertext.
+
+
+CATATAN 0.2.3
+- Parser tidak pernah menerima "STARDESK" atau kata generik lain sebagai verification code.
+- Copy button automation memakai Windows UI Automation InvokePattern. Isi clipboard pengguna dipulihkan setelah pembacaan.
+- Jika proses StarDesk benar-benar keluar (bukan hanya hidden/minimized), Agent belum dapat membaca kode baru sampai StarDesk dijalankan lagi.
