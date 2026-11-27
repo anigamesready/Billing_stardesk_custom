@@ -20,10 +20,23 @@ public static class StarDeskUiCapture
     {
         "copy", "copied", "refresh", "device", "deviceid", "stardeskdeviceid",
         "verification", "verificationcode", "verifycode", "code", "securitycode",
-        "remote", "assist", "support", "start", "stop", "close", "open", "share"
+        "remote", "assist", "support", "start", "stop", "close", "open", "share",
+        "custom", "customcode", "customcodeonly", "only", "set"
     };
 
     public static StarDeskCaptureSnapshot Read()
+    {
+        var snapshot = ReadPartial();
+        if (string.IsNullOrWhiteSpace(snapshot.DeviceId) ||
+            string.IsNullOrWhiteSpace(snapshot.VerificationCode))
+        {
+            throw new InvalidOperationException(
+                "STAR_DESK_FIELDS_NOT_ACCESSIBLE: Device ID atau Verification Code tidak terbaca. Gunakan input manual.");
+        }
+        return snapshot;
+    }
+
+    public static StarDeskCaptureSnapshot ReadPartial()
     {
         var processIds = new HashSet<int>();
         foreach (var process in Process.GetProcesses())
@@ -64,7 +77,7 @@ public static class StarDeskUiCapture
             var values = CollectAccessibleText(candidate.Root);
             var deviceId = FindField(values, DeviceLabels);
             var verificationCode = FindField(values, CodeLabels);
-            if (!string.IsNullOrWhiteSpace(deviceId) &&
+            if (!string.IsNullOrWhiteSpace(deviceId) ||
                 !string.IsNullOrWhiteSpace(verificationCode))
             {
                 return new StarDeskCaptureSnapshot(
@@ -72,8 +85,7 @@ public static class StarDeskUiCapture
             }
         }
 
-        throw new InvalidOperationException(
-            "STAR_DESK_FIELDS_NOT_ACCESSIBLE: buka menu Remote Assist yang menampilkan Device ID dan Verification Code, lalu tekan Sinkronkan StarDesk lagi.");
+        return new StarDeskCaptureSnapshot("", "", candidates[0].Title);
     }
 
     private static List<string> CollectAccessibleText(AutomationElement root)
@@ -133,7 +145,7 @@ public static class StarDeskUiCapture
             {
                 for (var next = i + 1; next < Math.Min(values.Count, i + 6); next++)
                 {
-                    var candidate = CleanToken(values[next]);
+                    var candidate = NormalizeCandidate(CleanToken(values[next]));
                     if (IsCandidate(candidate)) return candidate;
                 }
             }
@@ -150,13 +162,27 @@ public static class StarDeskUiCapture
                     _ => Regex.Escape(label)
                 };
                 var match = Regex.Match(values[i],
-                    @"(?i)\b" + labelPattern + @"\b\s*[:：]?\s*([A-Za-z0-9][A-Za-z0-9._:-]{3,179})");
-                if (match.Success && IsCandidate(match.Groups[1].Value))
-                    return match.Groups[1].Value;
+                    @"(?i)\b" + labelPattern + @"\b\s*[:：]?\s*((?:\d{3}(?:\s+\d{3}){2,3})|[A-Za-z0-9][A-Za-z0-9._:-]{3,179})");
+                if (match.Success)
+                {
+                    var candidate = NormalizeCandidate(match.Groups[1].Value);
+                    if (IsCandidate(candidate)) return candidate;
+                }
             }
         }
         return "";
     }
+
+    internal static string NormalizeDeviceId(string value) => NormalizeCandidate(CleanToken(value));
+
+    private static string NormalizeCandidate(string value)
+    {
+        var candidate = CleanToken(value);
+        if (Regex.IsMatch(candidate, @"^\d{3}(?:\s+\d{3}){2,3}$"))
+            return Regex.Replace(candidate, @"\s+", "");
+        return candidate;
+    }
+
     private static string Normalize(string value) =>
         Regex.Replace(value ?? "", "[^A-Za-z0-9]", "").ToLowerInvariant();
 

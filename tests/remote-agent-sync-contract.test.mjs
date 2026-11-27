@@ -107,3 +107,22 @@ test("One-click Windows Setup elevates, preserves pairing, updates existing serv
   assert.match(cleanup, /Deliberately preserve %ProgramData%/);
   assert.doesNotMatch(cleanup, /Remove-Item.*StarDeskAgent/i);
 });
+
+
+test("Windows Agent falls back to secure manual StarDesk fields when UI Automation cannot read them", () => {
+  const tray = read("win-agent/Agent.Tray/AgentTrayForm.cs");
+  const capture = read("win-agent/Agent.Tray/StarDeskUiCapture.cs");
+  const dialog = read("win-agent/Agent.Tray/StarDeskManualEntryDialog.cs");
+  const worker = read("win-agent/Agent.Service/AgentWorker.cs");
+  assert.match(tray, /StarDeskUiCapture\.ReadPartial/);
+  assert.match(tray, /new StarDeskManualEntryDialog/);
+  assert.match(tray, /AgentCapturePipeClient\.SyncAsync\(capture\)/);
+  assert.match(capture, /861/);
+  assert.match(capture, /NormalizeDeviceId/);
+  assert.match(dialog, /UseSystemPasswordChar = true/);
+  assert.match(dialog, /SIMPAN & SINKRONKAN/);
+  assert.match(dialog, /code\.Contains\('\\r'\)/);
+  assert.match(worker, /androiddb_v0_agent_sync_stardesk_pairing/);
+  assert.match(worker, /verification_code = verificationCode/);
+  assert.doesNotMatch(worker, /File\.WriteAllText\([^\n]*verificationCode/i);
+});

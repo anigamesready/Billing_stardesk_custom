@@ -188,7 +188,30 @@ public sealed class AgentTrayForm : Form
         syncButton.Text = "Membaca StarDesk...";
         try
         {
-            var capture = await Task.Run(StarDeskUiCapture.Read);
+            StarDeskCaptureSnapshot capture;
+            string autoReadNote = "";
+            try
+            {
+                capture = await Task.Run(StarDeskUiCapture.ReadPartial);
+            }
+            catch (Exception ex)
+            {
+                capture = new StarDeskCaptureSnapshot("", "", "");
+                autoReadNote = ex.Message;
+            }
+
+            if (string.IsNullOrWhiteSpace(capture.DeviceId) ||
+                string.IsNullOrWhiteSpace(capture.VerificationCode))
+            {
+                using var dialog = new StarDeskManualEntryDialog(
+                    capture.DeviceId, capture.VerificationCode, autoReadNote);
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                    return;
+
+                capture = new StarDeskCaptureSnapshot(
+                    dialog.DeviceId, dialog.VerificationCode, "Manual input");
+            }
+
             await AgentCapturePipeClient.SyncAsync(capture);
             MessageBox.Show(
                 "StarDesk berhasil disinkronkan ke Android DB.\n\nDevice ID: " + capture.DeviceId +
@@ -200,7 +223,7 @@ public sealed class AgentTrayForm : Form
         {
             MessageBox.Show(
                 "Sinkronisasi StarDesk belum berhasil.\n\n" + ex.Message +
-                "\n\nBuka StarDesk Windows pada menu Remote Assist yang menampilkan Device ID dan Verification Code, lalu coba lagi.",
+                "\n\nPeriksa koneksi Agent dan backend StarDesk, lalu coba lagi.",
                 "Ani Games Ready Agent", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
         finally
