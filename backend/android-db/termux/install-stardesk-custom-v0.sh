@@ -259,7 +259,7 @@ try {
     "(SELECT rolcanlogin FROM pg_roles WHERE rolname=current_user) AS can_login, " +
     "to_regnamespace('androiddb_v0') IS NOT NULL AS coin_schema, " +
     "to_regprocedure('api.androiddb_v0_admin_dashboard(text,integer)') IS NOT NULL AS admin_rpc, " +
-    "to_regprocedure('api.androiddb_v0_remote_login(text,text,text)') IS NOT NULL AS remote_rpc";
+    "to_regprocedure('api.androiddb_v0_remote_login(text,text)') IS NOT NULL AS remote_rpc";
   const r = await pool.query(sql);
   const x = r.rows[0];
   if (x.db !== "stardesk_custom_v0" || x.login_role !== "stardesk_v0_login" ||
