@@ -168,11 +168,11 @@ test("Automatic temporal sync reuses isolated encrypted pairing RPC without a ne
 });
 
 test("Windows Agent version metadata is bumped together for the auto-sync build", () => {
-  assert.match(read("win-agent/Agent.Service/AgentWorker.cs"), /Version = "0\.2\.3"/);
-  assert.match(read("win-agent/Agent.Shared/AgentContracts.cs"), /AgentVersion .*"0\.2\.3"/);
-  assert.match(read("win-agent/Agent.Tray/Agent.Tray.csproj"), /<Version>0\.2\.3<\/Version>/);
-  assert.match(read("win-agent/Agent.Service/Agent.Service.csproj"), /<Version>0\.2\.3<\/Version>/);
-  assert.match(read("win-agent/installer/AniGamesReady-StarDesk-Agent.iss"), /AppVersion "0\.2\.3"/);
+  assert.match(read("win-agent/Agent.Service/AgentWorker.cs"), /Version = "0\.2\.4"/);
+  assert.match(read("win-agent/Agent.Shared/AgentContracts.cs"), /AgentVersion .*"0\.2\.4"/);
+  assert.match(read("win-agent/Agent.Tray/Agent.Tray.csproj"), /<Version>0\.2\.4<\/Version>/);
+  assert.match(read("win-agent/Agent.Service/Agent.Service.csproj"), /<Version>0\.2\.4<\/Version>/);
+  assert.match(read("win-agent/installer/AniGamesReady-StarDesk-Agent.iss"), /AppVersion "0\.2\.4"/);
 });
 
 
