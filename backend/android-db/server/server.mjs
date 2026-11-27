@@ -237,12 +237,15 @@ const RPC = {
   androiddb_v0_admin_approve_topup: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_approve_topup($1::text,$2::uuid) AS result", args: ["p_order_id"] },
   androiddb_v0_admin_reject_topup: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_reject_topup($1::text,$2::uuid,$3::text) AS result", args: ["p_order_id","p_reason"] },
   androiddb_v0_admin_set_device_rate: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_set_device_rate($1::text,$2::uuid,$3::text) AS result", args: ["p_device_id","p_gpu_class"] },
+  androiddb_v0_admin_set_device_custom_rate: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_set_device_custom_rate($1::text,$2::uuid,$3::text,$4::integer,$5::integer) AS result", args: ["p_device_id","p_gpu_class","p_hourly_rupiah","p_hourly_coin_units"] },
   androiddb_v0_admin_link_stardesk_device: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_link_stardesk_device($1::text,$2::uuid,$3::text,$4::boolean) AS result", args: ["p_device_id","p_stardesk_device_id","p_enabled"] },
   androiddb_v0_admin_set_host_permission: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_set_host_permission($1::text,$2::uuid,$3::boolean) AS result", args: ["p_device_id","p_enabled"] },
   androiddb_v0_admin_issue_host_enrollment: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_issue_host_enrollment($1::text,$2::uuid,$3::integer) AS result", args: ["p_device_id","p_valid_minutes"] },
   androiddb_v0_admin_agent_pair: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_agent_pair($1::text,$2::text,$3::text,$4::text) AS result", args: ["p_pair_code","p_display_name","p_gpu_class"] },
+  androiddb_v0_admin_agent_pair_manual: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_agent_pair_manual($1::text,$2::text,$3::text,$4::text,$5::integer,$6::integer) AS result", args: ["p_pair_code","p_display_name","p_gpu_class","p_hourly_rupiah","p_hourly_coin_units"] },
   androiddb_v0_admin_agent_list: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_agent_list($1::text) AS result", args: [] },
   androiddb_v0_admin_agent_update_pc: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_agent_update_pc($1::text,$2::uuid,$3::text,$4::text) AS result", args: ["p_agent_device_id","p_display_name","p_gpu_class"] },
+  androiddb_v0_admin_agent_update_pc_manual: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_agent_update_pc_manual($1::text,$2::uuid,$3::text,$4::text,$5::integer,$6::integer) AS result", args: ["p_agent_device_id","p_display_name","p_gpu_class","p_hourly_rupiah","p_hourly_coin_units"] },
   androiddb_v0_admin_agent_enqueue_command: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_agent_enqueue_command($1::text,$2::uuid,$3::text,$4::jsonb) AS result", args: ["p_agent_device_id","p_command","p_payload"] },
   androiddb_v0_admin_agent_command_status: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_agent_command_status($1::text,$2::uuid) AS result", args: ["p_command_id"] },
   androiddb_v0_admin_agent_revoke: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_agent_revoke($1::text,$2::uuid) AS result", args: ["p_agent_device_id"] },
@@ -318,7 +321,7 @@ async function rpcRequest(req, res, name, body) {
     await clearRateLimit([key]);
     return send(res,200,result);
   }
-  if (name === "androiddb_v0_admin_agent_pair") {
+  if (name === "androiddb_v0_admin_agent_pair" || name === "androiddb_v0_admin_agent_pair_manual") {
     const token = bearer(req);
     if (!token) return send(res,401,{message:"AUTH_REQUIRED"});
     const key = bucketHash("androiddb-v0-agent-owner-pair",clientIp(req),token.slice(0,24));

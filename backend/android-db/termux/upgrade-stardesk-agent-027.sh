@@ -58,9 +58,9 @@ ROLE_CHECK="$(psql_admin -d postgres -Atqc "SELECT count(*) FROM pg_roles WHERE 
 [ "$ROLE_CHECK" = "3" ] || die "Role isolated StarDesk tidak lengkap."
 META="$(psql_admin -d "$DB_NAME" -Atqc "SELECT schema_version||'|'||runtime_role||'|'||api_login_role FROM private.stardesk_custom_install_meta WHERE singleton")"
 [ -n "$META" ] || die "Metadata install StarDesk Custom tidak ditemukan."
-[[ "$META" == androiddb_v0_025\|stardesk_v0_runtime\|stardesk_v0_login || "$META" == androiddb_v0_027_agent\|stardesk_v0_runtime\|stardesk_v0_login ]] || die "Metadata database tidak cocok: $META"
+[[ "$META" == androiddb_v0_025\|stardesk_v0_runtime\|stardesk_v0_login || "$META" == androiddb_v0_027_agent\|stardesk_v0_runtime\|stardesk_v0_login || "$META" == androiddb_v0_028_manual_rates\|stardesk_v0_runtime\|stardesk_v0_login ]] || die "Metadata database tidak cocok: $META"
 
-TMP_DIR="$(mktemp -d "$PREFIX/tmp/stardesk-agent-027.XXXXXX")"
+TMP_DIR="$(mktemp -d "$PREFIX/tmp/stardesk-admin-028.XXXXXX")"
 cleanup(){ [ -z "${TMP_DIR:-}" ] || [ ! -d "$TMP_DIR" ] || rm -rf -- "$TMP_DIR"; }
 trap cleanup EXIT
 ARCHIVE="$TMP_DIR/source.tar.gz"
@@ -70,15 +70,19 @@ curl --fail --location --silent --show-error \
 tar -tzf "$ARCHIVE" >/dev/null
 tar -xzf "$ARCHIVE" -C "$TMP_DIR"
 SOURCE_ROOT="$(find "$TMP_DIR" -mindepth 1 -maxdepth 1 -type d -print -quit)"
-MIGRATION="$SOURCE_ROOT/backend/android-db/migrations/027_windows_agent_domain.sql"
+MIGRATION_AGENT="$SOURCE_ROOT/backend/android-db/migrations/027_windows_agent_domain.sql"
+MIGRATION_RATES="$SOURCE_ROOT/backend/android-db/migrations/028_manual_pc_tariffs.sql"
 NEW_SERVER="$SOURCE_ROOT/backend/android-db/server/server.mjs"
-[ -s "$MIGRATION" ] && [ -s "$NEW_SERVER" ] || die "Source Agent 027 tidak lengkap."
-grep -q "androiddb_v0_agent_heartbeat" "$NEW_SERVER" || die "RPC Agent tidak ditemukan pada source API."
+[ -s "$MIGRATION_AGENT" ] && [ -s "$MIGRATION_RATES" ] && [ -s "$NEW_SERVER" ] || die "Source migrasi Agent / tarif manual tidak lengkap."
+for rpc in androiddb_v0_admin_agent_list androiddb_v0_admin_agent_pair_manual androiddb_v0_admin_agent_update_pc_manual androiddb_v0_admin_set_device_custom_rate; do
+  grep -q "$rpc" "$NEW_SERVER" || die "RPC baru tidak ditemukan pada source API: $rpc"
+done
 node --check "$NEW_SERVER" || die "Syntax API baru gagal. Database belum diubah."
 
-sed "s/ani_api_runtime/$RUNTIME_ROLE/g" "$MIGRATION" > "$TMP_DIR/027_windows_agent_domain.sql"
-log "Menerapkan migrasi aditif hanya pada database $DB_NAME..."
-{ printf 'SET ROLE %s;\n' "$DB_OWNER_ROLE"; cat "$TMP_DIR/027_windows_agent_domain.sql"; } \
+sed "s/ani_api_runtime/$RUNTIME_ROLE/g" "$MIGRATION_AGENT" > "$TMP_DIR/027_windows_agent_domain.sql"
+sed "s/ani_api_runtime/$RUNTIME_ROLE/g" "$MIGRATION_RATES" > "$TMP_DIR/028_manual_pc_tariffs.sql"
+log "Memastikan schema Agent 027 dan tarif manual 028 pada database khusus $DB_NAME..."
+{ printf 'SET ROLE %s;\n' "$DB_OWNER_ROLE"; cat "$TMP_DIR/027_windows_agent_domain.sql"; cat "$TMP_DIR/028_manual_pc_tariffs.sql"; } \
   | psql_admin -d "$DB_NAME" >/dev/null
 
 BACKUP_DIR="$APP_DIR/backups"
@@ -106,19 +110,37 @@ for _ in $(seq 1 30); do
   fi
   sleep 1
 done
+
+rpc_route_check(){
+  local rpc="$1" body="$TMP_DIR/rpc-${rpc}.json" status
+  status="$(curl --silent --show-error --connect-timeout 2 --max-time 5 \
+    -o "$body" -w '%{http_code}' -X POST \
+    -H 'content-type: application/json' --data '{}' \
+    "http://127.0.0.1:$API_PORT/rest/v1/rpc/$rpc" 2>/dev/null || true)"
+  [ "$status" = "401" ] && grep -q 'AUTH_REQUIRED' "$body"
+}
+if [ "$HEALTH" = "1" ]; then
+  log "API health OK; memeriksa allowlist RPC versi 028..."
+  for rpc in androiddb_v0_admin_agent_list androiddb_v0_admin_agent_pair_manual androiddb_v0_admin_agent_update_pc_manual androiddb_v0_admin_set_device_custom_rate; do
+    if ! rpc_route_check "$rpc"; then
+      HEALTH=0
+      log "RPC $rpc tidak lolos preflight (harus 401 AUTH_REQUIRED, bukan 404 RPC_NOT_ALLOWED)."
+      break
+    fi
+  done
+fi
 if [ "$HEALTH" != 1 ]; then
-  log "API baru gagal sehat; memulihkan server.mjs lama."
+  log "API atau preflight RPC gagal; memulihkan server.mjs lama."
   cp "$BACKUP_DIR/server.mjs.before-agent-027.$STAMP" "$SERVER_DIR/server.mjs"
   "$PREFIX/bin/sv" restart "$SERVICE_NAME" >/dev/null 2>&1 || true
-  die "Upgrade API gagal. Migrasi 027 bersifat aditif dan tetap tersimpan, tetapi API lama dipulihkan. Periksa log service StarDesk Custom."
+  die "Upgrade API 028 gagal. Migrasi 027/028 bersifat aditif dan tetap tersimpan; server.mjs lama dipulihkan. Database lama, API 8788, dan service Billing tidak disentuh."
 fi
 
 psql_admin -d "$DB_NAME" -v source_ref="$SOURCE_REF" <<SQL >/dev/null
 UPDATE private.stardesk_custom_install_meta
-SET schema_version='androiddb_v0_027_agent',source_ref=:'source_ref'
+SET schema_version='androiddb_v0_028_manual_rates',source_ref=:'source_ref'
 WHERE singleton AND runtime_role='$RUNTIME_ROLE' AND api_login_role='$API_DB_USER';
 SQL
 
-log "Upgrade Agent 027 berhasil. API StarDesk Custom sehat pada port $API_PORT."
-log "Database legacy, API port 8788, Billing service, dan database rental lama tidak disentuh."
-log "Selanjutnya build/install Admin Agent Preview dan Windows Agent Preview dari artefak CI."
+log "Upgrade StarDesk Agent + tarif manual 028 berhasil; API dan seluruh RPC baru lolos preflight."
+log "Target hanya $DB_NAME, API port $API_PORT, service $SERVICE_NAME. Legacy DB/API/relay/Billing tidak disentuh."

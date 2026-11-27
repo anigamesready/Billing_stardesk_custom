@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#07101f">
-<title>Ani Games Admin Coin x100 + Agent Preview 0.2.7</title>
+<title>Ani Games Admin Coin x100 + Agent Preview 0.2.8</title>
 <style>
 :root{color-scheme:dark;--bg:#07101f;--panel:#11223a;--panel2:#0a192b;--line:#28425e;--txt:#edf6ff;--muted:#91a8c1;--cyan:#55d8ff;--blue:#3288ff;--violet:#7651ff;--green:#35d39a;--red:#ff718a;--amber:#ffd18b}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(ellipse at 10% 0%,#123b58 0,transparent 36%),var(--bg);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--txt)}
@@ -21,8 +21,25 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
 .stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.stat{background:#09182b;border:1px solid #223b57;border-radius:14px;padding:12px}.stat .k{color:var(--muted);font-size:12px}.stat .v{font-size:23px;font-weight:850;margin-top:5px;font-variant-numeric:tabular-nums}
 .pill{display:inline-flex;padding:5px 8px;border-radius:999px;background:#1c3048;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.35px}.good{background:#103b35;color:#70edbd}.bad{background:#3c2030;color:#ff9db0}.warn{background:#493722;color:#ffd18b}
 .msg{padding:11px;border-radius:12px;background:#0a1728;border-left:3px solid var(--cyan);color:#dcecff;font-size:13px;line-height:1.5;overflow-wrap:anywhere}.msg.error{border-left-color:var(--red);color:#ffb3c1}
-.section{display:none}.section.active{display:block}.tabs{display:flex;gap:6px;position:sticky;top:0;z-index:4;padding:8px 0;background:#07101fe8;backdrop-filter:blur(12px);overflow-x:auto;scrollbar-width:thin}.tabs button{flex:0 0 auto;min-width:78px}
-.tabs button{padding:9px 10px;border-radius:11px;font-size:11px;background:#102039;color:var(--muted);white-space:nowrap}.tabs button.active{background:linear-gradient(120deg,#17688b,#5940ba);color:white;border-color:transparent}
+.section{display:none}.section.active{display:block}
+.tabs{display:flex;align-items:stretch;gap:6px;position:sticky;top:0;z-index:24;padding:8px 0;background:#07101fe8;backdrop-filter:blur(12px);overflow:visible}
+.tabs .primary-tab{flex:1 1 0;min-width:0;padding:10px 4px;border-radius:11px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#102039;color:var(--muted)}
+.tabs .primary-tab.active{background:linear-gradient(120deg,#17688b,#5940ba);color:white;border-color:transparent}
+.tabs .menu-toggle{flex:0 0 auto;min-width:50px;padding:9px 11px;background:#192e49;color:var(--txt);font-size:12px}
+.menu-backdrop{position:fixed;inset:0;z-index:40;background:#020712c9;opacity:0;visibility:hidden;transition:opacity .2s ease,visibility .2s ease}
+.menu-backdrop.open{opacity:1;visibility:visible}
+.menu-drawer{position:fixed;z-index:41;top:0;right:0;width:min(88vw,370px);height:100dvh;overflow:auto;padding:calc(18px + env(safe-area-inset-top)) 16px calc(22px + env(safe-area-inset-bottom));background:linear-gradient(155deg,#142a45,#091728 72%);border-left:1px solid #35516e;box-shadow:-18px 0 55px #0008;transform:translateX(105%);transition:transform .23s ease;overscroll-behavior:contain}
+.menu-drawer.open{transform:translateX(0)}
+body.drawer-open{overflow:hidden}
+.menu-drawer-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.menu-drawer-head strong{font-size:18px}
+.menu-drawer-head button{font-size:12px;padding:8px 11px}
+.menu-group{margin:15px 0}
+.menu-group-title{font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#78cdea;margin:0 0 7px 4px}
+.menu-drawer-list{display:grid;gap:6px}
+.menu-drawer .drawer-item{width:100%;text-align:left;padding:11px 12px;border-radius:11px;background:#0d1e32;border:1px solid #223e5a;color:#dcecff;font-size:13px}
+.menu-drawer .drawer-item.active{border-color:var(--cyan);background:#12344a;color:white}
+@media(max-width:380px){.tabs{gap:4px}.tabs .primary-tab{font-size:10px;padding:9px 2px}.tabs .menu-toggle{min-width:44px;padding:8px 9px;font-size:11px}}
 .list{display:grid;gap:9px}.item{background:#0b192b;border:1px solid #263f5b;border-radius:14px;padding:13px;min-width:0}.item-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}.item-title{font-weight:750;overflow-wrap:anywhere}.item-meta{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5}.item-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
 .empty{padding:15px;text-align:center;color:var(--muted);font-size:12px}.hidden{display:none!important}
 .login-wrap{max-width:500px;margin:6vh auto}.login-title{font-size:25px;font-weight:850;line-height:1.2}.login-title b{color:var(--cyan)}
@@ -34,7 +51,7 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
 </head>
 <body>
 <section id="loginScreen" class="login-wrap">
-  <div class="top"><div><div class="brand">ANI GAMES <span>ADMIN</span></div><div class="sub">ANDROID DB • ADMIN OWNER</div></div><div class="version">v0.2.7</div></div>
+  <div class="top"><div><div class="brand">ANI GAMES <span>ADMIN</span></div><div class="sub">ANDROID DB • ADMIN OWNER</div></div><div class="version">v0.2.8</div></div>
   <div class="card">
     <div class="login-title">Admin <b>Android DB v0</b></div>
     <p class="hint">Panel terpisah untuk rental Coin, top-up, wallet, PC Host, dan pemetaan StarDesk. Login memakai akun Owner Android DB yang sudah ada.</p>
@@ -50,25 +67,42 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
 <main id="appScreen" class="hidden">
   <header class="top">
     <div><div class="brand">ANI GAMES <span>ADMIN DB v0</span></div><div class="sub" id="who">Owner • Android DB</div></div>
-    <div class="row"><select id="orgSelect" aria-label="Pilih organisasi" style="width:150px;padding:8px;font-size:11px" onchange="changeOrg()"></select><div class="version">v0.2.7</div><button class="small" onclick="logout()">Keluar</button></div>
+    <div class="row"><select id="orgSelect" aria-label="Pilih organisasi" style="width:150px;padding:8px;font-size:11px" onchange="changeOrg()"></select><div class="version">v0.2.8</div><button class="small" onclick="logout()">Keluar</button></div>
   </header>
   <div id="globalMessage" class="msg">Menunggu data dari Android DB.</div>
-  <nav class="tabs">
-    <button class="active" data-tab="dashboard" onclick="showTab('dashboard')">Ringkasan</button>
-    <button data-tab="pairing" onclick="showTab('pairing')">Pairing PC</button>
-    <button data-tab="active" onclick="showTab('active')">PC Aktif</button>
-    <button data-tab="devices" onclick="showTab('devices')">Windows Control</button>
-    <button data-tab="reports" onclick="showTab('reports')">Laporan</button>
-    <button data-tab="users" onclick="showTab('users')">User Billing Control</button>
-    <button data-tab="chat" onclick="showTab('chat')">Chat ke Windows</button>
-    <button data-tab="free" onclick="showTab('free')">FREE TEST 10 MENIT</button>
-    <button data-tab="remote" onclick="showTab('remote')">WoL Android Relay</button>
-    <button data-tab="rentals" onclick="showTab('rentals')">Data User Coin</button>
-    <button data-tab="hosts" onclick="showTab('hosts')">PC Host & Tarif</button>
-    <button data-tab="agentpc" onclick="showTab('agentpc');loadAgentPCs()">Agent PC</button>
-    <button data-tab="payments" onclick="showTab('payments')">Top-up</button>
-    <button data-tab="settings" onclick="showTab('settings')">Pengaturan</button>
+  <nav class="tabs" aria-label="Menu utama">
+    <button class="primary-tab active" data-tab="dashboard" onclick="showTab('dashboard')">Ringkasan</button>
+    <button class="primary-tab" data-tab="hosts" onclick="showTab('hosts')">PC Host</button>
+    <button class="primary-tab" data-tab="agentpc" onclick="showTab('agentpc')">Agent PC</button>
+    <button class="primary-tab" data-tab="payments" onclick="showTab('payments')">Top-up</button>
+    <button id="allMenuButton" class="menu-toggle" onclick="openAllMenu()" aria-controls="allMenuDrawer" aria-expanded="false">☰ Menu</button>
   </nav>
+  <div id="menuBackdrop" class="menu-backdrop" onclick="closeAllMenu()" aria-hidden="true"></div>
+  <aside id="allMenuDrawer" class="menu-drawer" aria-label="Semua menu Admin" aria-hidden="true">
+    <div class="menu-drawer-head"><strong>Semua Menu</strong><button onclick="closeAllMenu()" aria-label="Tutup menu">✕ Tutup</button></div>
+    <div class="menu-group"><div class="menu-group-title">Menu utama</div><div class="menu-drawer-list">
+      <button class="drawer-item active" data-tab="dashboard" onclick="navigateMenu('dashboard')">Ringkasan</button>
+      <button class="drawer-item" data-tab="hosts" onclick="navigateMenu('hosts')">PC Host & Tarif</button>
+      <button class="drawer-item" data-tab="agentpc" onclick="navigateMenu('agentpc')">Agent PC</button>
+      <button class="drawer-item" data-tab="payments" onclick="navigateMenu('payments')">Top-up & Wallet</button>
+    </div></div>
+    <div class="menu-group"><div class="menu-group-title">Operasional PC</div><div class="menu-drawer-list">
+      <button class="drawer-item" data-tab="pairing" onclick="navigateMenu('pairing')">Pairing PC Billing</button>
+      <button class="drawer-item" data-tab="active" onclick="navigateMenu('active')">PC Aktif</button>
+      <button class="drawer-item" data-tab="devices" onclick="navigateMenu('devices')">Windows Control</button>
+      <button class="drawer-item" data-tab="free" onclick="navigateMenu('free')">FREE TEST 10 MENIT</button>
+      <button class="drawer-item" data-tab="remote" onclick="navigateMenu('remote')">WoL Android Relay</button>
+    </div></div>
+    <div class="menu-group"><div class="menu-group-title">Data & laporan</div><div class="menu-drawer-list">
+      <button class="drawer-item" data-tab="rentals" onclick="navigateMenu('rentals')">Data User Coin</button>
+      <button class="drawer-item" data-tab="reports" onclick="navigateMenu('reports')">Laporan</button>
+      <button class="drawer-item" data-tab="users" onclick="navigateMenu('users')">User Billing Control</button>
+      <button class="drawer-item" data-tab="chat" onclick="navigateMenu('chat')">Chat ke Windows</button>
+    </div></div>
+    <div class="menu-group"><div class="menu-group-title">Sistem</div><div class="menu-drawer-list">
+      <button class="drawer-item" data-tab="settings" onclick="navigateMenu('settings')">Pengaturan</button>
+    </div></div>
+  </aside>
 
   <section id="dashboard" class="section active">
     <div class="row" style="justify-content:space-between;margin:12px 0"><h2 style="margin:0;font-size:19px">Ringkasan AniCoin ×100</h2><button class="primary small" onclick="loadDashboard()">↻ Refresh</button></div>
@@ -174,14 +208,16 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
   <section id="agentpc" class="section">
     <div class="card">
       <h2>Pairing Windows Agent</h2>
-      <p class="hint">Buka aplikasi Ani Games Ready Agent pada PC Windows. Masukkan kode pairing 8 digit yang tampil di Agent, tentukan nama PC dan GPU, lalu pasangkan. Identitas Agent ini terpisah dari PC Billing lama dan tidak otomatis membuat StarDesk Host siap Remote.</p>
+      <p class="hint">Buka aplikasi Ani Games Ready Agent di PC Windows. Masukkan kode 8 digit, nama PC, tipe GPU (bebas), lalu isi sendiri harga Rupiah dan tarif AniCoin per jam. Semua tarif tersimpan per PC dan tidak dihitung otomatis dari GPU. Identitas Agent tetap terpisah dari PC Billing lama.</p>
       <div class="form-grid">
         <div><label>Kode pairing dari Agent</label><input id="agentPairCode" inputmode="numeric" maxlength="8" placeholder="12345678"></div>
-        <div><label>Nama PC untuk rental</label><input id="agentPairName" maxlength="120" placeholder="Contoh: RTX 5060 - PC 01"></div>
-        <div><label>GPU / tarif</label><select id="agentPairGpu"><option>GTX 1050</option><option>GTX 1660</option><option>RTX 3060</option><option selected>RTX 5060</option></select></div>
+        <div><label>Nama PC untuk rental</label><input id="agentPairName" maxlength="120" placeholder="Contoh: Gaming PC 01"></div>
+        <div><label>GPU / tipe PC</label><input id="agentPairGpu" maxlength="120" placeholder="Contoh: RTX 5060 8GB"></div>
+        <div><label>Harga Rupiah / jam</label><input id="agentPairRupiah" inputmode="numeric" maxlength="9" placeholder="Contoh: 8000"></div>
+        <div><label>Tarif AniCoin / jam</label><input id="agentPairCoin" inputmode="decimal" maxlength="10" placeholder="Contoh: 60 atau 52,5"></div>
         <div class="wide"><button class="primary" style="width:100%" onclick="pairAgentPC()">Setujui & pasangkan Agent</button></div>
       </div>
-      <div class="hint" style="margin-top:9px">Tarif otomatis: GTX 1050/1660 Rp6.000 • 45 AniCoin/jam; RTX 3060 Rp7.000 • 52,5 AniCoin/jam; RTX 5060 Rp8.000 • 60 AniCoin/jam.</div>
+      <div class="hint" style="margin-top:9px">Masukkan tarif sesuai kebijakan lu sendiri. AniCoin menerima maksimal 2 angka di belakang koma. Contoh: 52,5 AniCoin berarti 5.250 unit tersimpan di database.</div>
       <div id="agentPairMessage" class="msg" style="margin-top:10px">Belum ada proses pairing.</div>
     </div>
     <div class="card">
@@ -195,7 +231,6 @@ label{display:block;color:var(--muted);font-size:12px;margin:0 0 6px}
       <pre id="agentCommandResult" class="msg" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:10px">Belum ada perintah Agent.</pre>
     </div>
   </section>
-
   <section id="payments" class="section">
     <div class="card">
       <h2>Top-up menunggu persetujuan</h2>
@@ -394,11 +429,32 @@ async function logout(){
   el("appScreen").classList.add("hidden");el("loginScreen").classList.remove("hidden");
   setMessage("loginMessage","Anda sudah keluar dari Admin Android DB v0.");
 }
+function openAllMenu(){
+  el("menuBackdrop").classList.add("open");
+  el("allMenuDrawer").classList.add("open");
+  el("allMenuDrawer").setAttribute("aria-hidden","false");
+  el("allMenuButton").setAttribute("aria-expanded","true");
+  document.body.classList.add("drawer-open");
+}
+function closeAllMenu(){
+  const backdrop=el("menuBackdrop"),drawer=el("allMenuDrawer");
+  if(backdrop)backdrop.classList.remove("open");
+  if(drawer){drawer.classList.remove("open");drawer.setAttribute("aria-hidden","true");}
+  if(el("allMenuButton"))el("allMenuButton").setAttribute("aria-expanded","false");
+  document.body.classList.remove("drawer-open");
+}
+function navigateMenu(id){
+  closeAllMenu();
+  showTab(id);
+}
+document.addEventListener("keydown",function(event){if(event.key==="Escape")closeAllMenu();});
 function showTab(id){
+  const section=el(id);
+  if(!section||!section.classList.contains("section")){globalMessage("Menu tidak ditemukan: "+id,true);return;}
   document.querySelectorAll(".section").forEach(function(x){x.classList.remove("active");});
-  document.querySelectorAll(".tabs button").forEach(function(x){x.classList.toggle("active",x.dataset.tab===id);});
-  el(id).classList.add("active");
-  const jobs={dashboard:loadDashboard,pairing:loadDashboard,active:loadActivePCs,devices:loadDevices,reports:function(){},settings:loadSettings,users:loadBillingUsers,chat:loadChatStatus,free:loadFreeTest,remote:function(){return Promise.all([loadWolStatus(),checkBlynk()]);},rentals:loadDashboard,hosts:loadDashboard,payments:loadDashboard};
+  document.querySelectorAll(".primary-tab,.drawer-item").forEach(function(x){x.classList.toggle("active",x.dataset.tab===id);});
+  section.classList.add("active");
+  const jobs={dashboard:loadDashboard,pairing:loadDashboard,active:loadActivePCs,devices:loadDevices,reports:function(){},settings:loadSettings,users:loadBillingUsers,chat:loadChatStatus,free:loadFreeTest,remote:function(){return Promise.all([loadWolStatus(),checkBlynk()]);},rentals:loadDashboard,hosts:loadDashboard,agentpc:loadAgentPCs,payments:loadDashboard};
   const fn=jobs[id]||loadDashboard;Promise.resolve().then(fn).catch(e=>globalMessage("Gagal memuat modul: "+e.message,true));
 }
 async function loadDashboard(){
@@ -426,14 +482,17 @@ function renderRentals(data){
     return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(r.code)+'</div><div class="item-meta">'+esc(r.client_label||"Tanpa nama")+' • Dibuat '+date(r.created_at)+'</div></div><span class="pill '+(enabled?"good":"bad")+'">'+esc(val(r.status).toUpperCase())+'</span></div><div class="item-meta">Saldo: <b>'+coin(r.coin_balance)+'</b> • Remote login: '+(r.client_logged_in?"Aktif":"Belum login")+' • Aktivasi: '+(r.activation_issued?"Pernah diterbitkan":"Belum diterbitkan")+'</div><div class="item-actions"><button class="small primary" data-id="'+id+'" onclick="issueActivation(this.dataset.id)">Kode Remote</button><button class="small '+(enabled?"danger":"")+'" onclick="toggleRental(\''+id+'\','+(!enabled)+')">'+(enabled?"Nonaktifkan":"Aktifkan")+'</button><button class="small" onclick="selectWallet(\''+id+'\')">Wallet</button></div></div>';
   }).join("")||'<div class="empty">Belum ada rental Coin v0.</div>';
 }
+function formatCoinUnits(units){
+  return (Number(units||0)/100).toLocaleString("id-ID",{maximumFractionDigits:2});
+}
 function renderHosts(data){
   const rows=Array.isArray(data.host_devices)?data.host_devices:[];
   el("hostList").innerHTML=rows.map(function(h){
     const id=esc(h.device_id),ready=h.host_agent_ready===true,allowed=h.host_permission_enabled===true;
-    const rate=h.gpu_class?esc(h.gpu_class)+" • "+money(h.hourly_rupiah)+"/jam • "+coin(h.hourly_coins)+"/jam":"Belum diatur";
-    return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(h.device_name||h.client_id)+'</div><div class="item-meta">'+esc(h.client_id)+'</div></div><span class="pill '+(ready?"good":(h.host_agent_online?"warn":"bad"))+'">'+(ready?"STAR DESK READY":(h.host_agent_online?"AGENT TERDETEKSI":"AGENT OFFLINE"))+'</span></div><div class="item-meta">PC Billing: '+(h.device_online?"ONLINE":"OFFLINE")+' • Izin Host: '+(allowed?"Aktif":"Nonaktif")+' • Heartbeat '+date(h.host_last_seen_at)+'</div><div class="item-meta">Tarif: '+rate+'<br>StarDesk ID: '+(h.stardesk_device_id?esc(h.stardesk_device_id):"Belum di-map")+'</div><div class="form-grid" style="margin-top:10px"><div><label>GPU</label><select id="gpu_'+id+'"><option value="">Pilih</option><option>GTX 1050</option><option>GTX 1660</option><option>RTX 3060</option><option>RTX 5060</option></select></div><div><label>StarDesk Device ID</label><input id="sd_'+id+'" maxlength="180" placeholder="Device ID persis"></div><div class="wide actions"><button class="small primary" onclick="saveRate(\''+id+'\')">Simpan tarif</button><button class="small" onclick="saveLink(\''+id+'\')">Simpan mapping</button><button class="small '+(allowed?"danger":"")+'" onclick="toggleHost(\''+id+'\','+(!allowed)+')">'+(allowed?"Cabut izin":"Izinkan Host")+'</button><button class="small" '+(!allowed?"disabled":"")+' onclick="issueHost(\''+id+'\')">Kode Agent</button></div></div></div>';
+    const rate=h.gpu_class?esc(h.gpu_class)+" • "+money(h.hourly_rupiah)+"/jam • "+formatCoinUnits(h.hourly_coins)+" AniCoin/jam":"Belum diatur";
+    return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(h.device_name||h.client_id)+'</div><div class="item-meta">'+esc(h.client_id)+'</div></div><span class="pill '+(ready?"good":(h.host_agent_online?"warn":"bad"))+'">'+(ready?"STAR DESK READY":(h.host_agent_online?"AGENT TERDETEKSI":"AGENT OFFLINE"))+'</span></div><div class="item-meta">PC Billing: '+(h.device_online?"ONLINE":"OFFLINE")+' • Izin Host: '+(allowed?"Aktif":"Nonaktif")+' • Heartbeat '+date(h.host_last_seen_at)+'</div><div class="item-meta">Tarif saat ini: '+rate+'<br>StarDesk ID: '+(h.stardesk_device_id?esc(h.stardesk_device_id):"Belum di-map")+'</div><div class="form-grid" style="margin-top:10px"><div><label>GPU / tipe PC</label><input id="gpu_'+id+'" maxlength="120" value="'+esc(h.gpu_class||"")+'" placeholder="Contoh: RTX 5060 8GB"></div><div><label>Harga Rupiah / jam</label><input id="hostRupiah_'+id+'" inputmode="numeric" maxlength="9" value="'+(h.hourly_rupiah?esc(h.hourly_rupiah):"")+'" placeholder="Contoh: 8000"></div><div><label>Tarif AniCoin / jam</label><input id="hostCoin_'+id+'" inputmode="decimal" maxlength="10" value="'+(h.hourly_coins?esc(formatCoinUnits(h.hourly_coins)):"")+'" placeholder="Contoh: 60 atau 52,5"></div><div><label>StarDesk Device ID</label><input id="sd_'+id+'" maxlength="180" placeholder="Device ID persis"></div><div class="wide actions"><button class="small primary" onclick="saveRate(\''+id+'\')">Simpan tarif manual</button><button class="small" onclick="saveLink(\''+id+'\')">Simpan mapping</button><button class="small '+(allowed?"danger":"")+'" onclick="toggleHost(\''+id+'\','+(!allowed)+')">'+(allowed?"Cabut izin":"Izinkan Host")+'</button><button class="small" '+(!allowed?"disabled":"")+' onclick="issueHost(\''+id+'\')">Kode Agent</button></div></div></div>';
   }).join("")||'<div class="empty">Belum ada PC pada workspace Owner.</div>';
-  rows.forEach(function(h){if(h.gpu_class&&el("gpu_"+h.device_id))el("gpu_"+h.device_id).value=h.gpu_class;if(h.stardesk_device_id&&el("sd_"+h.device_id))el("sd_"+h.device_id).value=h.stardesk_device_id;});
+  rows.forEach(function(h){if(h.stardesk_device_id&&el("sd_"+h.device_id))el("sd_"+h.device_id).value=h.stardesk_device_id;});
 }
 function renderTopups(data){
   const orders=Array.isArray(data.orders)?data.orders:[],rentals=Array.isArray(data.rental_accounts)?data.rental_accounts:[];
@@ -467,10 +526,30 @@ async function issueActivation(id){
   try{const r=await api("androiddb_v0_admin_issue_activation",{p_rental_account_id:id});if(r.ok!==true||!r.activation_code)throw new Error("Kode aktivasi tidak tersedia.");showCode("KODE AKTIVASI REMOTE",r.activation_code,"ID Rental "+code+" • Berlaku "+date(r.expires_at)+" • Satu kali pakai.");await loadDashboard();}
   catch(error){globalMessage("Gagal menerbitkan kode: "+val(error.message||error),true);}
 }
+function parseManualCoinUnits(raw){
+  const value=val(raw).trim().replace(",",".");
+  const match=value.match(/^(\\d{1,7})(?:\\.(\\d{1,2}))?$/);
+  if(!match)throw new Error("Tarif AniCoin harus angka positif maksimal 2 desimal, contoh 52,5.");
+  const units=Number(match[1])*100+Number((match[2]||"").padEnd(2,"0"));
+  if(!Number.isSafeInteger(units)||units<1||units>100000000)throw new Error("Tarif AniCoin di luar batas yang diizinkan.");
+  return units;
+}
+function readManualRate(rupiahId,coinId){
+  const rupiahText=val(el(rupiahId).value).trim();
+  if(!/^\\d{1,9}$/.test(rupiahText))throw new Error("Harga Rupiah wajib angka bulat tanpa titik/koma.");
+  const rupiah=Number(rupiahText);
+  if(!Number.isSafeInteger(rupiah)||rupiah<1||rupiah>100000000)throw new Error("Harga Rupiah harus antara 1 dan 100.000.000.");
+  return {rupiah:rupiah,coinUnits:parseManualCoinUnits(el(coinId).value)};
+}
 async function saveRate(id){
-  const gpu=el("gpu_"+id).value;if(!gpu){globalMessage("Pilih GPU terlebih dahulu.",true);return;}
-  try{const r=await api("androiddb_v0_admin_set_device_rate",{p_device_id:id,p_gpu_class:gpu});if(r.ok!==true)throw new Error("Tarif tidak dikonfirmasi.");await loadDashboard();globalMessage("Tarif "+gpu+" tersimpan: "+money(r.hourly_rupiah)+" / jam.");}
-  catch(error){globalMessage("Gagal menyimpan tarif: "+val(error.message||error),true);}
+  const gpu=val(el("gpu_"+id).value).trim();
+  if(!gpu)return globalMessage("GPU / tipe PC wajib diisi.",true);
+  try{
+    const rate=readManualRate("hostRupiah_"+id,"hostCoin_"+id);
+    const r=await api("androiddb_v0_admin_set_device_custom_rate",{p_device_id:id,p_gpu_class:gpu,p_hourly_rupiah:rate.rupiah,p_hourly_coin_units:rate.coinUnits});
+    if(r.ok!==true)throw new Error(r.message||r.error||"Tarif manual tidak dikonfirmasi.");
+    await loadDashboard();globalMessage("Tarif manual "+gpu+" tersimpan: "+money(rate.rupiah)+" / jam • "+formatCoinUnits(rate.coinUnits)+" AniCoin / jam.");
+  }catch(error){globalMessage("Gagal menyimpan tarif manual: "+val(error.message||error),true);}
 }
 async function saveLink(id){
   const device=val(el("sd_"+id).value).trim();if(!device){globalMessage("StarDesk Device ID wajib diisi.",true);return;}
@@ -500,48 +579,47 @@ async function issueSelectedHost(){
 }
 
 
-function agentGpuSelect(id,current){
-  const items=["GTX 1050","GTX 1660","RTX 3060","RTX 5060"];
-  return '<select id="agentgpu_'+esc(id)+'">'+items.map(g=>'<option value="'+g+'"'+(g===current?' selected':'')+'>'+g+'</option>').join("")+'</select>';
-}
 async function loadAgentPCs(){
   const host=el("agentPcList");if(!host)return;
   host.innerHTML='<div class="empty">Memuat data Agent dari database StarDesk…</div>';
   try{
     const result=await api("androiddb_v0_admin_agent_list");
-    if(result.ok!==true)throw new Error(result.message||"Daftar Agent tidak tersedia.");
+    if(result.ok!==true)throw new Error(result.message||result.error||"Daftar Agent tidak tersedia.");
     const rows=Array.isArray(result.agents)?result.agents:[];
     window.__agentPCs=rows;
     host.innerHTML=rows.map(d=>{
       const id=esc(d.agent_device_id),online=d.status==="online",revoked=d.status==="revoked";
-      const hourly=Number(d.hourly_coin_units||0)/100;
+      const coinValue=formatCoinUnits(d.hourly_coin_units);
       return '<div class="item"><div class="item-head"><div><div class="item-title">'+esc(d.display_name)+'</div><div class="item-meta">'+esc(d.computer_name||"Windows PC")+' • '+esc(d.gpu_name||d.gpu_class||"GPU belum dilaporkan")+'</div></div><span class="pill '+(online?"good":revoked?"bad":"warn")+'">'+(online?"AGENT ONLINE":revoked?"REVOKED":"OFFLINE")+'</span></div>'+
-      '<div class="item-meta">Agent ID: '+id+'<br>Windows: '+esc(d.windows_version||"—")+' • Agent '+esc(d.agent_version||"—")+'<br>Heartbeat: '+date(d.last_heartbeat_at)+'<br>Tarif: '+esc(d.gpu_class)+' • Rp'+Number(d.hourly_rupiah||0).toLocaleString("id-ID")+' / jam • '+hourly.toLocaleString("id-ID")+' AniCoin / jam</div>'+
-      (!revoked?'<div class="form-grid" style="margin-top:10px"><div><label>Nama PC</label><input id="agentname_'+id+'" maxlength="120" value="'+esc(d.display_name)+'"></div><div><label>GPU / tarif</label>'+agentGpuSelect(id,d.gpu_class)+'</div></div>'+
-      '<div class="item-actions"><button class="small" onclick="updateAgentPC(\''+id+'\')">Simpan nama & tarif</button><button class="small" onclick="sendAgentCommand(\''+id+'\',\'message\')">Kirim pesan</button><button class="small" onclick="sendAgentCommand(\''+id+'\',\'logoff\')">Logoff Windows</button><button class="small" onclick="sendAgentCommand(\''+id+'\',\'restart\')">Restart Windows</button><button class="small danger" onclick="sendAgentCommand(\''+id+'\',\'shutdown\')">Shutdown</button><button class="small danger" onclick="revokeAgentPC(\''+id+'\')">Cabut pairing</button></div>':'<div class="hint" style="margin-top:8px">Agent ini sudah dicabut aksesnya. Pasangkan ulang dengan instalasi baru.</div>')+'</div>';
+      '<div class="item-meta">Agent ID: '+id+'<br>Windows: '+esc(d.windows_version||"—")+' • Agent '+esc(d.agent_version||"—")+'<br>Heartbeat: '+date(d.last_heartbeat_at)+'<br>Tarif saat ini: '+esc(d.gpu_class)+' • Rp'+Number(d.hourly_rupiah||0).toLocaleString("id-ID")+' / jam • '+coinValue+' AniCoin / jam</div>'+
+      (!revoked?'<div class="form-grid" style="margin-top:10px"><div><label>Nama PC</label><input id="agentname_'+id+'" maxlength="120" value="'+esc(d.display_name)+'"></div><div><label>GPU / tipe PC</label><input id="agentgpu_'+id+'" maxlength="120" value="'+esc(d.gpu_class)+'"></div><div><label>Harga Rupiah / jam</label><input id="agentrupiah_'+id+'" inputmode="numeric" maxlength="9" value="'+esc(d.hourly_rupiah)+'"></div><div><label>Tarif AniCoin / jam</label><input id="agentcoin_'+id+'" inputmode="decimal" maxlength="10" value="'+esc(coinValue)+'"></div></div>'+
+      '<div class="item-actions"><button class="small primary" onclick="updateAgentPC(\\''+id+'\\')">Simpan nama & tarif</button><button class="small" onclick="sendAgentCommand(\\''+id+'\\',\\'message\\')">Kirim pesan</button><button class="small" onclick="sendAgentCommand(\\''+id+'\\',\\'logoff\\')">Logoff Windows</button><button class="small" onclick="sendAgentCommand(\\''+id+'\\',\\'restart\\')">Restart Windows</button><button class="small danger" onclick="sendAgentCommand(\\''+id+'\\',\\'shutdown\\')">Shutdown</button><button class="small danger" onclick="revokeAgentPC(\\''+id+'\\')">Cabut pairing</button></div>':'<div class="hint" style="margin-top:8px">Agent ini sudah dicabut aksesnya. Pasangkan ulang dengan instalasi baru.</div>')+'</div>';
     }).join("")||'<div class="empty">Belum ada Windows Agent yang dipasangkan.</div>';
     globalMessage("Data Agent PC berhasil dimuat. "+rows.filter(x=>x.status==="online").length+" Agent online.");
-  }catch(e){host.innerHTML='<div class="msg error">'+esc(e.message||e)+'</div>';globalMessage("Gagal membaca Agent PC: "+e.message,true);}
+  }catch(e){host.innerHTML='<div class="msg error">'+esc(e.message||e)+'</div>';globalMessage("Gagal membaca Agent PC: "+(e.message||e),true);}
 }
 async function pairAgentPC(){
-  const code=val(el("agentPairCode").value).trim(),name=val(el("agentPairName").value).trim(),gpu=val(el("agentPairGpu").value);
+  const code=val(el("agentPairCode").value).trim(),name=val(el("agentPairName").value).trim(),gpu=val(el("agentPairGpu").value).trim();
   if(!/^[0-9]{8}$/.test(code))return globalMessage("Kode pairing Agent harus 8 digit.",true);
-  if(!name)return globalMessage("Nama PC wajib diisi.",true);
+  if(!name||!gpu)return globalMessage("Nama PC dan GPU / tipe PC wajib diisi.",true);
   try{
-    const r=await api("androiddb_v0_admin_agent_pair",{p_pair_code:code,p_display_name:name,p_gpu_class:gpu});
-    if(r.ok!==true||r.paired!==true)throw new Error(r.message||"Pairing Agent tidak dikonfirmasi.");
-    el("agentPairCode").value="";el("agentPairMessage").textContent="BERHASIL DIPASANGKAN\n"+r.display_name+" • "+r.gpu_class+"\nRp"+Number(r.hourly_rupiah).toLocaleString("id-ID")+" / jam • "+Number(r.hourly_coins).toLocaleString("id-ID")+" AniCoin / jam\nPC baru terdaftar pada data StarDesk Custom.";
+    const rate=readManualRate("agentPairRupiah","agentPairCoin");
+    const r=await api("androiddb_v0_admin_agent_pair_manual",{p_pair_code:code,p_display_name:name,p_gpu_class:gpu,p_hourly_rupiah:rate.rupiah,p_hourly_coin_units:rate.coinUnits});
+    if(r.ok!==true||r.paired!==true)throw new Error(r.message||r.error||"Pairing Agent tidak dikonfirmasi.");
+    el("agentPairCode").value="";
+    el("agentPairMessage").textContent="BERHASIL DIPASANGKAN\\n"+r.display_name+" • "+r.gpu_class+"\\n"+money(rate.rupiah)+" / jam • "+formatCoinUnits(rate.coinUnits)+" AniCoin / jam\\nTarif manual tersimpan pada data StarDesk Custom.";
     await loadAgentPCs();
     globalMessage("Windows Agent berhasil dipasangkan. Tunggu heartbeat untuk status online.");
   }catch(e){el("agentPairMessage").textContent="Pairing gagal: "+(e.message||e);globalMessage("Pairing Agent gagal: "+(e.message||e),true);}
 }
 async function updateAgentPC(id){
-  const name=val(el("agentname_"+id).value).trim(),gpu=val(el("agentgpu_"+id).value);
-  if(!name)return globalMessage("Nama PC wajib diisi.",true);
+  const name=val(el("agentname_"+id).value).trim(),gpu=val(el("agentgpu_"+id).value).trim();
+  if(!name||!gpu)return globalMessage("Nama PC dan GPU / tipe PC wajib diisi.",true);
   try{
-    const r=await api("androiddb_v0_admin_agent_update_pc",{p_agent_device_id:id,p_display_name:name,p_gpu_class:gpu});
-    if(r.ok!==true)throw new Error(r.message||"Perubahan tidak tersimpan.");
-    await loadAgentPCs();globalMessage("Nama PC dan tarif Agent diperbarui.");
+    const rate=readManualRate("agentrupiah_"+id,"agentcoin_"+id);
+    const r=await api("androiddb_v0_admin_agent_update_pc_manual",{p_agent_device_id:id,p_display_name:name,p_gpu_class:gpu,p_hourly_rupiah:rate.rupiah,p_hourly_coin_units:rate.coinUnits});
+    if(r.ok!==true)throw new Error(r.message||r.error||"Perubahan tidak tersimpan.");
+    await loadAgentPCs();globalMessage("Nama PC, GPU, harga, dan tarif AniCoin berhasil diperbarui.");
   }catch(e){globalMessage("Gagal memperbarui Agent PC: "+(e.message||e),true);}
 }
 async function sendAgentCommand(id,command){

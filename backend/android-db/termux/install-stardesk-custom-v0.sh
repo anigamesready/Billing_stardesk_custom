@@ -123,6 +123,7 @@ MIGRATION_FILES=(
   025_admin_androiddb_v0_coin_domain.sql
   026_androiddb_v0_coin_x100.sql
   027_windows_agent_domain.sql
+  028_manual_pc_tariffs.sql
 )
 for file in "${MIGRATION_FILES[@]}"; do
   [ -s "$SOURCE_ROOT/backend/android-db/migrations/$file" ] || die "Migrasi source hilang: $file"
@@ -221,7 +222,7 @@ CREATE TABLE private.stardesk_custom_install_meta (
   installed_at timestamptz NOT NULL DEFAULT now()
 );
 INSERT INTO private.stardesk_custom_install_meta(singleton,schema_version,runtime_role,api_login_role,source_ref)
-VALUES(true,'androiddb_v0_027_agent','$RUNTIME_ROLE','$API_DB_USER','$SOURCE_REF');
+VALUES(true,'androiddb_v0_028_manual_rates','$RUNTIME_ROLE','$API_DB_USER','$SOURCE_REF');
 REVOKE ALL ON private.stardesk_custom_install_meta FROM PUBLIC;
 SQL
 

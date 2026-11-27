@@ -8,9 +8,11 @@ on:
       - "win-agent/**"
       - "admin-androiddb-v0/**"
       - "backend/android-db/migrations/027_windows_agent_domain.sql"
+      - "backend/android-db/migrations/028_manual_pc_tariffs.sql"
       - "backend/android-db/server/server.mjs"
       - "backend/android-db/termux/install-stardesk-custom-v0.sh"
       - "backend/android-db/termux/upgrade-stardesk-agent-027.sh"
+      - "backend/android-db/termux/install-stardesk-custom-v0.sh"
       - "tests/stardesk-agent-contract.test.mjs"
       - ".github/workflows/build-stardesk-agent-preview.yml"
   workflow_dispatch:
@@ -90,6 +92,8 @@ jobs:
         run: |
           set -euo pipefail
           node --check backend/android-db/server/server.mjs
+          bash -n backend/android-db/termux/upgrade-stardesk-agent-027.sh
+          bash -n backend/android-db/termux/install-stardesk-custom-v0.sh
           node --test tests/stardesk-agent-contract.test.mjs
           python3 - <<'PY'
           from pathlib import Path
@@ -103,10 +107,10 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           gradle = Path("admin-androiddb-v0/app/build.gradle").read_text()
-          assert "versionCode 9" in gradle
-          assert 'versionName "0.2.7-agent-preview"' in gradle
+          assert "versionCode 10" in gradle
+          assert 'versionName "0.2.8-agent-manual-pricing"' in gradle
           java = Path("admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java").read_text()
-          assert 'return "0.2.7-agent-preview";' in java
+          assert 'return "0.2.8-agent-manual-pricing";' in java
           assert 'https://ani-games-db-android-stage-gateway.anigamesready.workers.dev/stardesk' in java
           manifest = Path("admin-androiddb-v0/app/src/main/AndroidManifest.xml").read_text()
           assert 'android:usesCleartextTraffic="false"' in manifest
@@ -119,21 +123,21 @@ jobs:
           APK="admin-androiddb-v0/app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
           mkdir -p out
-          cp "$APK" out/Ani-Games-Admin-Agent-Preview-0.2.7.apk
+          cp "$APK" out/Ani-Games-Admin-Agent-Preview-0.2.8.apk
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
-          "$AAPT" dump badging out/Ani-Games-Admin-Agent-Preview-0.2.7.apk | tee out/admin-badging.txt
-          grep -q "package: name='com.anigames.billingadmin.coinx100preview' versionCode='9' versionName='0.2.7-agent-preview'" out/admin-badging.txt
-          grep -q "Ani Games Admin Coin x100 + Agent Preview 0.2.7" out/admin-badging.txt
-          "$APKSIGNER" verify --verbose out/Ani-Games-Admin-Agent-Preview-0.2.7.apk
-          sha256sum out/Ani-Games-Admin-Agent-Preview-0.2.7.apk | tee out/SHA256-ADMIN-AGENT.txt
-          unzip -t out/Ani-Games-Admin-Agent-Preview-0.2.7.apk
+          "$AAPT" dump badging out/Ani-Games-Admin-Agent-Preview-0.2.8.apk | tee out/admin-badging.txt
+          grep -q "package: name='com.anigames.billingadmin.coinx100preview' versionCode='10' versionName='0.2.8-agent-manual-pricing'" out/admin-badging.txt
+          grep -q "Ani Games Admin Coin x100 + Agent Preview 0.2.8" out/admin-badging.txt
+          "$APKSIGNER" verify --verbose out/Ani-Games-Admin-Agent-Preview-0.2.8.apk
+          sha256sum out/Ani-Games-Admin-Agent-Preview-0.2.8.apk | tee out/SHA256-ADMIN-AGENT.txt
+          unzip -t out/Ani-Games-Admin-Agent-Preview-0.2.8.apk
       - name: Upload Admin APK
         uses: actions/upload-artifact@v4
         with:
-          name: Ani-Games-Admin-Agent-Preview-0.2.7
+          name: Ani-Games-Admin-Agent-Preview-0.2.8
           path: |
-            out/Ani-Games-Admin-Agent-Preview-0.2.7.apk
+            out/Ani-Games-Admin-Agent-Preview-0.2.8.apk
             out/SHA256-ADMIN-AGENT.txt
             out/admin-badging.txt
           if-no-files-found: error
