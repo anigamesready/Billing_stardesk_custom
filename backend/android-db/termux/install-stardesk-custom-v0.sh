@@ -124,6 +124,8 @@ MIGRATION_FILES=(
   026_androiddb_v0_coin_x100.sql
   027_windows_agent_domain.sql
   028_manual_pc_tariffs.sql
+  029_androiddb_v0_remote_userid_agent_inventory.sql
+  030_agent_remote_pc_sync.sql
 )
 for file in "${MIGRATION_FILES[@]}"; do
   [ -s "$SOURCE_ROOT/backend/android-db/migrations/$file" ] || die "Migrasi source hilang: $file"
@@ -197,6 +199,7 @@ for file in "${MIGRATION_FILES[@]}"; do apply_file "$file"; done
 
 API_DB_PASSWORD="$(openssl rand -hex 32)"
 API_PEPPER="$(openssl rand -hex 32)"
+PAIRING_KEY="$(openssl rand -base64 32 | tr -d '\n')"
 BOOTSTRAP_TOKEN="$(openssl rand -hex 32)"
 # The database stores only the hash. The plaintext token stays in the mode-600
 # local API environment and is never printed or uploaded.
@@ -222,7 +225,7 @@ CREATE TABLE private.stardesk_custom_install_meta (
   installed_at timestamptz NOT NULL DEFAULT now()
 );
 INSERT INTO private.stardesk_custom_install_meta(singleton,schema_version,runtime_role,api_login_role,source_ref)
-VALUES(true,'androiddb_v0_028_manual_rates','$RUNTIME_ROLE','$API_DB_USER','$SOURCE_REF');
+VALUES(true,'androiddb_v0_030_agent_remote_sync','$RUNTIME_ROLE','$API_DB_USER','$SOURCE_REF');
 REVOKE ALL ON private.stardesk_custom_install_meta FROM PUBLIC;
 SQL
 
@@ -231,13 +234,14 @@ DATABASE_URL=postgresql://$API_DB_USER:$API_DB_PASSWORD@127.0.0.1:$DB_PORT/$DB_N
 ANI_BIND=127.0.0.1
 PORT=$API_PORT
 ANI_API_PEPPER=$API_PEPPER
+ANI_STARDESK_PAIRING_KEY=$PAIRING_KEY
 ANI_ADMIN_BOOTSTRAP_TOKEN=$BOOTSTRAP_TOKEN
 ANI_ALLOWED_ORIGINS=
 BLYNK_AUTH_TOKEN=
 BLYNK_POWER_PIN=V0
 EOF
 chmod 600 "$ENV_FILE"
-unset API_DB_PASSWORD API_PEPPER BOOTSTRAP_TOKEN
+unset API_DB_PASSWORD API_PEPPER PAIRING_KEY BOOTSTRAP_TOKEN
 
 log "Memasang dependency dan memvalidasi koneksi memakai login StarDesk sendiri..."
 cd "$SERVER_DIR"
