@@ -34,7 +34,9 @@ public sealed class AgentStatus
     public bool IsPaired { get; set; }
     public string Message { get; set; } = "";
     public DateTimeOffset? LastHeartbeatUtc { get; set; }
-    public string AgentVersion { get; set; } = "0.1.0";
+    public string AgentVersion { get; set; } = "0.2.0";
+    public string StarDeskDeviceId { get; set; } = "";
+    public DateTimeOffset? LastStarDeskSyncUtc { get; set; }
 }
 
 public static class AgentStorage
