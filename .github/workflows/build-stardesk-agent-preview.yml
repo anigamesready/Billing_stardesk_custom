@@ -126,7 +126,7 @@ jobs:
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
           "$AAPT" dump badging out/Ani-Games-Admin-Agent-Preview-0.2.9.apk | tee out/admin-badging.txt
-          grep -q "package: name='com.anigames.billingadmin.coinx100preview' versionCode='10' versionName='0.2.9-agent-pricing-fix'" out/admin-badging.txt
+          grep -q "package: name='com.anigames.billingadmin.coinx100preview' versionCode='11' versionName='0.2.9-agent-pricing-fix'" out/admin-badging.txt
           grep -q "Ani Games Admin Coin x100 + Agent Preview 0.2.9" out/admin-badging.txt
           "$APKSIGNER" verify --verbose out/Ani-Games-Admin-Agent-Preview-0.2.9.apk
           sha256sum out/Ani-Games-Admin-Agent-Preview-0.2.9.apk | tee out/SHA256-ADMIN-AGENT.txt
