@@ -204,3 +204,53 @@ test("Copied credentials parser requires a Device ID and one unambiguous valid c
   assert.match(capture, /verificationCode = candidates\[0\]/);
   assert.match(capture, /TryParseCopiedCredentials\(copied, out _, out _\)/);
 });
+
+
+test("StarDesk 0.2.4 selects a main top-level window and does not stop on the first partial helper window", () => {
+  const capture = read("win-agent/Agent.Tray/StarDeskUiCapture.cs");
+  assert.match(capture, /EnumWindows/);
+  assert.match(capture, /GetWindowRect/);
+  assert.match(capture, /OrderByDescending\(x => x\.Title\.Contains\("StarDesk"/);
+  assert.match(capture, /ThenByDescending\(x => x\.Area/);
+  assert.match(capture, /bestScore/);
+  assert.match(capture, /Never stop at the first partial/);
+});
+
+test("Verification Code capture cannot accept arbitrary eight-character words such as KARAKTER", () => {
+  const capture = read("win-agent/Agent.Tray/StarDeskUiCapture.cs");
+  assert.match(capture, /"KARAKTER"/);
+  assert.match(capture, /minY: 8, maxY: 82/);
+  assert.match(capture, /Verification Method/);
+  assert.doesNotMatch(capture, /for \(var i = methodIndex \+ 1;.*24/);
+  assert.doesNotMatch(capture, /CodeValueRegex\.Matches\(text\)/);
+});
+
+test("StarDesk Copy must change Windows clipboard sequence and parser accepts only explicit/isolated code", () => {
+  const capture = read("win-agent/Agent.Tray/StarDeskUiCapture.cs");
+  assert.match(capture, /GetClipboardSequenceNumber/);
+  assert.match(capture, /sequenceBefore/);
+  assert.match(capture, /currentSequence == sequenceBefore/);
+  assert.match(capture, /LabelledCodeRegex/);
+  assert.match(capture, /ExactCodeLineRegex/);
+  assert.match(capture, /candidates\.Length != 1/);
+  assert.match(capture, /Clipboard\.SetDataObject\(previous, true\)/);
+  assert.match(capture, /LegacyIAccessiblePattern/);
+});
+
+test("Manual sync dialog reports safe diagnostics and does not prefill unvalidated code", () => {
+  const tray = read("win-agent/Agent.Tray/AgentTrayForm.cs");
+  const dialog = read("win-agent/Agent.Tray/StarDeskManualEntryDialog.cs");
+  assert.match(tray, /ReadPartial\(forceCopy: true\)/);
+  assert.match(tray, /capture\.Diagnostics/);
+  assert.match(dialog, /nilai tebakan/);
+  assert.match(dialog, /DIAGNOSTIK \(tanpa menampilkan kode\)/);
+  assert.match(dialog, /sengaja dibiarkan kosong/);
+});
+
+test("Agent build version is bumped consistently to 0.2.4", () => {
+  assert.match(read("win-agent/Agent.Service/AgentWorker.cs"), /Version = "0\.2\.4"/);
+  assert.match(read("win-agent/Agent.Shared/AgentContracts.cs"), /AgentVersion .*"0\.2\.4"/);
+  assert.match(read("win-agent/Agent.Tray/Agent.Tray.csproj"), /<Version>0\.2\.4<\/Version>/);
+  assert.match(read("win-agent/Agent.Service/Agent.Service.csproj"), /<Version>0\.2\.4<\/Version>/);
+  assert.match(read("win-agent/installer/AniGamesReady-StarDesk-Agent.iss"), /AppVersion "0\.2\.4"/);
+});

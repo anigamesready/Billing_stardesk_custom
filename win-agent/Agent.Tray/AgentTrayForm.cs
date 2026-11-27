@@ -226,7 +226,7 @@ public sealed class AgentTrayForm : Form
             {
                 candidateFingerprint = "";
                 candidateStableReads = 0;
-                autoSyncLabel.Text = "Auto-sync aktif • buka halaman Remote Support StarDesk.";
+                autoSyncLabel.Text = "Auto-sync • " + capture.Diagnostics;
                 return;
             }
 
@@ -340,7 +340,7 @@ public sealed class AgentTrayForm : Form
             string autoReadNote = "";
             try
             {
-                capture = await Task.Run(StarDeskUiCapture.ReadPartial);
+                capture = await Task.Run(() => StarDeskUiCapture.ReadPartial(forceCopy: true));
             }
             catch (Exception ex)
             {
@@ -351,8 +351,11 @@ public sealed class AgentTrayForm : Form
             if (string.IsNullOrWhiteSpace(capture.DeviceId) ||
                 string.IsNullOrWhiteSpace(capture.VerificationCode))
             {
+                var diagnosticNote = !string.IsNullOrWhiteSpace(capture.Diagnostics)
+                    ? capture.Diagnostics
+                    : autoReadNote;
                 using var dialog = new StarDeskManualEntryDialog(
-                    capture.DeviceId, capture.VerificationCode, autoReadNote);
+                    capture.DeviceId, capture.VerificationCode, diagnosticNote);
                 if (dialog.ShowDialog(this) != DialogResult.OK)
                     return;
 

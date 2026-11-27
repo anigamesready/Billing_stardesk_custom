@@ -14,7 +14,7 @@ public sealed class AgentWorker(
     AgentApiClient api,
     ILogger<AgentWorker> logger) : BackgroundService
 {
-    private const string Version = "0.2.3";
+    private const string Version = "0.2.4";
     private AgentConfig? config;
     private AgentStatus status = new();
 

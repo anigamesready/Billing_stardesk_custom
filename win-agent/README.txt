@@ -1,5 +1,5 @@
 ANI GAMES READY — STAR DESK WINDOWS AGENT
-Preview version 0.2.3
+Preview version 0.2.4
 
 PERSYARATAN
 - Windows 10 / Windows 11 x64.
@@ -7,7 +7,7 @@ PERSYARATAN
 - Izin Administrator untuk memasang Windows Service.
 
 CARA INSTAL PALING MUDAH (SATU KLIK)
-1. Unduh file Ani-Games-Ready-StarDesk-Agent-Setup-0.2.3-win-x64.exe.
+1. Unduh file Ani-Games-Ready-StarDesk-Agent-Setup-0.2.4-win-x64.exe.
 2. Klik dua kali Setup.exe.
 3. Saat Windows menampilkan UAC, pilih Yes.
 4. Installer otomatis memasang atau memperbarui Windows Service dan tray Agent.
@@ -47,7 +47,7 @@ Jalankan sebagai Administrator:
 Identitas dan credential di ProgramData dipertahankan agar reinstall dapat memakai Agent Device ID yang sama. Cabut pairing dari Admin sebelum PC dipensiunkan.
 
 
-UPDATE DARI PREVIEW 0.1.0 KE 0.2.3 (TANPA PAIRING ULANG)\n\nCara paling mudah: jalankan Setup.exe satu kali. Setup mendeteksi service lama, menghentikannya sementara, mengganti Agent, lalu menjalankannya kembali tanpa menghapus credential atau pairing. Tidak perlu menjalankan update.ps1 secara manual.
+UPDATE DARI PREVIEW 0.1.0 KE 0.2.4 (TANPA PAIRING ULANG)\n\nCara paling mudah: jalankan Setup.exe satu kali. Setup mendeteksi service lama, menghentikannya sementara, mengganti Agent, lalu menjalankannya kembali tanpa menghapus credential atau pairing. Tidak perlu menjalankan update.ps1 secara manual.
 1. Ekstrak ZIP update ke satu folder.
 2. Klik kanan PowerShell, pilih Run as administrator.
 3. Jalankan:
@@ -60,7 +60,7 @@ UPDATE DARI PREVIEW 0.1.0 KE 0.2.3 (TANPA PAIRING ULANG)\n\nCara paling mudah: j
 9. Bila berhasil, Device ID dan waktu sinkron tampil di tray dan menu Agent PC Admin. Verification Code tidak ditampilkan kembali.
 
 
-FITUR OTOMATIS 0.2.3
+FITUR OTOMATIS 0.2.4
 - Auto-sync membaca halaman Remote Support setiap 4 detik selama tray Agent berjalan.
 - Verification Code 8 karakter diambil berdasarkan posisi di bawah label Verification Method; Device ID dinormalisasi otomatis.
 - Jika UI menyatakan PC sedang dikontrol, sinkronisasi ditahan sampai sesi selesai. Nilai harus stabil dua pembacaan; bila status sesi tidak terdeteksi, Agent menunggu setidaknya 15 detik dan empat pembacaan.
@@ -68,7 +68,17 @@ FITUR OTOMATIS 0.2.3
 - Kode plaintext hanya berada di memori dan dikirim lewat named pipe lokal; API mengenkripsi kode sebelum database menyimpan ciphertext.
 
 
-CATATAN 0.2.3
+CATATAN 0.2.4
 - Parser tidak pernah menerima "STARDESK" atau kata generik lain sebagai verification code.
 - Copy button automation memakai Windows UI Automation InvokePattern. Isi clipboard pengguna dipulihkan setelah pembacaan.
 - Jika proses StarDesk benar-benar keluar (bukan hanya hidden/minimized), Agent belum dapat membaca kode baru sampai StarDesk dijalankan lagi.
+
+
+PEMBACAAN STAR DESK 0.2.4
+- Jendela utama dipilih dari HWND top-level milik proses StarDesk, diprioritaskan berdasarkan judul dan ukuran jendela. Agent tidak berhenti hanya karena menemukan jendela helper pertama.
+- Device ID hanya diterima dari pola Device ID yang cocok dan pembacaan terikat posisi label; angka dari Recent Connections tidak boleh dipilih secara acak.
+- Verification Code hanya diterima dari label yang eksplisit atau elemen yang berada pada baris tepat di bawah Verification Method. Pencarian urutan descendant yang sebelumnya dapat mengambil kata "KARAKTER" sudah dihapus.
+- Tombol Copy harus benar-benar ditemukan dan berhasil Invoke/LegacyIAccessible, lalu nomor urut clipboard Windows harus berubah. Clipboard lama tidak akan dipakai sebagai hasil baru.
+- Hasil Copy harus berisi Device ID dan kode yang terlabel atau berada pada satu baris khusus yang berisi tepat 8 karakter. Clipboard lama pengguna dipulihkan kecuali telah berubah lagi oleh aplikasi lain.
+- Dialog fallback menampilkan status diagnostik aman: jumlah jendela, jumlah elemen UIA, status ID/kode, tombol Copy, dan perubahan clipboard. Isi kode tidak ditulis ke log.
+- Auto-copy dibatasi satu percobaan per 25 detik; tombol manual memaksa satu percobaan baru.

@@ -21,7 +21,7 @@ public sealed class StarDeskManualEntryDialog : Form
         MaximizeBox = false;
         MinimizeBox = false;
         ShowInTaskbar = false;
-        ClientSize = new Size(500, 352);
+        ClientSize = new Size(500, 380);
         BackColor = Color.FromArgb(7, 16, 31);
         ForeColor = Color.FromArgb(237, 246, 255);
         Font = new Font("Segoe UI", 9F);
@@ -38,7 +38,7 @@ public sealed class StarDeskManualEntryDialog : Form
 
         var instruction = new Label
         {
-            Text = "Auto-detect belum menemukan kedua nilai. Isi Device ID dan Verification Code yang tampil/diatur pada StarDesk PC ini.",
+            Text = "Auto-detect belum menemukan pasangan Device ID + Verification Code yang valid. Agent tidak akan mengisi nilai tebakan.",
             ForeColor = Color.FromArgb(173, 194, 215),
             Location = new Point(20, 52),
             Size = new Size(455, 42)
@@ -87,13 +87,14 @@ public sealed class StarDeskManualEntryDialog : Form
         var status = new Label
         {
             Text = string.IsNullOrWhiteSpace(autoReadNote)
-                ? "Kode hanya dikirim melalui koneksi lokal Agent dan dienkripsi oleh API sebelum masuk database."
-                : "Auto-detect: " + autoReadNote + Environment.NewLine +
-                  "Nilai yang berhasil dibaca otomatis sudah diisikan; lengkapi yang masih kosong.",
+                ? "Status baca: belum ada diagnosis. Pastikan Remote Support StarDesk terbuka."
+                : "DIAGNOSTIK (tanpa menampilkan kode): " + autoReadNote +
+                  Environment.NewLine + "Nilai yang tidak tervalidasi sengaja dibiarkan kosong.",
             ForeColor = Color.FromArgb(125, 178, 205),
-            Location = new Point(20, 260),
-            Size = new Size(455, 44)
+            Location = new Point(20, 258),
+            Size = new Size(455, 66)
         };
+        status.AutoEllipsis = true;
         Controls.Add(status);
 
         var save = new Button
@@ -103,8 +104,8 @@ public sealed class StarDeskManualEntryDialog : Form
             BackColor = Color.FromArgb(31, 111, 169),
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
-            Location = new Point(270, 310),
-            Size = new Size(205, 32)
+            Location = new Point(270, 335),
+            Size = new Size(205, 34)
         };
         save.Click += (_, _) => AcceptValues();
         Controls.Add(save);
@@ -116,8 +117,8 @@ public sealed class StarDeskManualEntryDialog : Form
             BackColor = Color.FromArgb(32, 47, 66),
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
-            Location = new Point(20, 310),
-            Size = new Size(90, 32)
+            Location = new Point(20, 335),
+            Size = new Size(90, 34)
         };
         Controls.Add(cancel);
 

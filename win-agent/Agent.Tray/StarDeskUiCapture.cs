@@ -10,8 +10,12 @@ using System.Windows.Forms;
 namespace AniGamesReady.Agent.Tray;
 
 public sealed record StarDeskCaptureSnapshot(
-    string DeviceId, string VerificationCode, string WindowTitle,
-    bool RemoteSessionStateKnown = false, bool RemoteSessionActive = false);
+    string DeviceId,
+    string VerificationCode,
+    string WindowTitle,
+    bool RemoteSessionStateKnown = false,
+    bool RemoteSessionActive = false,
+    string Diagnostics = "");
 
 public static class StarDeskUiCapture
 {
@@ -29,82 +33,171 @@ public static class StarDeskUiCapture
     private static readonly Regex LabelledCodeRegex = new(
         @"(?i)\b(?:verification|verify|security)\s*code\b[\s:=：-]*([A-Z0-9]{8})",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly Regex LocalizedLabelledCodeRegex = new(
+        @"(?i)\bkode\s*verifikasi\b[\s:=：-]*([A-Z0-9]{8})",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly Regex ExactCodeLineRegex = new(
+        @"^\s*([A-Z0-9]{8})\s*$",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private sealed record AccessibleText(string Text, Rectangle Bounds);
-    private sealed record WindowInfo(IntPtr Handle, string Title, bool WasVisible, bool WasMinimized);
+    private sealed record WindowInfo(
+        IntPtr Handle, int ProcessId, string Title,
+        bool WasVisible, bool WasMinimized, long Area);
+    private sealed record CopyCaptureResult(
+        string Text, bool ButtonFound, bool ActionInvoked,
+        bool ClipboardChanged, bool PairParsed, string Action);
     private delegate bool EnumWindowsCallback(IntPtr hwnd, IntPtr lParam);
+
+    private static readonly object CopyAttemptLock = new();
+    private static DateTime lastCopyAttemptUtc = DateTime.MinValue;
+    private static readonly TimeSpan AutoCopyCooldown = TimeSpan.FromSeconds(25);
 
     private static readonly HashSet<string> NonCodes = new(StringComparer.OrdinalIgnoreCase)
     {
-        "STARDESK", "COPY", "COPIED", "REFRESH", "DEVICE", "DEVICEID", "STARDESKDEVICEID",
-        "VERIFICATION", "VERIFICATIONCODE", "VERIFYCODE", "CODE", "SECURITYCODE",
-        "REMOTE", "ASSIST", "SUPPORT", "START", "STOP", "CLOSE", "OPEN", "SHARE",
-        "CUSTOM", "CUSTOMCODE", "CUSTOMCODEONLY", "ONLY", "SET",
-        "USEBOTH", "USEBOTHCODES", "TEMPORARY"
+        "STARDESK", "KARAKTER", "COPY", "COPIED", "REFRESH", "DEVICE", "DEVICEID",
+        "STARDESKDEVICEID", "VERIFICATION", "VERIFICATIONCODE", "VERIFYCODE",
+        "CODE", "SECURITYCODE", "REMOTE", "ASSIST", "SUPPORT", "START", "STOP",
+        "CLOSE", "OPEN", "SHARE", "CUSTOM", "CUSTOMCODE", "CUSTOMCODEONLY",
+        "ONLY", "SET", "USEBOTH", "USEBOTHCODES", "TEMPORARY"
     };
 
-    [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsCallback callback, IntPtr lParam);
-    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr hwnd, StringBuilder text, int maxCount);
-    [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr hwnd);
-    [DllImport("user32.dll")] private static extern bool IsIconic(IntPtr hwnd);
-    [DllImport("user32.dll")] private static extern bool ShowWindowAsync(IntPtr hwnd, int command);
-    [DllImport("user32.dll", SetLastError = true)] private static extern bool SetWindowPos(IntPtr hwnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
-
-    public static StarDeskCaptureSnapshot Read()
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeRect
     {
-        var result = ReadPartial();
-        if (string.IsNullOrWhiteSpace(result.DeviceId) || string.IsNullOrWhiteSpace(result.VerificationCode))
-            throw new InvalidOperationException("STAR_DESK_FIELDS_NOT_ACCESSIBLE: tombol Copy StarDesk belum bisa dibaca. Pastikan StarDesk berjalan dan Remote Support memakai Use Both Codes.");
-        return result;
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
     }
 
-    public static StarDeskCaptureSnapshot ReadPartial()
+    [DllImport("user32.dll")]
+    private static extern bool EnumWindows(EnumWindowsCallback callback, IntPtr lParam);
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowText(IntPtr hwnd, StringBuilder text, int maxCount);
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hwnd);
+    [DllImport("user32.dll")]
+    private static extern bool IsIconic(IntPtr hwnd);
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindowAsync(IntPtr hwnd, int command);
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetWindowPos(
+        IntPtr hwnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
+    [DllImport("user32.dll")]
+    private static extern bool GetWindowRect(IntPtr hwnd, out NativeRect rect);
+    [DllImport("user32.dll")]
+    private static extern uint GetClipboardSequenceNumber();
+
+    public static StarDeskCaptureSnapshot Read() => ReadPartial(forceCopy: true);
+
+    public static StarDeskCaptureSnapshot ReadPartial(bool forceCopy = false)
     {
         var windows = FindStarDeskWindows();
-        if (windows.Count == 0) throw new InvalidOperationException("STAR_DESK_WINDOW_NOT_FOUND");
+        if (windows.Count == 0)
+            return new StarDeskCaptureSnapshot(
+                "", "", "StarDesk",
+                Diagnostics: "Jendela StarDesk tidak ditemukan; proses mungkin sudah ditutup, bukan hanya disembunyikan.");
 
+        StarDeskCaptureSnapshot? best = null;
+        var bestScore = long.MinValue;
+        var windowFailures = 0;
+
+        // Inspect each top-level StarDesk window. Never stop at the first partial
+        // text node: the first handle may be a helper/dialog window, not the main app.
         foreach (var window in windows)
         {
             try
             {
                 MakeWindowTemporarilyAvailable(window.Handle);
-                Thread.Sleep(180);
+                Thread.Sleep(220);
+
                 var root = AutomationElement.FromHandle(window.Handle);
                 var nodes = CollectAccessibleText(root);
                 var deviceId = FindDeviceId(nodes);
-                var code = FindVerificationCode(nodes);
+                var verificationCode = FindVerificationCode(nodes);
                 var session = DetectRemoteSession(nodes);
 
-                if (string.IsNullOrWhiteSpace(deviceId) || string.IsNullOrWhiteSpace(code))
+                CopyCaptureResult copy = new("", false, false, false, false, "not-needed");
+                if (string.IsNullOrWhiteSpace(deviceId) ||
+                    string.IsNullOrWhiteSpace(verificationCode))
                 {
-                    var copied = TryInvokeCopyAndReadClipboard(root);
-                    if (TryParseCopiedCredentials(copied, out var copiedId, out var copiedCode))
+                    if (ShouldAttemptCopy(forceCopy))
                     {
-                        deviceId = copiedId;
-                        code = copiedCode;
+                        copy = TryInvokeCopyAndReadClipboard(root);
+                        if (copy.PairParsed &&
+                            TryParseCopiedCredentials(copy.Text, out var copiedId, out var copiedCode))
+                        {
+                            // The StarDesk Copy & Share result is an authoritative pair.
+                            deviceId = copiedId;
+                            verificationCode = copiedCode;
+                        }
+                    }
+                    else
+                    {
+                        copy = new CopyCaptureResult("", false, false, false, false, "cooldown");
                     }
                 }
 
-                if (!string.IsNullOrWhiteSpace(deviceId) || !string.IsNullOrWhiteSpace(code) || session.Known)
-                    return new StarDeskCaptureSnapshot(deviceId, code, window.Title, session.Known, session.Active);
+                var diagnostics = BuildDiagnostics(
+                    windows.Count, window, nodes.Count, deviceId, verificationCode, copy);
+                var candidate = new StarDeskCaptureSnapshot(
+                    deviceId, verificationCode, window.Title,
+                    session.Known, session.Active, diagnostics);
+
+                if (!string.IsNullOrWhiteSpace(deviceId) &&
+                    !string.IsNullOrWhiteSpace(verificationCode))
+                    return candidate;
+
+                var score = (string.IsNullOrWhiteSpace(deviceId) ? 0 : 100_000_000L) +
+                            (string.IsNullOrWhiteSpace(verificationCode) ? 0 : 10_000_000L) +
+                            window.Area;
+                if (score > bestScore)
+                {
+                    best = candidate;
+                    bestScore = score;
+                }
             }
             catch (Exception ex)
             {
-                // Never log clipboard contents or captured credentials.
-                Debug.WriteLine("StarDesk UI capture skipped: " + ex.GetType().Name);
+                windowFailures++;
+                var diagnostics = $"Jendela ditemukan={windows.Count}; UI Automation gagal={ex.GetType().Name}.";
+                var failed = new StarDeskCaptureSnapshot(
+                    "", "", window.Title, Diagnostics: diagnostics);
+                if (best is null)
+                    best = failed;
             }
-            finally { RestoreOriginalWindowState(window); }
+            finally
+            {
+                RestoreOriginalWindowState(window);
+            }
         }
-        return new StarDeskCaptureSnapshot("", "", "StarDesk");
+
+        if (best is not null)
+        {
+            var suffix = windowFailures > 0
+                ? $" Sebagian jendela gagal dibaca={windowFailures}."
+                : "";
+            return best with { Diagnostics = best.Diagnostics + suffix };
+        }
+
+        return new StarDeskCaptureSnapshot(
+            "", "", "StarDesk",
+            Diagnostics: "Jendela StarDesk ada, tetapi pohon aksesibilitas tidak mengembalikan elemen yang bisa dibaca.");
     }
 
     private static List<WindowInfo> FindStarDeskWindows()
     {
-        var pids = new HashSet<int>();
+        var processIds = new HashSet<int>();
         foreach (var process in Process.GetProcesses())
         {
-            try { if (process.ProcessName.Contains("stardesk", StringComparison.OrdinalIgnoreCase)) pids.Add(process.Id); }
+            try
+            {
+                if (process.ProcessName.Contains("stardesk", StringComparison.OrdinalIgnoreCase))
+                    processIds.Add(process.Id);
+            }
             catch { }
             finally { process.Dispose(); }
         }
@@ -115,17 +208,35 @@ public static class StarDeskUiCapture
             try
             {
                 GetWindowThreadProcessId(hwnd, out var rawPid);
+                var pid = unchecked((int)rawPid);
                 var title = GetWindowTitle(hwnd);
-                if (!pids.Contains(unchecked((int)rawPid)) &&
-                    !title.Contains("StarDesk", StringComparison.OrdinalIgnoreCase)) return true;
-                result.Add(new WindowInfo(hwnd, title, IsWindowVisible(hwnd), IsIconic(hwnd)));
+                if (!processIds.Contains(pid) &&
+                    !title.Contains("StarDesk", StringComparison.OrdinalIgnoreCase))
+                    return true;
+
+                if (!GetWindowRect(hwnd, out var rect))
+                    return true;
+
+                var width = Math.Max(0, rect.Right - rect.Left);
+                var height = Math.Max(0, rect.Bottom - rect.Top);
+                var area = (long)width * height;
+                if (width < 260 || height < 180)
+                    return true;
+
+                result.Add(new WindowInfo(
+                    hwnd, pid, title,
+                    IsWindowVisible(hwnd), IsIconic(hwnd), area));
             }
             catch { }
             return true;
         }, IntPtr.Zero);
 
-        return result.OrderBy(x => x.Title.Contains("StarDesk", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
-            .ThenBy(x => x.WasVisible ? 0 : 1).ToList();
+        // Main window normally has the largest client frame. This prevents
+        // helper/pop-up windows owned by the same process from winning capture.
+        return result
+            .OrderByDescending(x => x.Title.Contains("StarDesk", StringComparison.OrdinalIgnoreCase))
+            .ThenByDescending(x => x.Area)
+            .ToList();
     }
 
     private static string GetWindowTitle(IntPtr hwnd)
@@ -140,27 +251,40 @@ public static class StarDeskUiCapture
         if (!IsWindowVisible(hwnd) || IsIconic(hwnd))
         {
             ShowWindowAsync(hwnd, SwShowNoActivate);
-            SetWindowPos(hwnd, HwndBottom, 0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoActivate | SwpShowWindow);
+            SetWindowPos(hwnd, new IntPtr(1), 0, 0, 0, 0,
+                SwpNoSize | SwpNoMove | SwpNoActivate | SwpShowWindow);
         }
     }
 
     private static void RestoreOriginalWindowState(WindowInfo window)
     {
-        if (!window.WasVisible) { ShowWindowAsync(window.Handle, SwHide); return; }
-        if (window.WasMinimized) ShowWindowAsync(window.Handle, SwMinimize);
+        if (!window.WasVisible)
+        {
+            ShowWindowAsync(window.Handle, SwHide);
+            return;
+        }
+        if (window.WasMinimized)
+            ShowWindowAsync(window.Handle, SwMinimize);
     }
 
     private static List<AccessibleText> CollectAccessibleText(AutomationElement root)
     {
-        var values = new List<AccessibleText>(96);
+        var values = new List<AccessibleText>(128);
         AddElementText(root, values);
+
         AutomationElementCollection descendants;
         try { descendants = root.FindAll(TreeScope.Descendants, Condition.TrueCondition); }
         catch { return values; }
-        for (var i = 0; i < Math.Min(descendants.Count, 5000); i++) AddElementText(descendants[i], values);
-        return values.Where(x => !string.IsNullOrWhiteSpace(x.Text))
+
+        for (var i = 0; i < Math.Min(descendants.Count, 6000); i++)
+            AddElementText(descendants[i], values);
+
+        return values
+            .Where(x => !string.IsNullOrWhiteSpace(x.Text))
             .Select(x => new AccessibleText(x.Text.Trim(), x.Bounds))
-            .GroupBy(x => (x.Text, x.Bounds)).Select(x => x.First()).ToList();
+            .GroupBy(x => (x.Text, x.Bounds))
+            .Select(x => x.First())
+            .ToList();
     }
 
     private static void AddElementText(AutomationElement element, List<AccessibleText> values)
@@ -169,7 +293,8 @@ public static class StarDeskUiCapture
         try
         {
             var rect = element.Current.BoundingRectangle;
-            bounds = double.IsNaN(rect.Left) || double.IsNaN(rect.Top) || double.IsInfinity(rect.Left) || double.IsInfinity(rect.Top)
+            bounds = double.IsNaN(rect.Left) || double.IsNaN(rect.Top) ||
+                     double.IsInfinity(rect.Left) || double.IsInfinity(rect.Top)
                 ? Rectangle.Empty
                 : Rectangle.FromLTRB(
                     (int)Math.Clamp(Math.Round(rect.Left), int.MinValue, int.MaxValue),
@@ -179,17 +304,35 @@ public static class StarDeskUiCapture
         }
         catch { bounds = Rectangle.Empty; }
 
-        try { var name = element.Current.Name; if (!string.IsNullOrWhiteSpace(name)) values.Add(new AccessibleText(name, bounds)); } catch { }
         try
         {
-            if (element.TryGetCurrentPattern(ValuePattern.Pattern, out var p) && p is ValuePattern value)
-            { var text = value.Current.Value; if (!string.IsNullOrWhiteSpace(text)) values.Add(new AccessibleText(text, bounds)); }
+            var name = element.Current.Name;
+            if (!string.IsNullOrWhiteSpace(name))
+                values.Add(new AccessibleText(name, bounds));
         }
         catch { }
+
         try
         {
-            if (element.TryGetCurrentPattern(TextPattern.Pattern, out var p) && p is TextPattern textPattern)
-            { var text = textPattern.DocumentRange.GetText(1024); if (!string.IsNullOrWhiteSpace(text)) values.Add(new AccessibleText(text, bounds)); }
+            if (element.TryGetCurrentPattern(ValuePattern.Pattern, out var pattern) &&
+                pattern is ValuePattern value)
+            {
+                var text = value.Current.Value;
+                if (!string.IsNullOrWhiteSpace(text))
+                    values.Add(new AccessibleText(text, bounds));
+            }
+        }
+        catch { }
+
+        try
+        {
+            if (element.TryGetCurrentPattern(TextPattern.Pattern, out var pattern) &&
+                pattern is TextPattern content)
+            {
+                var text = content.DocumentRange.GetText(2048);
+                if (!string.IsNullOrWhiteSpace(text))
+                    values.Add(new AccessibleText(text, bounds));
+            }
         }
         catch { }
     }
@@ -198,100 +341,213 @@ public static class StarDeskUiCapture
     {
         foreach (var node in nodes)
         {
-            var match = Regex.Match(node.Text, @"(?i)\bdevice\s*id\b\s*[:：]?\s*(\d{3}(?:[\s-]+\d{3}){2,3}|\d{9})");
-            if (match.Success) return NormalizeDeviceId(match.Groups[1].Value);
+            var labelled = Regex.Match(node.Text,
+                @"(?i)\bdevice\s*id\b\s*[:：]?\s*(\d{3}(?:[\s-]+\d{3}){2,3}|\d{9})");
+            if (labelled.Success)
+                return NormalizeDeviceId(labelled.Groups[1].Value);
         }
+
         var labelIndex = -1;
         for (var i = 0; i < nodes.Count; i++)
-            if (Normalize(nodes[i].Text).Contains("deviceid", StringComparison.Ordinal)) { labelIndex = i; break; }
-        if (labelIndex < 0) return "";
+        {
+            if (Normalize(nodes[i].Text).Contains("deviceid", StringComparison.Ordinal))
+            {
+                labelIndex = i;
+                break;
+            }
+        }
+        if (labelIndex < 0)
+            return "";
+
         var label = nodes[labelIndex];
-
-        var nearby = nodes.Select((node, index) => new { node, index })
+        var candidate = nodes
+            .Select((node, index) => new { node, index })
             .Where(x => x.index != labelIndex && TryDeviceToken(x.node.Text, out _))
-            .Select(x => new { x.node, score = ScoreNearLabel(label.Bounds, x.node.Bounds, x.index - labelIndex, 100, 180) })
-            .Where(x => x.score < double.MaxValue).OrderBy(x => x.score).FirstOrDefault();
-        if (nearby is not null && TryDeviceToken(nearby.node.Text, out var id)) return NormalizeDeviceId(id);
+            .Select(x => new
+            {
+                x.node,
+                score = ScoreNearLabel(label.Bounds, x.node.Bounds,
+                    x.index - labelIndex, minY: 8, maxY: 105, maxX: 360)
+            })
+            .Where(x => x.score < double.MaxValue)
+            .OrderBy(x => x.score)
+            .FirstOrDefault();
 
-        for (var i = labelIndex + 1; i < Math.Min(nodes.Count, labelIndex + 12); i++)
-            if (TryDeviceToken(nodes[i].Text, out var sequentialId)) return NormalizeDeviceId(sequentialId);
-        return "";
+        return candidate is not null && TryDeviceToken(candidate.node.Text, out var id)
+            ? NormalizeDeviceId(id)
+            : "";
     }
 
     private static string FindVerificationCode(IReadOnlyList<AccessibleText> nodes)
     {
-        for (var i = 0; i < nodes.Count; i++)
+        // Accept an explicit, labelled code only.
+        foreach (var node in nodes)
         {
-            var normalized = Normalize(nodes[i].Text);
-            if (normalized is "verificationcode" or "verifycode" or "securitycode")
-                for (var j = i + 1; j < Math.Min(nodes.Count, i + 10); j++)
-                    if (TryCodeToken(nodes[j].Text, out var explicitCode)) return explicitCode;
+            var labelled = LabelledCodeRegex.Match(node.Text);
+            if (labelled.Success && IsCode(labelled.Groups[1].Value))
+                return labelled.Groups[1].Value.ToUpperInvariant();
 
-            var match = LabelledCodeRegex.Match(nodes[i].Text);
-            if (match.Success && IsCode(match.Groups[1].Value)) return match.Groups[1].Value.ToUpperInvariant();
+            var localized = LocalizedLabelledCodeRegex.Match(node.Text);
+            if (localized.Success && IsCode(localized.Groups[1].Value))
+                return localized.Groups[1].Value.ToUpperInvariant();
         }
 
-        var methodIndex = -1;
-        for (var i = 0; i < nodes.Count; i++)
-            if (Normalize(nodes[i].Text).Contains("verificationmethod", StringComparison.Ordinal)) { methodIndex = i; break; }
+        // StarDesk 1.6.x places the temporary code on the row below
+        // "Verification Method". No descendant-order fallback is allowed:
+        // unrelated text such as "KARAKTER" must never be treated as a code.
+        var methodLabel = nodes.FirstOrDefault(x =>
+            Normalize(x.Text).Contains("verificationmethod", StringComparison.Ordinal));
+        if (methodLabel is null)
+            return "";
 
-        if (methodIndex >= 0)
-        {
-            var label = nodes[methodIndex];
-            var nearby = nodes.Select((node, index) => new { node, index })
-                .Where(x => x.index != methodIndex && TryCodeToken(x.node.Text, out _))
-                .Select(x => new { x.node, score = ScoreNearLabel(label.Bounds, x.node.Bounds, x.index - methodIndex, 96, 260) })
-                .Where(x => x.score < double.MaxValue).OrderBy(x => x.score).FirstOrDefault();
-            if (nearby is not null && TryCodeToken(nearby.node.Text, out var code)) return code;
-            for (var i = methodIndex + 1; i < Math.Min(nodes.Count, methodIndex + 24); i++)
-                if (TryCodeToken(nodes[i].Text, out var sequentialCode)) return sequentialCode;
-        }
-        return "";
+        var candidate = nodes
+            .Where(x => TryCodeToken(x.Text, out _))
+            .Select(x => new
+            {
+                Node = x,
+                Score = ScoreNearLabel(methodLabel.Bounds, x.Bounds, 1,
+                    minY: 8, maxY: 82, maxX: 340)
+            })
+            .Where(x => x.Score < double.MaxValue)
+            .OrderBy(x => x.Score)
+            .FirstOrDefault();
+
+        return candidate is not null && TryCodeToken(candidate.Node.Text, out var code)
+            ? code
+            : "";
     }
 
-    private static string TryInvokeCopyAndReadClipboard(AutomationElement root)
+    private static CopyCaptureResult TryInvokeCopyAndReadClipboard(AutomationElement root)
     {
         return RunOnSta(() =>
         {
             IDataObject? previous = null;
-            try { previous = Clipboard.GetDataObject(); } catch { }
+            try { previous = Clipboard.GetDataObject(); }
+            catch { }
+
+            var buttonFound = false;
+            var actionInvoked = false;
+            var clipboardChanged = false;
+            var pairParsed = false;
+            var actionName = "none";
+            var sequenceAfterCopy = 0u;
+
             try
             {
                 AutomationElementCollection descendants;
                 try { descendants = root.FindAll(TreeScope.Descendants, Condition.TrueCondition); }
-                catch { return ""; }
+                catch
+                {
+                    return new CopyCaptureResult("", false, false, false, false, "uia-query-failed");
+                }
 
-                for (var i = 0; i < Math.Min(descendants.Count, 5000); i++)
+                for (var i = 0; i < Math.Min(descendants.Count, 6000); i++)
                 {
                     try
                     {
                         var element = descendants[i];
-                        if (element.Current.ControlType != ControlType.Button) continue;
-                        var name = Normalize(element.Current.Name ?? "");
-                        if (name is not ("copy" or "copyshare" or "copyandshare")) continue;
-                        if (!element.TryGetCurrentPattern(InvokePattern.Pattern, out var pattern) || pattern is not InvokePattern invoke) continue;
-                        invoke.Invoke();
+                        if (element.Current.ControlType != ControlType.Button)
+                            continue;
 
-                        for (var attempt = 0; attempt < 8; attempt++)
+                        var name = Normalize(element.Current.Name ?? "");
+                        var automationId = Normalize(element.Current.AutomationId ?? "");
+                        if (name is not ("copy" or "copyshare" or "copyandshare" or "copydeviceid") &&
+                            !automationId.Contains("copy", StringComparison.Ordinal))
+                            continue;
+
+                        buttonFound = true;
+                        var sequenceBefore = GetClipboardSequenceNumber();
+
+                        if (element.TryGetCurrentPattern(InvokePattern.Pattern, out var pattern) &&
+                            pattern is InvokePattern invoke)
                         {
-                            Thread.Sleep(65);
+                            invoke.Invoke();
+                            actionInvoked = true;
+                            actionName = "InvokePattern";
+                        }
+                        else if (element.TryGetCurrentPattern(
+                                     LegacyIAccessiblePattern.Pattern, out var legacyPattern) &&
+                                 legacyPattern is LegacyIAccessiblePattern legacy)
+                        {
+                            legacy.DoDefaultAction();
+                            actionInvoked = true;
+                            actionName = "LegacyIAccessible";
+                        }
+                        else
+                        {
+                            actionName = "button-found-no-action-pattern";
+                            continue;
+                        }
+
+                        for (var attempt = 0; attempt < 20; attempt++)
+                        {
+                            Thread.Sleep(75);
+                            var currentSequence = GetClipboardSequenceNumber();
+                            if (currentSequence == sequenceBefore)
+                                continue;
+
+                            clipboardChanged = true;
+                            sequenceAfterCopy = currentSequence;
                             var copied = Clipboard.ContainsText(TextDataFormat.UnicodeText)
-                                ? Clipboard.GetText(TextDataFormat.UnicodeText) : "";
-                            if (!string.IsNullOrWhiteSpace(copied) && TryParseCopiedCredentials(copied, out _, out _))
-                                return copied;
+                                ? Clipboard.GetText(TextDataFormat.UnicodeText)
+                                : Clipboard.ContainsText()
+                                    ? Clipboard.GetText()
+                                    : "";
+
+                            if (TryParseCopiedCredentials(copied, out _, out _))
+                            {
+                                pairParsed = true;
+                                return new CopyCaptureResult(
+                                    copied, true, true, true, true, actionName);
+                            }
+
+                            // Clipboard was changed by StarDesk, but the format was
+                            // not a recognized ID+code pair. Do not search arbitrary
+                            // 8-character substrings and do not accept stale clipboard.
+                            return new CopyCaptureResult(
+                                "", true, true, true, false, actionName + "-unrecognized-format");
                         }
                     }
-                    catch { }
+                    catch
+                    {
+                        // Continue to another exact Copy control; never log element text.
+                    }
                 }
-                return "";
+
+                return new CopyCaptureResult(
+                    "", buttonFound, actionInvoked, clipboardChanged,
+                    pairParsed, actionName);
             }
             finally
             {
-                // Return the clipboard to the exact previous IDataObject if possible.
-                try { if (previous is not null) Clipboard.SetDataObject(previous, true); else Clipboard.Clear(); }
+                // Restore the clipboard only if it still contains our StarDesk copy.
+                // If the user copied something else meanwhile, do not overwrite it.
+                try
+                {
+                    if (clipboardChanged &&
+                        GetClipboardSequenceNumber() == sequenceAfterCopy)
+                    {
+                        if (previous is not null)
+                            Clipboard.SetDataObject(previous, true);
+                        else
+                            Clipboard.Clear();
+                    }
+                }
                 catch { }
             }
         });
+    }
+
+    private static bool ShouldAttemptCopy(bool force)
+    {
+        lock (CopyAttemptLock)
+        {
+            var now = DateTime.UtcNow;
+            if (!force && now - lastCopyAttemptUtc < AutoCopyCooldown)
+                return false;
+            lastCopyAttemptUtc = now;
+            return true;
+        }
     }
 
     private static T RunOnSta<T>(Func<T> action)
@@ -299,37 +555,68 @@ public static class StarDeskUiCapture
         T result = default!;
         Exception? error = null;
         using var done = new ManualResetEventSlim(false);
+
         var thread = new Thread(() =>
         {
-            try { result = action(); } catch (Exception ex) { error = ex; } finally { done.Set(); }
-        }) { IsBackground = true, Name = "AniGamesReady-StarDesk-Clipboard" };
+            try { result = action(); }
+            catch (Exception ex) { error = ex; }
+            finally { done.Set(); }
+        })
+        {
+            IsBackground = true,
+            Name = "AniGamesReady-StarDesk-Clipboard"
+        };
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
-        if (!done.Wait(TimeSpan.FromSeconds(4))) throw new TimeoutException("STAR_DESK_COPY_TIMEOUT");
-        if (error is not null) throw new InvalidOperationException("STAR_DESK_COPY_FAILED", error);
+
+        if (!done.Wait(TimeSpan.FromSeconds(6)))
+            throw new TimeoutException("STAR_DESK_COPY_TIMEOUT");
+        if (error is not null)
+            throw new InvalidOperationException("STAR_DESK_COPY_FAILED", error);
         return result;
     }
 
-    internal static bool TryParseCopiedCredentials(string text, out string deviceId, out string verificationCode)
+    internal static bool TryParseCopiedCredentials(
+        string text, out string deviceId, out string verificationCode)
     {
         deviceId = "";
         verificationCode = "";
-        if (string.IsNullOrWhiteSpace(text) || text.Length > 4096) return false;
-        var id = DeviceValueRegex.Match(text);
-        if (!id.Success) return false;
-        deviceId = NormalizeDeviceId(id.Groups[1].Value);
+        if (string.IsNullOrWhiteSpace(text) || text.Length > 4096)
+            return false;
+
+        var deviceMatch = DeviceValueRegex.Match(text);
+        if (!deviceMatch.Success)
+            return false;
+
+        var parsedDeviceId = NormalizeDeviceId(deviceMatch.Groups[1].Value);
 
         var labelled = LabelledCodeRegex.Match(text);
-        if (labelled.Success && IsCode(labelled.Groups[1].Value))
-        { verificationCode = labelled.Groups[1].Value.ToUpperInvariant(); return true; }
+        if (!labelled.Success)
+            labelled = LocalizedLabelledCodeRegex.Match(text);
 
-        var afterId = text[(id.Index + id.Length)..];
-        var candidates = CodeValueRegex.Matches(afterId).Select(x => x.Value.ToUpperInvariant())
-            .Where(IsCode).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        if (labelled.Success && IsCode(labelled.Groups[1].Value))
+        {
+            deviceId = parsedDeviceId;
+            verificationCode = labelled.Groups[1].Value.ToUpperInvariant();
+            return true;
+        }
+
+        // Otherwise only accept a complete, isolated 8-character line.
+        // Never search all clipboard prose for a random 8-character word.
+        var candidates = text.Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Split('\n')
+            .Select(line => ExactCodeLineRegex.Match(line))
+            .Where(match => match.Success)
+            .Select(match => match.Groups[1].Value.ToUpperInvariant())
+            .Where(IsCode)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
         if (candidates.Length != 1)
-            candidates = CodeValueRegex.Matches(text).Select(x => x.Value.ToUpperInvariant())
-                .Where(IsCode).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        if (candidates.Length != 1) { deviceId = ""; return false; }
+            return false;
+
+        deviceId = parsedDeviceId;
         verificationCode = candidates[0];
         return true;
     }
@@ -337,32 +624,75 @@ public static class StarDeskUiCapture
     private static (bool Known, bool Active) DetectRemoteSession(IReadOnlyList<AccessibleText> nodes)
     {
         var text = string.Join("\n", nodes.Select(x => x.Text)).ToLowerInvariant();
-        if (text.Contains("device is being controlled") || text.Contains("this device is being controlled") || text.Contains("being controlled by"))
+        if (text.Contains("device is being controlled") ||
+            text.Contains("this device is being controlled") ||
+            text.Contains("being controlled by"))
             return (true, true);
+
         var match = Regex.Match(text, @"(\d+)\s+devices?\s+controlling\s+this\s+pc");
-        if (match.Success && int.TryParse(match.Groups[1].Value, out var count)) return (true, count > 0);
-        if (text.Contains("no devices controlling this pc") || text.Contains("not being controlled") || text.Contains("0 devices controlling this pc"))
+        if (match.Success && int.TryParse(match.Groups[1].Value, out var count))
+            return (true, count > 0);
+
+        if (text.Contains("no devices controlling this pc") ||
+            text.Contains("not being controlled") ||
+            text.Contains("0 devices controlling this pc"))
             return (true, false);
+
         return (false, false);
     }
 
-    private static double ScoreNearLabel(Rectangle label, Rectangle candidate, int indexDelta, int maxY, int maxX)
+    private static string BuildDiagnostics(
+        int windowCount,
+        WindowInfo window,
+        int nodeCount,
+        string deviceId,
+        string verificationCode,
+        CopyCaptureResult copy)
     {
-        if (label.IsEmpty || candidate.IsEmpty) return indexDelta >= 1 ? 100000d + indexDelta : double.MaxValue;
+        var idState = string.IsNullOrWhiteSpace(deviceId) ? "tidak" : "terbaca";
+        var codeState = string.IsNullOrWhiteSpace(verificationCode) ? "tidak" : "terbaca";
+        var buttonState = copy.ButtonFound ? "ditemukan" : "tidak ditemukan";
+        var actionState = copy.ActionInvoked ? copy.Action : copy.Action;
+        var clipboardState = copy.ClipboardChanged ? "berubah" : "tidak berubah";
+        var parsedState = copy.PairParsed ? "valid" :
+            copy.ClipboardChanged ? "format tidak cocok" : "belum";
+        return $"Window={windowCount}; utama={window.Title}; area={window.Area}; " +
+               $"UIA={nodeCount} elemen; ID={idState}; kode={codeState}; " +
+               $"Copy={buttonState}; aksi={actionState}; clipboard={clipboardState}; pasangan={parsedState}.";
+    }
+
+    private static double ScoreNearLabel(
+        Rectangle label, Rectangle candidate, int indexDelta,
+        int minY, int maxY, int maxX)
+    {
+        if (label.IsEmpty || candidate.IsEmpty)
+            return double.MaxValue;
+
         var dx = Math.Abs(candidate.Left - label.Left);
         var dy = candidate.Top - label.Top;
-        if (dy < -8 || dy > maxY || dx > maxX) return double.MaxValue;
-        return dy * 2d + dx + Math.Max(0, indexDelta) * 0.02d;
+        if (dy < minY || dy > maxY || dx > maxX)
+            return double.MaxValue;
+
+        return dy * 2d + dx + Math.Max(0, indexDelta) * 0.01d;
     }
 
     private static bool TryDeviceToken(string text, out string value)
-    { var match = DeviceValueRegex.Match(text ?? ""); value = match.Success ? match.Groups[1].Value : ""; return match.Success; }
+    {
+        var match = DeviceValueRegex.Match(text ?? "");
+        value = match.Success ? match.Groups[1].Value : "";
+        return match.Success;
+    }
 
     private static bool TryCodeToken(string text, out string value)
-    { var match = CodeValueRegex.Match(text ?? ""); value = match.Success ? match.Value.ToUpperInvariant() : ""; return match.Success && IsCode(value); }
+    {
+        var match = CodeValueRegex.Match(text ?? "");
+        value = match.Success ? match.Value.ToUpperInvariant() : "";
+        return match.Success && IsCode(value);
+    }
 
     private static bool IsCode(string value) =>
-        value.Length == 8 && !NonCodes.Contains(value) &&
+        value.Length == 8 &&
+        !NonCodes.Contains(value) &&
         Regex.IsMatch(value, "^[A-Z0-9]{8}$", RegexOptions.CultureInvariant);
 
     internal static string NormalizeDeviceId(string value)
