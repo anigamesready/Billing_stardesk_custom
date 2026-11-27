@@ -1,4 +1,9 @@
 using System.Runtime.InteropServices;
+using System.IO.Pipes;
+using System.IO.Pipes.AccessControl;
+using System.Security.AccessControl;
+using System.Security.Principal;
+using System.Text;
 using System.Text.Json;
 using AniGamesReady.Agent.Shared;
 using Microsoft.Extensions.Hosting;
@@ -10,7 +15,7 @@ public sealed class AgentWorker(
     AgentApiClient api,
     ILogger<AgentWorker> logger) : BackgroundService
 {
-    private const string Version = "0.1.0";
+    private const string Version = "0.2.0";
     private AgentConfig? config;
     private AgentStatus status = new();
 
@@ -29,6 +34,8 @@ public sealed class AgentWorker(
             PublishStatus("ERROR", ex.Message);
             return;
         }
+
+        _ = RunStarDeskCapturePipeAsync(stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -56,6 +63,92 @@ public sealed class AgentWorker(
 
             try { await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken); }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
+        }
+    }
+
+    private const string CapturePipeName = "AniGamesReady.StarDeskAgent.Capture.v1";
+
+    private async Task RunStarDeskCapturePipeAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                var security = new PipeSecurity();
+                security.SetAccessRuleProtection(true, false);
+                security.AddAccessRule(new PipeAccessRule(
+                    new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
+                    PipeAccessRights.FullControl, AccessControlType.Allow));
+                security.AddAccessRule(new PipeAccessRule(
+                    new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null),
+                    PipeAccessRights.FullControl, AccessControlType.Allow));
+                security.AddAccessRule(new PipeAccessRule(
+                    new SecurityIdentifier(WellKnownSidType.InteractiveSid, null),
+                    PipeAccessRights.ReadWrite, AccessControlType.Allow));
+
+                using var pipe = NamedPipeServerStreamAcl.Create(
+                    CapturePipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte,
+                    PipeOptions.Asynchronous, 4096, 4096, security);
+                await pipe.WaitForConnectionAsync(stoppingToken);
+                using var reader = new StreamReader(pipe, Encoding.UTF8, false, 1024, true);
+                using var writer = new StreamWriter(pipe, new UTF8Encoding(false), 1024, true)
+                {
+                    AutoFlush = true
+                };
+
+                try
+                {
+                    var line = await reader.ReadLineAsync(stoppingToken);
+                    if (string.IsNullOrWhiteSpace(line) || line.Length > 4096)
+                        throw new InvalidOperationException("STAR_DESK_CAPTURE_REQUEST_INVALID");
+                    if (config?.IsPaired != true || string.IsNullOrWhiteSpace(config.AgentToken))
+                        throw new InvalidOperationException("AGENT_PAIRING_REQUIRED");
+
+                    using var document = JsonDocument.Parse(line);
+                    var request = document.RootElement;
+                    var deviceId = AgentApiClient.ReadString(request, "stardesk_device_id")?.Trim() ?? "";
+                    var verificationCode = AgentApiClient.ReadString(request, "verification_code")?.Trim() ?? "";
+                    if (deviceId.Length is < 1 or > 180 || verificationCode.Length is < 1 or > 128)
+                        throw new InvalidOperationException("STAR_DESK_CAPTURE_FIELDS_INVALID");
+
+                    var result = await api.RpcAsync("androiddb_v0_agent_sync_stardesk_pairing", new
+                    {
+                        p_stardesk_device_id = deviceId,
+                        p_verification_code = verificationCode
+                    }, config.AgentToken, stoppingToken);
+
+                    status.StarDeskDeviceId = AgentApiClient.ReadString(result, "stardesk_device_id") ?? deviceId;
+                    status.LastStarDeskSyncUtc = DateTimeOffset.UtcNow;
+                    PublishStatus("ONLINE", "Agent online. Device ID StarDesk berhasil disinkronkan; kode verifikasi disimpan terenkripsi.");
+                    await writer.WriteLineAsync(JsonSerializer.Serialize(new
+                    {
+                        ok = true,
+                        message = "StarDesk Device ID tersinkron. Kode verifikasi disimpan terenkripsi di Android DB.",
+                        stardesk_device_id = status.StarDeskDeviceId,
+                        captured_at = status.LastStarDeskSyncUtc
+                    }));
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // Do not log the request or any captured verification code.
+                    logger.LogWarning("StarDesk UI capture sync failed: {Reason}", ex.Message);
+                    await writer.WriteLineAsync(JsonSerializer.Serialize(new
+                    {
+                        ok = false,
+                        error = ex.Message
+                    }));
+                }
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning("StarDesk capture pipe listener restarted: {Reason}", ex.Message);
+                try { await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken); }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
+            }
         }
     }
 
