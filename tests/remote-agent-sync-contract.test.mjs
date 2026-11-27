@@ -75,3 +75,35 @@ test("Remote displays Agent PC inventory and keeps native StarDesk launch separa
   assert.match(html, /stardesk:\/\/external\/device\/control/);
   assert.match(html, /Penagihan Coin tetap dikunci/);
 });
+
+
+test("One-click Windows Setup elevates, preserves pairing, updates existing service, and keeps uninstall credentials", () => {
+  const iss = read("win-agent/installer/AniGamesReady-StarDesk-Agent.iss");
+  const prepare = read("win-agent/installer/prepare-install.ps1");
+  const complete = read("win-agent/installer/complete-install.ps1");
+  const cleanup = read("win-agent/installer/cleanup-uninstall.ps1");
+
+  assert.match(iss, /PrivilegesRequired=admin/);
+  assert.match(iss, /PrepareToInstall/);
+  assert.match(iss, /complete-install\.ps1/);
+  assert.match(iss, /cleanup-uninstall\.ps1/);
+  assert.match(iss, /Agent\.Service/);
+  assert.match(iss, /Agent\.Tray/);
+
+  assert.match(prepare, /AniGamesReadyStarDeskAgent/);
+  assert.match(prepare, /private\\agent\.json/);
+  assert.match(prepare, /credential ProgramData tidak ditemukan/);
+  assert.match(prepare, /Stop-Service/);
+  assert.match(prepare, /backupPath/);
+
+  assert.match(complete, /Get-Service -Name \$serviceName/);
+  assert.match(complete, /sc\.exe config/);
+  assert.match(complete, /sc\.exe create/);
+  assert.match(complete, /LocalSystem/);
+  assert.match(complete, /Start-Service/);
+  assert.match(complete, /Start-Process -FilePath \$trayExe/);
+
+  assert.match(cleanup, /sc\.exe delete/);
+  assert.match(cleanup, /Deliberately preserve %ProgramData%/);
+  assert.doesNotMatch(cleanup, /Remove-Item.*StarDeskAgent/i);
+});
