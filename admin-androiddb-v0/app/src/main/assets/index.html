@@ -617,7 +617,7 @@ async function loadAgentPCs(){
         '<div class="item-meta">'+esc(d.computer_name||"Windows PC")+' • '+esc(d.gpu_name||d.gpu_class||"GPU belum dilaporkan")+'</div></div>'+
         '<span class="pill '+(online?"good":revoked?"bad":"warn")+'">'+(online?"AGENT ONLINE":revoked?"REVOKED":"OFFLINE")+'</span></div>'+
         '<div class="item-meta">Agent ID: '+id+'<br>Windows: '+esc(d.windows_version||"—")+' • Agent '+esc(d.agent_version||"—")+
-        '<br>Heartbeat: '+date(d.last_heartbeat_at)+'<br>Tarif saat ini: '+esc(d.gpu_class||"—")+' • '+money(d.hourly_rupiah)+' / jam • '+coinValue+' AniCoin / jam</div>'+
+        '<br>Heartbeat: '+date(d.last_heartbeat_at)+'<br>StarDesk ID: '+(d.stardesk_device_id?esc(d.stardesk_device_id):"Belum tersinkron")+' • '+(d.stardesk_pairing_status==="captured"?"DATA TERSIMPAN TERENKRIPSI":"MENUNGGU SINKRON PC")+'<br>Tarif saat ini: '+esc(d.gpu_class||"—")+' • '+money(d.hourly_rupiah)+' / jam • '+coinValue+' AniCoin / jam</div>'+
         controls+'</div>';
     }).join("")||'<div class="empty">Belum ada Windows Agent yang dipasangkan.</div>';
     globalMessage("Data Agent PC berhasil dimuat. "+rows.filter(x=>x.status==="online").length+" Agent online.");
