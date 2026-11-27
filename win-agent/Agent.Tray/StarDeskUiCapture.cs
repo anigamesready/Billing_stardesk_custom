@@ -140,21 +140,23 @@ public static class StarDeskUiCapture
 
             foreach (var label in labels)
             {
-                var index = normalized.IndexOf(label, StringComparison.OrdinalIgnoreCase);
-                if (index < 0) continue;
-                var raw = values[i];
-                var rawLabelIndex = raw.IndexOf(label, StringComparison.OrdinalIgnoreCase);
-                if (rawLabelIndex < 0) continue;
-                var after = raw[(rawLabelIndex + label.Length)..];
-                var candidate = CleanToken(after.Split(
-                    [' ', '\t', '\r', '\n', ':', '：', '=', '|'], 
-                    StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "");
-                if (IsCandidate(candidate)) return candidate;
+                var labelPattern = label switch
+                {
+                    "deviceid" or "stardeskdeviceid" => @"device\s*id",
+                    "deviceidentifier" => @"device\s*identifier",
+                    "verificationcode" => @"verification\s*code",
+                    "verifycode" => @"verify\s*code",
+                    "securitycode" => @"security\s*code",
+                    _ => Regex.Escape(label)
+                };
+                var match = Regex.Match(values[i],
+                    @"(?i)\b" + labelPattern + @"\b\s*[:：]?\s*([A-Za-z0-9][A-Za-z0-9._:-]{3,179})");
+                if (match.Success && IsCandidate(match.Groups[1].Value))
+                    return match.Groups[1].Value;
             }
         }
         return "";
     }
-
     private static string Normalize(string value) =>
         Regex.Replace(value ?? "", "[^A-Za-z0-9]", "").ToLowerInvariant();
 
