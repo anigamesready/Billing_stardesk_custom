@@ -1,0 +1,181 @@
+name: Build Ani Games Ready Remote + Admin + StarDesk Agent Sync 0.3.0
+
+on:
+  push:
+    branches:
+      - feature/remote-agent-sync-auto-discovery-20261127
+    paths:
+      - "android-client/**"
+      - "admin-androiddb-v0/**"
+      - "win-agent/**"
+      - "backend/android-db/server/server.mjs"
+      - "backend/android-db/migrations/029_androiddb_v0_remote_userid_agent_inventory.sql"
+      - "backend/android-db/migrations/030_agent_remote_pc_sync.sql"
+      - "backend/android-db/termux/install-stardesk-custom-v0.sh"
+      - "backend/android-db/termux/upgrade-stardesk-remote-sync-030.sh"
+      - "tests/remote-agent-sync-contract.test.mjs"
+      - ".github/workflows/build-remote-agent-sync.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-contracts:
+    name: Verify StarDesk Remote / DB / Agent contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify Node and shell syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check backend/android-db/server/server.mjs
+          for script in \
+            backend/android-db/termux/install-stardesk-custom-v0.sh \
+            backend/android-db/termux/upgrade-stardesk-agent-027.sh \
+            backend/android-db/termux/upgrade-stardesk-remote-sync-030.sh; do
+            bash -n "$script"
+          done
+      - name: Run remote-agent source contract tests
+        run: node --test tests/remote-agent-sync-contract.test.mjs
+      - name: Parse Remote and Admin WebView JavaScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          targets = [
+              ("android-client/app/src/main/assets/index.html", "/tmp/remote-agent.js"),
+              ("admin-androiddb-v0/app/src/main/assets/index.html", "/tmp/admin-agent.js"),
+          ]
+          for source, destination in targets:
+              html = Path(source).read_text(encoding="utf-8")
+              scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
+              assert len(scripts) == 1, f"{source}: expected exactly one inline script"
+              Path(destination).write_text(scripts[0], encoding="utf-8")
+          PY
+          node --check /tmp/remote-agent.js
+          node --check /tmp/admin-agent.js
+      - name: Verify isolated versions and migration order
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode 13' android-client/app/build.gradle
+          grep -q 'versionName "0.6.7-agent-sync"' android-client/app/build.gradle
+          grep -q 'versionCode 12' admin-androiddb-v0/app/build.gradle
+          grep -q 'versionName "0.3.0-remote-agent-sync"' admin-androiddb-v0/app/build.gradle
+          grep -q '029_androiddb_v0_remote_userid_agent_inventory.sql' backend/android-db/termux/install-stardesk-custom-v0.sh
+          grep -q '030_agent_remote_pc_sync.sql' backend/android-db/termux/install-stardesk-custom-v0.sh
+          grep -q 'ANI_STARDESK_PAIRING_KEY' backend/android-db/termux/install-stardesk-custom-v0.sh
+
+  android-apks:
+    name: Build and verify Remote + Admin APKs
+    runs-on: ubuntu-latest
+    needs: source-contracts
+    timeout-minutes: 35
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Configure Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
+      - name: Build Remote APK 0.6.7
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace -p android-client clean assembleDebug
+          mkdir -p out
+          cp android-client/app/build/outputs/apk/debug/app-debug.apk out/Ani-Games-Ready-Remote-0.6.7-Agent-Sync.apk
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
+          "$AAPT" dump badging out/Ani-Games-Ready-Remote-0.6.7-Agent-Sync.apk | tee out/remote-badging.txt
+          grep -q "package: name='com.anigamesready.stardeskclient.coinx100preview' versionCode='13' versionName='0.6.7-agent-sync'" out/remote-badging.txt
+          "$APKSIGNER" verify --verbose out/Ani-Games-Ready-Remote-0.6.7-Agent-Sync.apk
+          sha256sum out/Ani-Games-Ready-Remote-0.6.7-Agent-Sync.apk | tee out/SHA256-REMOTE.txt
+          unzip -t out/Ani-Games-Ready-Remote-0.6.7-Agent-Sync.apk
+      - name: Build Admin APK 0.3.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace -p admin-androiddb-v0 clean assembleDebug
+          cp admin-androiddb-v0/app/build/outputs/apk/debug/app-debug.apk out/Ani-Games-Admin-Agent-Sync-0.3.0.apk
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt -print | sort -V | tail -1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
+          "$AAPT" dump badging out/Ani-Games-Admin-Agent-Sync-0.3.0.apk | tee out/admin-badging.txt
+          grep -q "package: name='com.anigames.billingadmin.coinx100preview' versionCode='12' versionName='0.3.0-remote-agent-sync'" out/admin-badging.txt
+          "$APKSIGNER" verify --verbose out/Ani-Games-Admin-Agent-Sync-0.3.0.apk
+          sha256sum out/Ani-Games-Admin-Agent-Sync-0.3.0.apk | tee out/SHA256-ADMIN.txt
+          unzip -t out/Ani-Games-Admin-Agent-Sync-0.3.0.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Ani-Games-Ready-Android-Remote-Admin-Agent-Sync-0.3.0
+          path: |
+            out/Ani-Games-Ready-Remote-0.6.7-Agent-Sync.apk
+            out/Ani-Games-Admin-Agent-Sync-0.3.0.apk
+            out/SHA256-REMOTE.txt
+            out/SHA256-ADMIN.txt
+            out/remote-badging.txt
+            out/admin-badging.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  windows-agent:
+    name: Build Windows Agent 0.2.0
+    runs-on: windows-2022
+    needs: source-contracts
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Publish Windows Service
+        shell: pwsh
+        run: |
+          dotnet publish win-agent/Agent.Service/Agent.Service.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o "$PWD/out/WindowsAgent/Agent.Service"
+      - name: Publish Windows Tray with UI Automation
+        shell: pwsh
+        run: |
+          dotnet publish win-agent/Agent.Tray/Agent.Tray.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o "$PWD/out/WindowsAgent/Agent.Tray"
+      - name: Assemble update package and verify executable
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $bundle = "out/WindowsAgent"
+          if (!(Test-Path "$bundle/Agent.Service/AniGamesReady.Agent.Service.exe")) { throw "Windows Service output missing" }
+          if (!(Test-Path "$bundle/Agent.Tray/AniGamesReady.Agent.Tray.exe")) { throw "Windows Tray output missing" }
+          Copy-Item win-agent/scripts/install.ps1 "$bundle/install.ps1"
+          Copy-Item win-agent/scripts/update.ps1 "$bundle/update.ps1"
+          Copy-Item win-agent/scripts/uninstall.ps1 "$bundle/uninstall.ps1"
+          Copy-Item win-agent/README.txt "$bundle/README.txt"
+          $zip = "Ani-Games-Ready-StarDesk-Windows-Agent-0.2.0-Update-win-x64.zip"
+          Compress-Archive -Path "$bundle/*" -DestinationPath "out/$zip" -CompressionLevel Optimal
+          Get-FileHash "out/$zip" -Algorithm SHA256 | Format-List | Out-File "out/SHA256-WINDOWS-AGENT.txt"
+          Get-Item "out/$zip" | Format-Table Name,Length
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Ani-Games-Ready-StarDesk-Windows-Agent-0.2.0-Update
+          path: |
+            out/Ani-Games-Ready-StarDesk-Windows-Agent-0.2.0-Update-win-x64.zip
+            out/SHA256-WINDOWS-AGENT.txt
+          if-no-files-found: error
+          retention-days: 30
