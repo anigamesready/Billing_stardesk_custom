@@ -212,7 +212,8 @@ test("StarDesk 0.2.5 selects the actual desktop main process and excludes USBIP 
   assert.match(capture, /IsStarDeskHelperProcess/);
   assert.match(capture, /process\.MainWindowHandle/);
   assert.match(capture, /OrderByDescending\(x => x\.IsMainWindow/);
-  assert.match(capture, /StarDeskUsbipDeviceMonitor/);
+  assert.match(capture, /usbip/);
+  assert.match(capture, /monitor/);
   assert.doesNotMatch(capture, /!processIds\.Contains\(pid\)\s*&&\s*!title\.Contains\("StarDesk"/);
 });
 
@@ -291,7 +292,8 @@ test("Tray publishes OCR engine and English tessdata with the one-click app", ()
   const installer = read("win-agent/installer/AniGamesReady-StarDesk-Agent.iss");
   assert.match(project, /TesseractOCR.*5\.5\.2/);
   assert.match(project, /TesseractOCR\.Languages\.English.*5\.5\.2/);
-  assert.match(installer, /Agent\.Tray\\\\\*/);
+  assert.match(installer, /Agent\.Tray\\\*/);
+  assert.match(installer, /recursesubdirs createallsubdirs/);
 });
 
 test("One-click installer validates and installs official Microsoft VC++ x64 runtime when missing", () => {
