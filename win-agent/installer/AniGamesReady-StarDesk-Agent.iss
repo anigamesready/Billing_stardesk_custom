@@ -1,4 +1,4 @@
-#define AppVersion "0.2.1"
+#define AppVersion "0.2.2"
 #define BundleRoot "..\..\out\WindowsAgent"
 
 [Setup]
@@ -10,7 +10,7 @@ DefaultDirName={autopf}\Ani Games Ready\StarDesk Agent
 DefaultGroupName=Ani Games Ready
 UninstallDisplayName=Ani Games Ready StarDesk Agent
 OutputDir=..\..\out\WindowsAgent
-OutputBaseFilename=Ani-Games-Ready-StarDesk-Agent-Setup-0.2.1-win-x64
+OutputBaseFilename=Ani-Games-Ready-StarDesk-Agent-Setup-0.2.2-win-x64
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=admin

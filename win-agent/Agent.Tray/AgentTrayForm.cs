@@ -14,10 +14,21 @@ public sealed class AgentTrayForm : Form
     private readonly Button refreshButton = new();
     private readonly Button syncButton = new();
     private readonly Label starDeskLabel = new();
+    private readonly Label autoSyncLabel = new();
     private readonly NotifyIcon trayIcon;
     private readonly System.Windows.Forms.Timer refreshTimer = new();
+    private readonly System.Windows.Forms.Timer autoSyncTimer = new();
     private AgentStatus? currentStatus;
     private bool allowClose;
+    private bool autoSyncBusy;
+    private bool manualSyncBusy;
+    private string lastSyncedFingerprint = "";
+    private string candidateFingerprint = "";
+    private int candidateStableReads;
+    private DateTime candidateFirstSeenUtc;
+    private bool? previousSessionActive;
+    private int syncFailureCount;
+    private DateTime nextSyncAttemptUtc = DateTime.MinValue;
 
     public AgentTrayForm()
     {
@@ -26,7 +37,7 @@ public sealed class AgentTrayForm : Form
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = true;
-        ClientSize = new Size(520, 350);
+        ClientSize = new Size(520, 382);
         BackColor = Color.FromArgb(7, 16, 31);
         ForeColor = Color.FromArgb(237, 246, 255);
         Font = new Font("Segoe UI", 9F);
@@ -63,23 +74,29 @@ public sealed class AgentTrayForm : Form
         Controls.Add(codeLabel);
 
         copyButton.Text = "Salin kode pairing";
-        copyButton.SetBounds(22, 266, 160, 38);
+        copyButton.SetBounds(22, 302, 160, 38);
         copyButton.Click += (_, _) => CopyPairingCode();
         Controls.Add(copyButton);
 
-        starDeskLabel.SetBounds(22, 248, 475, 18);
+        starDeskLabel.SetBounds(22, 246, 475, 18);
         starDeskLabel.ForeColor = Color.FromArgb(151, 225, 255);
         starDeskLabel.Text = "StarDesk: belum disinkronkan";
         starDeskLabel.AutoEllipsis = true;
         Controls.Add(starDeskLabel);
 
+        autoSyncLabel.SetBounds(22, 268, 475, 20);
+        autoSyncLabel.ForeColor = Color.FromArgb(112, 237, 189);
+        autoSyncLabel.AutoEllipsis = true;
+        autoSyncLabel.Text = "Auto-sync: menunggu Windows Agent dipasangkan.";
+        Controls.Add(autoSyncLabel);
+
         refreshButton.Text = "Refresh status";
-        refreshButton.SetBounds(190, 274, 135, 38);
+        refreshButton.SetBounds(190, 302, 135, 38);
         refreshButton.Click += (_, _) => RefreshStatus();
         Controls.Add(refreshButton);
 
         syncButton.Text = "Sinkronkan StarDesk";
-        syncButton.SetBounds(335, 274, 162, 38);
+        syncButton.SetBounds(335, 302, 162, 38);
         syncButton.Click += async (_, _) => await SyncStarDeskAsync();
         syncButton.Enabled = false;
         Controls.Add(syncButton);
@@ -89,8 +106,8 @@ public sealed class AgentTrayForm : Form
             Text = "Tutup jendela atau tekan X untuk menyembunyikan ke system tray. Service Agent tetap berjalan.",
             ForeColor = Color.FromArgb(125, 151, 178),
             AutoSize = false,
-            Location = new Point(22, 322),
-            Size = new Size(475, 22),
+            Location = new Point(22, 350),
+            Size = new Size(475, 24),
             Font = new Font("Segoe UI", 8F)
         };
         Controls.Add(foot);
@@ -113,6 +130,10 @@ public sealed class AgentTrayForm : Form
         refreshTimer.Interval = 2000;
         refreshTimer.Tick += (_, _) => RefreshStatus();
         refreshTimer.Start();
+
+        autoSyncTimer.Interval = 4000;
+        autoSyncTimer.Tick += async (_, _) => await AutoSyncStarDeskAsync();
+        autoSyncTimer.Start();
 
         Shown += (_, _) => RefreshStatus();
         FormClosing += OnFormClosing;
@@ -156,6 +177,9 @@ public sealed class AgentTrayForm : Form
         starDeskLabel.Text = string.IsNullOrWhiteSpace(currentStatus.StarDeskDeviceId)
             ? "StarDesk: belum disinkronkan"
             : "StarDesk ID: " + currentStatus.StarDeskDeviceId + " • " + (currentStatus.LastStarDeskSyncUtc?.ToLocalTime().ToString("dd MMM HH:mm:ss") ?? "tersimpan");
+        autoSyncLabel.Text = currentStatus.IsPaired
+            ? autoSyncLabel.Text
+            : "Auto-sync: menunggu pairing Owner.";
         trayIcon.Text = "Ani Games Ready Agent • " + currentStatus.State;
     }
 
@@ -174,6 +198,127 @@ public sealed class AgentTrayForm : Form
             "Ani Games Ready Agent", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
+    private static string Fingerprint(StarDeskCaptureSnapshot capture)
+    {
+        var material = capture.DeviceId + "\0" + capture.VerificationCode;
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(material)));
+    }
+
+    private async Task AutoSyncStarDeskAsync()
+    {
+        if (autoSyncBusy || manualSyncBusy)
+            return;
+
+        var status = AgentStorage.ReadStatus();
+        if (status?.IsPaired != true)
+        {
+            autoSyncLabel.Text = "Auto-sync: menunggu pairing Owner.";
+            return;
+        }
+
+        autoSyncBusy = true;
+        try
+        {
+            var capture = await Task.Run(StarDeskUiCapture.ReadPartial);
+            if (string.IsNullOrWhiteSpace(capture.DeviceId) ||
+                string.IsNullOrWhiteSpace(capture.VerificationCode))
+            {
+                candidateFingerprint = "";
+                candidateStableReads = 0;
+                autoSyncLabel.Text = "Auto-sync aktif • buka halaman Remote Support StarDesk.";
+                return;
+            }
+
+            if (capture.RemoteSessionStateKnown && capture.RemoteSessionActive)
+            {
+                previousSessionActive = true;
+                candidateFingerprint = "";
+                candidateStableReads = 0;
+                autoSyncLabel.Text = "SESI REMOTE AKTIF • menunggu sesi berakhir.";
+                return;
+            }
+
+            var sessionJustEnded =
+                previousSessionActive == true &&
+                capture.RemoteSessionStateKnown &&
+                !capture.RemoteSessionActive;
+
+            if (capture.RemoteSessionStateKnown)
+                previousSessionActive = capture.RemoteSessionActive;
+
+            var fingerprint = Fingerprint(capture);
+            if (fingerprint == lastSyncedFingerprint && !sessionJustEnded)
+            {
+                candidateFingerprint = "";
+                candidateStableReads = 0;
+                autoSyncLabel.Text = "Auto-sync aktif • kode terbaru sudah tersinkron.";
+                return;
+            }
+
+            if (!string.Equals(candidateFingerprint, fingerprint, StringComparison.Ordinal))
+            {
+                candidateFingerprint = fingerprint;
+                candidateStableReads = 1;
+                candidateFirstSeenUtc = DateTime.UtcNow;
+                autoSyncLabel.Text = "Kode baru terdeteksi • memastikan kode stabil...";
+                return;
+            }
+
+            candidateStableReads++;
+            var stableEnough = capture.RemoteSessionStateKnown
+                ? candidateStableReads >= 2
+                : candidateStableReads >= 4 &&
+                  DateTime.UtcNow - candidateFirstSeenUtc >= TimeSpan.FromSeconds(15);
+
+            if (!stableEnough)
+            {
+                autoSyncLabel.Text = "Kode baru terdeteksi • menunggu konfirmasi pembacaan.";
+                return;
+            }
+
+            if (DateTime.UtcNow < nextSyncAttemptUtc)
+            {
+                autoSyncLabel.Text = "Auto-sync • menunggu retry koneksi.";
+                return;
+            }
+
+            await AgentCapturePipeClient.SyncAsync(capture);
+            lastSyncedFingerprint = fingerprint;
+            candidateFingerprint = "";
+            candidateStableReads = 0;
+            syncFailureCount = 0;
+            nextSyncAttemptUtc = DateTime.MinValue;
+            autoSyncLabel.Text = sessionJustEnded
+                ? "KODE BARU TERSINKRON • sesi StarDesk baru saja selesai."
+                : "Auto-sync aktif • kode terbaru sudah tersinkron.";
+            RefreshStatus();
+        }
+        catch (Exception ex)
+        {
+            syncFailureCount++;
+            var seconds = Math.Min(60, 5 * (int)Math.Pow(2, Math.Min(syncFailureCount - 1, 4)));
+            nextSyncAttemptUtc = DateTime.UtcNow.AddSeconds(seconds);
+            autoSyncLabel.Text = "Auto-sync tertunda • retry dalam " + seconds +
+                " detik (" + SafeReason(ex.Message) + ").";
+        }
+        finally
+        {
+            autoSyncBusy = false;
+        }
+    }
+
+    private static string SafeReason(string message)
+    {
+        if (message.Contains("STAR_DESK_WINDOW_NOT_FOUND", StringComparison.OrdinalIgnoreCase))
+            return "StarDesk belum terbuka";
+        if (message.Contains("timeout", StringComparison.OrdinalIgnoreCase))
+            return "koneksi timeout";
+        if (message.Contains("AGENT_PAIRING_REQUIRED", StringComparison.OrdinalIgnoreCase))
+            return "Agent belum paired";
+        return "koneksi Agent/server";
+    }
+
     private async Task SyncStarDeskAsync()
     {
         RefreshStatus();
@@ -184,6 +329,9 @@ public sealed class AgentTrayForm : Form
             return;
         }
 
+        if (manualSyncBusy) return;
+        manualSyncBusy = true;
+        autoSyncTimer.Stop();
         syncButton.Enabled = false;
         syncButton.Text = "Membaca StarDesk...";
         try
@@ -213,6 +361,11 @@ public sealed class AgentTrayForm : Form
             }
 
             await AgentCapturePipeClient.SyncAsync(capture);
+            lastSyncedFingerprint = Fingerprint(capture);
+            candidateFingerprint = "";
+            candidateStableReads = 0;
+            syncFailureCount = 0;
+            autoSyncLabel.Text = "Manual sync berhasil • pemantauan otomatis tetap aktif.";
             MessageBox.Show(
                 "StarDesk berhasil disinkronkan ke Android DB.\n\nDevice ID: " + capture.DeviceId +
                 "\nKode verifikasi tidak ditampilkan dan disimpan dalam bentuk terenkripsi.",
@@ -230,6 +383,8 @@ public sealed class AgentTrayForm : Form
         {
             syncButton.Text = "Sinkronkan StarDesk";
             RefreshStatus();
+            manualSyncBusy = false;
+            autoSyncTimer.Start();
         }
     }
 
@@ -264,6 +419,7 @@ public sealed class AgentTrayForm : Form
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
         refreshTimer.Stop();
+        autoSyncTimer.Stop();
         trayIcon.Visible = false;
         trayIcon.Dispose();
         base.OnFormClosed(e);

@@ -127,3 +127,47 @@ test("Windows Agent falls back to secure manual StarDesk fields when UI Automati
   assert.match(worker, /verification_code = verificationCode/);
   assert.doesNotMatch(worker, /File\.WriteAllText\([^\n]*verificationCode/i);
 });
+
+
+test("StarDesk 1.6.x temporary code is read from Verification Method visual row", () => {
+  const capture = read("win-agent/Agent.Tray/StarDeskUiCapture.cs");
+  assert.match(capture, /verificationmethod/);
+  assert.match(capture, /CodeValueRegex/);
+  assert.match(capture, /BoundingRectangle/);
+  assert.match(capture, /FindVerificationCode/);
+  assert.match(capture, /RemoteSessionStateKnown/);
+  assert.match(capture, /DetectRemoteSession/);
+});
+
+test("Windows Agent monitors code changes automatically and syncs only after a stable idle capture", () => {
+  const tray = read("win-agent/Agent.Tray/AgentTrayForm.cs");
+  assert.match(tray, /autoSyncTimer\.Interval = 4000/);
+  assert.match(tray, /AutoSyncStarDeskAsync/);
+  assert.match(tray, /candidateStableReads >= 2/);
+  assert.match(tray, /candidateStableReads >= 4/);
+  assert.match(tray, /capture\.RemoteSessionActive/);
+  assert.match(tray, /AgentCapturePipeClient\.SyncAsync\(capture\)/);
+  assert.match(tray, /lastSyncedFingerprint/);
+  assert.match(tray, /DateTime\.UtcNow\.AddSeconds\(seconds\)/);
+  assert.match(tray, /autoSyncTimer\.Stop\(\)/);
+  assert.match(tray, /autoSyncTimer\.Start\(\)/);
+  assert.doesNotMatch(tray, /verificationCode.*(WriteAllText|File\.AppendAllText)/i);
+});
+
+test("Automatic temporal sync reuses isolated encrypted pairing RPC without a new schema", () => {
+  const worker = read("win-agent/Agent.Service/AgentWorker.cs");
+  const server = read("backend/android-db/server/server.mjs");
+  const migration = read("backend/android-db/migrations/030_agent_remote_pc_sync.sql");
+  assert.match(worker, /androiddb_v0_agent_sync_stardesk_pairing/);
+  assert.match(server, /createCipheriv\("aes-256-gcm"/);
+  assert.match(migration, /ON CONFLICT\(rental_pc_id\) DO UPDATE SET/);
+  assert.match(migration, /verification_ciphertext=EXCLUDED\.verification_ciphertext/);
+  assert.doesNotMatch(migration, /verification_code\s+text/i);
+});
+
+test("Windows Agent version metadata is bumped together for the auto-sync build", () => {
+  assert.match(read("win-agent/Agent.Service/AgentWorker.cs"), /Version = "0\.2\.2"/);
+  assert.match(read("win-agent/Agent.Shared/AgentContracts.cs"), /AgentVersion .*"0\.2\.2"/);
+  assert.match(read("win-agent/Agent.Tray/Agent.Tray.csproj"), /<Version>0\.2\.2<\/Version>/);
+  assert.match(read("win-agent/installer/AniGamesReady-StarDesk-Agent.iss"), /AppVersion "0\.2\.2"/);
+});

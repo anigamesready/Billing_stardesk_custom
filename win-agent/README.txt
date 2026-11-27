@@ -1,5 +1,5 @@
 ANI GAMES READY — STAR DESK WINDOWS AGENT
-Preview version 0.2.1
+Preview version 0.2.2
 
 PERSYARATAN
 - Windows 10 / Windows 11 x64.
@@ -7,7 +7,7 @@ PERSYARATAN
 - Izin Administrator untuk memasang Windows Service.
 
 CARA INSTAL PALING MUDAH (SATU KLIK)
-1. Unduh file Ani-Games-Ready-StarDesk-Agent-Setup-0.2.1-win-x64.exe.
+1. Unduh file Ani-Games-Ready-StarDesk-Agent-Setup-0.2.2-win-x64.exe.
 2. Klik dua kali Setup.exe.
 3. Saat Windows menampilkan UAC, pilih Yes.
 4. Installer otomatis memasang atau memperbarui Windows Service dan tray Agent.
@@ -31,10 +31,10 @@ FITUR
 
 BATASAN PREVIEW
 - Agent Online hanya berarti heartbeat Windows aktif.
-- Tombol **Sinkronkan StarDesk** mencoba membaca Device ID dan Verification Code dari jendela StarDesk memakai Windows UI Automation.
-- Jika salah satu nilai tidak terbaca, Agent membuka form fallback untuk mengisi Device ID dan Verification Code secara manual; nilai yang sempat terbaca otomatis akan diisikan.
-- Device ID bernomor yang tampil berkelompok (contoh 861 260 101) dinormalisasi menjadi 861260101 saat disimpan.
-- Agent mengirim hasil melalui local named pipe ber-ACL ke Windows Service. API Android DB mengenkripsi verification code dengan AES-256-GCM sebelum disimpan; plaintext tidak disimpan di file status Agent dan tidak dikirim ke Remote APK.
+- Agent memantau jendela StarDesk Remote Support otomatis setiap 4 detik selama Windows user login. Device ID dibaca dari label Device ID; kode 8 karakter dibaca dari elemen di bawah label Verification Method (layout StarDesk 1.6.x).
+- Kode diperiksa stabil minimal dua kali; ketika indikator remote sedang mengontrol PC aktif, sinkronisasi ditahan. Setelah indikator sesi hilang dan kode stabil/berubah, Agent mengirim nilai terbaru otomatis. Jika UI tidak dapat dibaca, tombol manual **Sinkronkan StarDesk** tetap menyediakan form fallback.
+- Device ID bernomor yang tampil berkelompok (contoh 259 397 349) dinormalisasi menjadi 259397349 saat disimpan. Kode temporer hanya berada di memori selama proses capture dan tidak dicatat ke log atau file status.
+- Agent mengirim kode baru melalui local named pipe ber-ACL ke Windows Service. API Android DB mengenkripsi verification code dengan AES-256-GCM sebelum disimpan; plaintext tidak disimpan di file status Agent dan tidak dikirim ke Remote APK. Watcher tidak melakukan request jaringan selama kode tidak berubah.
 - Device ID disimpan untuk pemetaan PC. Verification code bersifat sensitif dan bisa berubah/berakhir; ciphertext-nya tidak dipakai sebagai kode Remote Assist permanen.
 - Belum ada kontrol streaming atau callback mulai/berhenti sesi. Agent Online bukan bukti streaming aktif dan belum ada pemotongan AniCoin.
 - GPU name hardware masih dapat belum terdeteksi otomatis; Owner memilih kelas GPU/tarif dari Admin.
@@ -47,7 +47,7 @@ Jalankan sebagai Administrator:
 Identitas dan credential di ProgramData dipertahankan agar reinstall dapat memakai Agent Device ID yang sama. Cabut pairing dari Admin sebelum PC dipensiunkan.
 
 
-UPDATE DARI PREVIEW 0.1.0 KE 0.2.1 (TANPA PAIRING ULANG)\n\nCara paling mudah: jalankan Setup.exe satu kali. Setup mendeteksi service lama, menghentikannya sementara, mengganti Agent, lalu menjalankannya kembali tanpa menghapus credential atau pairing. Tidak perlu menjalankan update.ps1 secara manual.
+UPDATE DARI PREVIEW 0.1.0 KE 0.2.2 (TANPA PAIRING ULANG)\n\nCara paling mudah: jalankan Setup.exe satu kali. Setup mendeteksi service lama, menghentikannya sementara, mengganti Agent, lalu menjalankannya kembali tanpa menghapus credential atau pairing. Tidak perlu menjalankan update.ps1 secara manual.
 1. Ekstrak ZIP update ke satu folder.
 2. Klik kanan PowerShell, pilih Run as administrator.
 3. Jalankan:
@@ -58,3 +58,11 @@ UPDATE DARI PREVIEW 0.1.0 KE 0.2.1 (TANPA PAIRING ULANG)\n\nCara paling mudah: j
 7. Buka tray Ani Games Ready StarDesk Agent, klik **Sinkronkan StarDesk**.
 8. Agent mencoba membaca nilai otomatis. Jika tidak lengkap, form manual muncul untuk mengisi nilai yang belum terbaca.
 9. Bila berhasil, Device ID dan waktu sinkron tampil di tray dan menu Agent PC Admin. Verification Code tidak ditampilkan kembali.
+
+
+FITUR OTOMATIS 0.2.2
+- Auto-sync membaca halaman Remote Support setiap 4 detik selama tray Agent berjalan.
+- Verification Code 8 karakter diambil berdasarkan posisi di bawah label Verification Method; Device ID dinormalisasi otomatis.
+- Jika UI menyatakan PC sedang dikontrol, sinkronisasi ditahan sampai sesi selesai. Nilai harus stabil dua pembacaan; bila status sesi tidak terdeteksi, Agent menunggu setidaknya 15 detik dan empat pembacaan.
+- Hanya kode yang berubah (atau transisi sesi aktif ke selesai) dikirim ke server. Tidak ada polling jaringan selama kode tetap sama.
+- Kode plaintext hanya berada di memori dan dikirim lewat named pipe lokal; API mengenkripsi kode sebelum database menyimpan ciphertext.
