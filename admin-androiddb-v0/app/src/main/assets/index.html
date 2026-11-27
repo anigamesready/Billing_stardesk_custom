@@ -644,7 +644,7 @@ async function updateAgentPC(id){
     const r=await api("androiddb_v0_admin_agent_update_pc_manual",{p_agent_device_id:id,p_display_name:name,p_gpu_class:gpu,p_hourly_rupiah:rate.rupiah,p_hourly_coin_units:rate.coinUnits});
     if(r.ok!==true)throw new Error(r.message||r.error||"Perubahan tidak tersimpan.");
     await loadAgentPCs();globalMessage("Nama PC, GPU, harga, dan tarif AniCoin berhasil diperbarui.");
-  }catch(e){globalMessage("Gagal memperbarui Agent PC: "+(e.message||e),true);}
+  }catch(e){globalMessage("Gagal memperbarui Agent PC: "+agentBackendError(e),true);}
 }
 async function sendAgentCommand(id,command){
   let payload={};

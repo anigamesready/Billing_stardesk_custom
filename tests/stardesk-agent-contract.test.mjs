@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import vm from "node:vm";
 import { readFileSync } from "node:fs";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
@@ -55,10 +56,28 @@ test("Admin UI collects manual prices for Agent pairing/editing and PC Host", ()
     assert.ok(admin.includes('id="' + id + '"'));
   assert.ok(admin.includes('id="hostRupiah_'));
   assert.ok(admin.includes('id="hostCoin_'));
-  for (const token of ["function parseManualCoinUnits","function readManualRate","androiddb_v0_admin_agent_pair_manual","androiddb_v0_admin_agent_update_pc_manual","androiddb_v0_admin_set_device_custom_rate"])
+  for (const token of ["function parseManualCoinUnits","function parseManualRupiah","function readManualRate","function agentBackendError","androiddb_v0_admin_agent_pair_manual","androiddb_v0_admin_agent_update_pc_manual","androiddb_v0_admin_set_device_custom_rate"])
     assert.ok(admin.includes(token));
   assert.ok(!admin.includes("Tarif otomatis:"));
   assert.ok(!admin.includes('const items=["GTX 1050","GTX 1660","RTX 3060","RTX 5060"]'));
+});
+
+
+test("Manual tariff parser accepts plain and Indonesian grouped Rupiah and decimal Coin", () => {
+  const start = admin.indexOf("function parseManualCoinUnits(raw){");
+  const end = admin.indexOf("async function saveLink(id){", start);
+  assert.ok(start >= 0 && end > start, "manual price helper block not found");
+  const context = vm.createContext({val: value => String(value === null || value === undefined ? "" : value)});
+  const helpers = vm.runInContext(admin.slice(start, end) + ";({parseManualRupiah,parseManualCoinUnits})", context);
+  assert.equal(helpers.parseManualRupiah("8000"), 8000);
+  assert.equal(helpers.parseManualRupiah("8.000"), 8000);
+  assert.equal(helpers.parseManualRupiah("Rp 8.000"), 8000);
+  assert.equal(helpers.parseManualRupiah("10,000"), 10000);
+  assert.equal(helpers.parseManualCoinUnits("60"), 6000);
+  assert.equal(helpers.parseManualCoinUnits("52,5"), 5250);
+  assert.equal(helpers.parseManualCoinUnits("52.50"), 5250);
+  assert.throws(() => helpers.parseManualRupiah("8,00"));
+  assert.throws(() => helpers.parseManualCoinUnits("52,555"));
 });
 
 test("Admin menu uses primary tabs and moves remaining modules into the side drawer", () => {
@@ -101,9 +120,9 @@ test("Fresh install and live upgrade apply migration 028 only to isolated StarDe
 });
 
 test("Admin Android preview package version is incremented without changing package identity", () => {
-  assert.ok(gradle.includes("versionCode 10"));
-  assert.ok(gradle.includes('versionName "0.2.8-agent-manual-pricing"'));
-  assert.ok(manifest.includes("Ani Games Admin Coin x100 + Agent Preview 0.2.8"));
+  assert.ok(gradle.includes("versionCode 11"));
+  assert.ok(gradle.includes('versionName "0.2.9-agent-pricing-fix"'));
+  assert.ok(manifest.includes("Ani Games Admin Coin x100 + Agent Preview 0.2.9"));
   assert.ok(gradle.includes('applicationId "com.anigames.billingadmin.coinx100preview"'));
 });
 

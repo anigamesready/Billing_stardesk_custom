@@ -1,13 +1,13 @@
-# StarDesk Custom Admin — Agent & Manual Tariff Preview 0.2.8
+# StarDesk Custom Admin — Agent & Manual Tariff Preview 0.2.9
 
 A standalone Android Owner/Admin app built from this repository. The APK keeps the isolated package identity `com.anigames.billingadmin.coinx100preview` and can remain installed beside the separate Admin V12.x app. This is a preview candidate, not a production release.
 
 ## Identity
 
 - Package: `com.anigames.billingadmin.coinx100preview`
-- App label: `Ani Games Admin Coin x100 + Agent Preview 0.2.8`
+- App label: `Ani Games Admin Coin x100 + Agent Preview 0.2.9`
 - Namespace: `com.anigamesready.adminandroiddbv0`
-- Version: `0.2.8-agent-manual-pricing`, versionCode `10`
+- Version: `0.2.9-agent-manual-pricing`, versionCode `11`
 - UI source: `app/src/main/assets/index.html`
 
 ## Navigation
@@ -25,7 +25,7 @@ For a new Windows Agent pairing, Owner enters:
 
 The Agent PC list allows the Owner to edit the same four fields. PC Host & Tarif also accepts its GPU description, Rupiah/hour and AniCoin/hour independently for each PC.
 
-The database keeps AniCoin at x100 precision (for example, 52.5 AniCoin is stored as 5,250 units). Rupiah and Coin rates are validated as positive values with a bounded maximum. A manual tariff setting only configures pricing; it does not prove that streaming is ready or enable Coin session debit/settlement.
+The price parser accepts plain Rupiah input (8000) and Indonesian grouped input (8.000 or Rp 8.000); AniCoin accepts decimal commas or points. Regression tests execute these cases to prevent the previous double-escaped digit-regex bug. The database keeps AniCoin at x100 precision (for example, 52.5 AniCoin is stored as 5,250 units). Rupiah and Coin rates are validated as positive values with a bounded maximum. A manual tariff setting only configures pricing; it does not prove that streaming is ready or enable Coin session debit/settlement.
 
 ## RPC_NOT_ALLOWED repair
 
