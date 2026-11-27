@@ -195,7 +195,7 @@ jobs:
             choco install innosetup --no-progress -y
           }
           if (!(Test-Path -LiteralPath $iscc)) { throw "Inno Setup compiler not found." }
-          & $iscc "/O$PWD\$bundle" "win-agent/installer/AniGamesReady-StarDesk-Agent.iss"
+          & $iscc "-o$PWD\$bundle" "win-agent/installer/AniGamesReady-StarDesk-Agent.iss"
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed (exit $LASTEXITCODE)." }
 
           $setup = "$bundle/Ani-Games-Ready-StarDesk-Agent-Setup-0.2.0-win-x64.exe"
