@@ -99,12 +99,12 @@ Create a new StarDesk Owner. It is not automatically copied from the old system.
 
 ## Database and Coin domain
 
-A fresh StarDesk database receives migrations `000`, `002`–`023`, and `025_admin_androiddb_v0_coin_domain.sql`. Historical catalog snapshot `001` is not replayed.
+A fresh StarDesk database receives migrations `000`, `002`–`023`, and `025`–`030` in order. Historical catalog snapshot `001` is not replayed.
 
 The dedicated `androiddb_v0` schema contains 14 tables:
-- `rental_accounts`, `client_credentials`, `client_sessions`
+- `rental_accounts`, `client_sessions`
 - `coin_wallets`, `coin_topup_orders`, `coin_lots`, `coin_ledger`
-- `pc_coin_rates`, `stardesk_device_links`
+- `pc_coin_rates`, `stardesk_device_links`, `stardesk_pairings`
 - `host_permissions`, `host_enrollments`, `host_registrations`
 - `sessions`, `audit_events`
 
@@ -124,3 +124,27 @@ Coin baseline:
 `backend/android-db/termux/install.sh`, `repair-admin-v0-live-api.sh`, and `audit-admin-v0-live-db.sh` belong to the **existing** Ani Games Ready Android DB/API workflow. They target the legacy stage database and/or port `8788`. They are not StarDesk installers.
 
 Do not run those scripts to install, repair or migrate StarDesk. Do not point the StarDesk APK at the legacy URL or database. StarDesk deployment and builds remain confined to this repository's dedicated feature branch and workflows until the user approves a release.
+
+
+## Remote Android Agent sync (migrations 029/030)
+
+For an existing isolated install at schema 028, upgrade with the dedicated script from the exact commit SHA:
+
+```bash
+REF=<40-character-commit-sha>
+curl -fsSL "https://raw.githubusercontent.com/anigamesready/Billing_stardesk_custom/$REF/backend/android-db/termux/upgrade-stardesk-remote-sync-030.sh" -o "$HOME/UPGRADE-STAR-DESK-REMOTE-SYNC-030.sh" &&
+chmod 700 "$HOME/UPGRADE-STAR-DESK-REMOTE-SYNC-030.sh" &&
+ANI_STARDESK_SOURCE_REF="$REF" bash "$HOME/UPGRADE-STAR-DESK-REMOTE-SYNC-030.sh"
+```
+
+This additive upgrade only touches `stardesk_custom_v0`, API port `8789`, and service `stardesk-custom-v0-api`. It never restarts PostgreSQL, API 8788, legacy Billing, or the old relay. It adds:
+
+- User ID-only Remote login (no Admin-issued activation code).
+- Remote PC inventory read from `androiddb_v0.rental_pcs` and paired Windows `agent_devices`, not legacy `public.devices`.
+- StarDesk Device ID and encrypted verification-code capture metadata per Agent PC.
+- API-side AES-256-GCM encryption. The random `ANI_STARDESK_PAIRING_KEY` lives in the private local `server/.env` with mode 600. The key and plaintext verification code are not returned to the Remote app or stored in the database.
+- Admin Agent list shows capture status, Device ID and timestamp only.
+
+On Windows, the paired Agent tray has a **Sinkronkan StarDesk** button. Open the StarDesk Windows Remote Assist view where Device ID and Verification Code are visible, then press that button. Windows UI Automation reads accessible labels/values; the Agent sends the values over a local ACL-protected named pipe, and its service sends the code to the API over HTTPS for encryption before database storage. If the StarDesk UI does not expose those fields to Windows UI Automation, the Agent reports that it could not read them; no fallback to manual plaintext storage is used.
+
+The Remote APK lists Windows Agent PCs and opens the StarDesk Android app by its StarDesk URI handoff when a Device ID is captured. StarDesk itself must be signed in using the same account on the host PC and the Android device for StarDesk Remote Access. The Agent heartbeat is not streaming readiness. Remote streaming start/stop callbacks are not part of this preview, so **Coin session start and debit remain locked** until host/stream integration is validated end-to-end.
