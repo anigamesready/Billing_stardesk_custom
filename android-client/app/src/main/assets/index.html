@@ -43,7 +43,7 @@ h1{font-size:24px;line-height:1.15;margin:0;font-weight:950}h1 span{color:#83caf
 <div id="walletLock" class="lock hidden"><b>Akses belum siap</b><small id="walletLockText"></small></div>
 <div class="nav"><button data-tab="home" class="active">PC</button><button data-tab="topup">TOP-UP</button><button data-tab="rates">TARIF</button><button data-tab="history">RIWAYAT</button></div>
 <section id="tab-home"><div class="title"><h2>Pilih PC Gaming</h2><button id="refresh">↻ Refresh</button></div><p class="muted" id="pcSummary">Status PC live dari Android DB.</p><div class="pc-list" id="pcList"></div>
-<div class="notice">Status online dan tarif dibaca dari Android DB. Koneksi StarDesk tetap dikunci sampai pemetaan device serta event mulai/berhenti sesi diuji end-to-end.</div></section>
+<div class="notice">Daftar PC berasal dari Windows Agent dan Device ID StarDesk tersimpan terenkripsi bersama kode verifikasi. Untuk Remote Access tanpa kode, gunakan akun StarDesk yang sama di PC dan aplikasi StarDesk Android. Penagihan Coin tetap dikunci sampai event mulai/berhenti sesi teruji end-to-end.</div></section>
 <section id="tab-topup" class="hidden"><div class="title"><h2>Top-up Koin</h2><span class="muted">QRIS statis</span></div>
 <div class="card"><label class="label">PILIH NOMINAL PEMBAYARAN</label><div class="grid2" id="packages">
 <button type="button" class="package" data-amount="5000"><b>Rp5.000</b><span>3.750 koin</span></button><button type="button" class="package selected" data-amount="10000"><b>Rp10.000</b><span>7.500 koin</span></button><button type="button" class="package" data-amount="15000"><b>Rp15.000</b><span>11.250 koin</span></button><button type="button" class="package" data-amount="20000"><b>Rp20.000</b><span>15.000 koin</span></button></div>
@@ -110,15 +110,22 @@ function renderProfile(){
  else $("walletLock").classList.add("hidden");
 }
 function renderPCs(){
- const hosts=state.hosts||[];$("pcSummary").textContent=hosts.length+" PC terdaftar. Status Host Agent PC berasal dari heartbeat Windows, terpisah dari Relay Agent Redmi.";
- if(!hosts.length){$("pcList").innerHTML='<div class="history"><b>Belum ada PC terdaftar</b><small>Belum ada device untuk organisasi User ID ini.</small></div>';return}
+ const hosts=state.hosts||[];$("pcSummary").textContent=hosts.length+" PC terdaftar dari Windows Agent • status streaming StarDesk masih divalidasi terpisah.";
+ if(!hosts.length){$("pcList").innerHTML='<div class="history"><b>Belum ada PC Agent terdaftar</b><small>Pasangkan Windows Agent melalui Admin Owner, lalu sinkronkan StarDesk dari PC tersebut.</small></div>';return}
  $("pcList").innerHTML=hosts.map(p=>{
-  const billingOnline=!!p.billing_online,agentOnline=!!p.host_agent_online,agentReady=!!p.host_agent_ready,rate=!!p.rate_configured,linked=!!p.stardesk_linked,available=!!p.available;
-  const stateText=!agentOnline?"HOST AGENT OFFLINE":!agentReady?"HOST BELUM SIAP":!p.remote_play_enabled?"IZIN HOST BELUM AKTIF":!rate?"TARIF BELUM DIATUR":!linked?"STAR DESK BELUM DIPETAKAN":available?"STAR DESK SIAP • MODUL SESI TERKUNCI":"PC TIDAK TERSEDIA";
-  const cls=available?"green":agentOnline?"yellow":"red";
+  const agentOnline=!!p.host_agent_online,rate=!!p.rate_configured,linked=!!p.stardesk_linked,deviceId=String(p.stardesk_device_id||"");
+  const stateText=!agentOnline?"WINDOWS AGENT OFFLINE":!rate?"TARIF PC BELUM AKTIF":!linked?"STAR DESK BELUM TERSINKRON":"DEVICE ID TERSINKRON • STREAM BELUM DIVALIDASI";
+  const cls=!agentOnline?"red":linked?"green":"yellow";
   const price=rate?rupiah(p.hourly_rupiah)+"/jam • "+dec(p.hourly_coins)+" koin/jam":"Tarif belum diset Owner";
-  return '<article class="pc"><div class="monitor">🎮</div><div><div class="name">'+escapeHtml(p.device_name||p.client_id||"PC")+'</div><div class="meta">'+escapeHtml(p.gpu_class||"GPU belum diatur")+" • "+price+'</div><div class="meta">Billing '+(billingOnline?"ONLINE":"OFFLINE")+" • Host Agent "+(agentOnline?"ONLINE":"OFFLINE")+'</div><div class="state '+cls+'">● '+stateText+'</div></div><button disabled>Koneksi dikunci</button></article>';
+  const action=linked&&deviceId?'<button data-open-stardesk="'+escapeHtml(deviceId)+'">BUKA STAR DESK</button>':'<button disabled>MENUNGGU ID</button>';
+  return '<article class="pc"><div class="monitor">🎮</div><div><div class="name">'+escapeHtml(p.device_name||p.client_id||"PC")+'</div><div class="meta">'+escapeHtml(p.gpu_class||"GPU belum diatur")+" • "+price+'</div><div class="meta">Windows Agent '+(agentOnline?"ONLINE":"OFFLINE")+' • StarDesk ID '+(linked?"TERSIMPAN":"BELUM ADA")+'</div><div class="state '+cls+'">● '+stateText+'</div></div>'+action+'</article>';
  }).join("");
+}
+function openStarDeskDevice(deviceId){
+ const id=String(deviceId||"").trim();
+ if(!id||id.length>180){toast("StarDesk Device ID belum tersedia.");return}
+ // Native StarDesk app must be signed in with the same account as the host PC.
+ window.location.href="stardesk://external/device/control?id="+encodeURIComponent(id);
 }
 function renderRates(){
  const configured=(state.hosts||[]).filter(x=>x.rate_configured);
@@ -218,6 +225,7 @@ async function confirmTopup(){
 $("loginForm").addEventListener("submit",login);
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>tab(b.dataset.tab)));
 document.querySelectorAll(".package").forEach(b=>b.addEventListener("click",()=>{selectedAmount=Number(b.dataset.amount);$("manualAmount").value="";updateCalc()}));
+$("pcList").addEventListener("click",e=>{const b=e.target.closest("[data-open-stardesk]");if(b)openStarDeskDevice(b.dataset.openStardesk)});
 $("manualAmount").addEventListener("input",updateCalc);$("refresh").addEventListener("click",refreshClick);
 $("logout").addEventListener("click",logout);$("confirmWa").addEventListener("click",confirmTopup);
 $("copyAmount").addEventListener("click",()=>{const n=String(currentAmount());if(native?.copyText)native.copyText(n);else toast("Nominal: "+rupiah(n))});
