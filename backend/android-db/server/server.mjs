@@ -9,6 +9,7 @@ const PEPPER = process.env.ANI_API_PEPPER || "";
 const BLYNK_AUTH_TOKEN = process.env.BLYNK_AUTH_TOKEN || "";
 const BLYNK_POWER_PIN = String(process.env.BLYNK_POWER_PIN || "V0").trim().toUpperCase();
 const BOOTSTRAP_TOKEN = process.env.ANI_ADMIN_BOOTSTRAP_TOKEN || "";
+const STARDESK_PAIRING_KEY = process.env.ANI_STARDESK_PAIRING_KEY || "";
 const ALLOWED_ORIGINS = (process.env.ANI_ALLOWED_ORIGINS || "").split(",").map(x => x.trim()).filter(Boolean);
 const MAX_BODY = 2 * 1024 * 1024;
 
@@ -232,7 +233,6 @@ const RPC = {
   androiddb_v0_admin_dashboard: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_dashboard($1::text,$2::integer) AS result", args: ["p_limit"] },
   androiddb_v0_admin_create_rental: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_create_rental($1::text,$2::text,$3::text) AS result", args: ["p_code","p_client_label"] },
   androiddb_v0_admin_set_rental_status: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_set_rental_status($1::text,$2::uuid,$3::boolean) AS result", args: ["p_rental_account_id","p_enabled"] },
-  androiddb_v0_admin_issue_activation: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_issue_activation($1::text,$2::uuid) AS result", args: ["p_rental_account_id"] },
   androiddb_v0_admin_wallet: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_wallet($1::text,$2::uuid,$3::integer) AS result", args: ["p_rental_account_id","p_history_limit"] },
   androiddb_v0_admin_approve_topup: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_approve_topup($1::text,$2::uuid) AS result", args: ["p_order_id"] },
   androiddb_v0_admin_reject_topup: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_reject_topup($1::text,$2::uuid,$3::text) AS result", args: ["p_order_id","p_reason"] },
@@ -315,9 +315,38 @@ async function rpcRequest(req, res, name, body) {
     const rentalCode = str(val(body,"p_rental_code"),40).toUpperCase();
     const key = bucketHash("androiddb-v0-remote-login",clientIp(req),rentalCode);
     await callRateLimit(key,5);
-    const result = await scalar("SELECT api.androiddb_v0_remote_login($1::text,$2::text,$3::text) AS result",[
-      rentalCode,str(val(body,"p_activation_code"),64),str(val(body,"p_client_install_id"),128)
+    const result = await scalar("SELECT api.androiddb_v0_remote_login($1::text,$2::text) AS result",[
+      rentalCode,str(val(body,"p_client_install_id"),128)
     ]);
+    await clearRateLimit([key]);
+    return send(res,200,result);
+  }
+  if (name === "androiddb_v0_agent_sync_stardesk_pairing") {
+    const token = bearer(req);
+    if (!token) return send(res,401,{message:"AUTH_REQUIRED"});
+    const key = bucketHash("androiddb-v0-stardesk-capture",clientIp(req),token.slice(0,24));
+    await callRateLimit(key,6);
+    const secret = Buffer.from(STARDESK_PAIRING_KEY, "base64");
+    if (secret.length !== 32) {
+      await clearRateLimit([key]);
+      return send(res,503,{ok:false,error:"STARDESK_PAIRING_ENCRYPTION_NOT_CONFIGURED"});
+    }
+    const deviceId = str(val(body,"p_stardesk_device_id"),180);
+    const verificationCode = str(val(body,"p_verification_code"),128);
+    if (!deviceId || !verificationCode) {
+      await clearRateLimit([key]);
+      return send(res,400,{ok:false,error:"STARDESK_CAPTURE_FIELDS_REQUIRED"});
+    }
+    const nonce = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv("aes-256-gcm",secret,nonce);
+    const encrypted = Buffer.concat([
+      cipher.update(verificationCode,"utf8"),
+      cipher.final()
+    ]);
+    const result = await scalar(
+      "SELECT api.androiddb_v0_agent_sync_stardesk_pairing($1::text,$2::text,$3::text,$4::text,$5::text) AS result",
+      [token,deviceId,encrypted.toString("base64"),nonce.toString("base64"),cipher.getAuthTag().toString("base64")]
+    );
     await clearRateLimit([key]);
     return send(res,200,result);
   }
