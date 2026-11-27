@@ -21,7 +21,7 @@ public sealed class StarDeskManualEntryDialog : Form
         MaximizeBox = false;
         MinimizeBox = false;
         ShowInTaskbar = false;
-        ClientSize = new Size(500, 330);
+        ClientSize = new Size(500, 352);
         BackColor = Color.FromArgb(7, 16, 31);
         ForeColor = Color.FromArgb(237, 246, 255);
         Font = new Font("Segoe UI", 9F);
@@ -91,8 +91,8 @@ public sealed class StarDeskManualEntryDialog : Form
                 : "Auto-detect: " + autoReadNote + Environment.NewLine +
                   "Nilai yang berhasil dibaca otomatis sudah diisikan; lengkapi yang masih kosong.",
             ForeColor = Color.FromArgb(125, 178, 205),
-            Location = new Point(20, 264),
-            Size = new Size(455, 42)
+            Location = new Point(20, 260),
+            Size = new Size(455, 44)
         };
         Controls.Add(status);
 
@@ -103,7 +103,7 @@ public sealed class StarDeskManualEntryDialog : Form
             BackColor = Color.FromArgb(31, 111, 169),
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
-            Location = new Point(270, 304),
+            Location = new Point(270, 310),
             Size = new Size(205, 32)
         };
         save.Click += (_, _) => AcceptValues();
@@ -116,7 +116,7 @@ public sealed class StarDeskManualEntryDialog : Form
             BackColor = Color.FromArgb(32, 47, 66),
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
-            Location = new Point(20, 304),
+            Location = new Point(20, 310),
             Size = new Size(90, 32)
         };
         Controls.Add(cancel);

@@ -117,7 +117,8 @@ test("Windows Agent falls back to secure manual StarDesk fields when UI Automati
   assert.match(tray, /StarDeskUiCapture\.ReadPartial/);
   assert.match(tray, /new StarDeskManualEntryDialog/);
   assert.match(tray, /AgentCapturePipeClient\.SyncAsync\(capture\)/);
-  assert.match(capture, /861/);
+  assert.match(capture, /NormalizeCandidate/);
+  assert.match(capture, /\\d\{3\}/);
   assert.match(capture, /NormalizeDeviceId/);
   assert.match(dialog, /UseSystemPasswordChar = true/);
   assert.match(dialog, /SIMPAN & SINKRONKAN/);
