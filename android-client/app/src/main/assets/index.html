@@ -26,13 +26,13 @@ h1{font-size:24px;line-height:1.15;margin:0;font-weight:950}h1 span{color:#83caf
 @media(max-width:360px){.app{padding-left:11px;padding-right:11px}.balance{font-size:26px}.pc{grid-template-columns:38px minmax(0,1fr) auto;gap:7px}.monitor{width:38px;height:39px}.pc button{max-width:86px;padding:8px 6px}}
 </style></head><body><div class="app">
 <header class="top"><div class="brand">▣ ANI GAMES <span>READY</span><div class="sub">REMOTE PLAY • ANDROID DB</div></div><div id="connectionBadge" class="preview">GATEWAY ANDROID DB • OTOMATIS</div></header>
-<section id="login" class="login"><div class="logo">🎮</div><h1>ANI GAMES <span>READY</span></h1><p class="lead">Masuk dengan User ID rental. Aktivasi satu kali diperlukan untuk perangkat baru.</p>
+<section id="login" class="login"><div class="logo">🎮</div><h1>ANI GAMES <span>READY</span></h1><p class="lead">Masuk cukup dengan User ID rental yang terdaftar.</p>
 <form id="loginForm" class="card">
 <div class="notice" style="margin-bottom:13px">Server Android DB online dikonfigurasi otomatis. Aplikasi tidak memerlukan alamat server manual.</div>
 <div style="margin-top:13px"><label class="label" for="uid">USER ID RENTAL</label><input id="uid" class="field" maxlength="120" placeholder="Masukkan User ID" autocomplete="username" autocapitalize="characters" required></div>
-<div style="margin-top:13px"><label class="label" for="activationCode">KODE AKTIVASI PERANGKAT (HANYA AKTIVASI PERTAMA)</label><input id="activationCode" class="field" maxlength="32" placeholder="Kode dari Admin" autocomplete="one-time-code" autocapitalize="characters"></div>
+
 <button id="loginButton" class="primary full" type="submit">MASUK KE DASHBOARD</button>
-<p class="hint">Token sesi disimpan terenkripsi di Android Keystore. User ID lain harus diaktivasi oleh Admin.</p>
+<p class="hint">Cukup masukkan User ID. Sesi perangkat disimpan aman di Android Keystore.</p>
 </form>
 <div id="loginNotice" class="notice">Gateway online Android DB dikonfigurasi otomatis. Login akan memverifikasi koneksi server, database, dan hak akses akun.</div></section>
 
@@ -170,10 +170,8 @@ async function login(e){
    secretClear("remote_access_token");secretClear("remote_refresh_token");secretClear("remote_rental_code");access="";refresh="";
   }
   if(!state.accessToken){
-   const activation=$("activationCode").value.trim().toUpperCase();
-   if(!activation)throw new Error("Masukkan kode aktivasi dari Admin untuk perangkat ini.");
    const clientId=native.getClientId();
-   const result=await nativeRpc("androiddb_v0_remote_login",{p_rental_code:rentalCode,p_activation_code:activation,p_client_install_id:clientId},"");
+   const result=await nativeRpc("androiddb_v0_remote_login",{p_rental_code:rentalCode,p_client_install_id:clientId},"");
    if(!result?.access_token||!result?.refresh_token)throw new Error("REMOTE_PLAY_LOGIN_RESPONSE_INVALID");
    state.accessToken=result.access_token;state.refreshToken=result.refresh_token;
    secretSet("remote_access_token",state.accessToken);secretSet("remote_refresh_token",state.refreshToken);secretSet("remote_rental_code",rentalCode);
@@ -183,7 +181,7 @@ async function login(e){
   state.rentalCode=rentalCode;
   await refreshData();
   $("welcome").textContent=rentalCode;$("login").classList.add("hidden");$("dashboard").classList.remove("hidden");tab("home");
-  $("activationCode").value="";$("loginNotice").textContent="Login terhubung ke Android DB online.";
+  $("loginNotice").textContent="Login User ID berhasil terhubung ke Android DB online.";
   toast("Login Android DB berhasil.");
  }catch(err){
   state.accessToken="";state.refreshToken="";
@@ -198,7 +196,7 @@ async function logout(){
  try{if(state.accessToken)await nativeRpc("androiddb_v0_remote_logout",{},state.accessToken)}catch(_){}
  ["remote_access_token","remote_refresh_token","remote_rental_code"].forEach(secretClear);
  state.accessToken="";state.refreshToken="";state.rentalCode="";state.account=null;state.hosts=[];state.balance=0;state.lots=[];state.ledger=[];state.orders=[];
- $("dashboard").classList.add("hidden");$("login").classList.remove("hidden");$("uid").value="";$("activationCode").value="";
+ $("dashboard").classList.add("hidden");$("login").classList.remove("hidden");$("uid").value="";
  setConnectionBadge("GATEWAY ANDROID DB • OTOMATIS",false);toast("Logout berhasil.");
 }
 async function refreshClick(){try{await refreshData();toast("Data Android DB diperbarui.")}catch(e){toast("Refresh gagal: "+String(e?.message||e));setConnectionBadge("ANDROID DB ONLINE TIDAK TERJANGKAU",false)}}
