@@ -48,7 +48,7 @@ test("Windows Agent capture is local-pipe only and never logs plaintext code", (
   assert.match(worker, /WellKnownSidType\.InteractiveSid/);
   assert.match(worker, /androiddb_v0_agent_sync_stardesk_pairing/);
   assert.match(tray, /Sinkronkan StarDesk/);
-  assert.match(capture, /AutomationElement\.RootElement/);
+  assert.match(capture, /AutomationElement\.FromHandle/);
   assert.match(capture, /VerificationCode/);
   assert.match(client, /NamedPipeClientStream/);
   assert.doesNotMatch(worker, /Log\w*\([^\n]*verificationCode/i);
@@ -134,7 +134,8 @@ test("StarDesk 1.6.x temporary code is read from Verification Method visual row"
   assert.match(capture, /verificationmethod/);
   assert.match(capture, /CodeValueRegex/);
   assert.match(capture, /BoundingRectangle/);
-  assert.match(capture, /Current\.IsOffscreen/);
+  assert.match(capture, /SwShowNoActivate/);
+  assert.match(capture, /RestoreOriginalWindowState/);
   assert.match(capture, /FindVerificationCode/);
   assert.match(capture, /RemoteSessionStateKnown/);
   assert.match(capture, /DetectRemoteSession/);
@@ -167,11 +168,11 @@ test("Automatic temporal sync reuses isolated encrypted pairing RPC without a ne
 });
 
 test("Windows Agent version metadata is bumped together for the auto-sync build", () => {
-  assert.match(read("win-agent/Agent.Service/AgentWorker.cs"), /Version = "0\.2\.2"/);
-  assert.match(read("win-agent/Agent.Shared/AgentContracts.cs"), /AgentVersion .*"0\.2\.2"/);
-  assert.match(read("win-agent/Agent.Tray/Agent.Tray.csproj"), /<Version>0\.2\.2<\/Version>/);
-  assert.match(read("win-agent/Agent.Service/Agent.Service.csproj"), /<Version>0\.2\.2<\/Version>/);
-  assert.match(read("win-agent/installer/AniGamesReady-StarDesk-Agent.iss"), /AppVersion "0\.2\.2"/);
+  assert.match(read("win-agent/Agent.Service/AgentWorker.cs"), /Version = "0\.2\.3"/);
+  assert.match(read("win-agent/Agent.Shared/AgentContracts.cs"), /AgentVersion .*"0\.2\.3"/);
+  assert.match(read("win-agent/Agent.Tray/Agent.Tray.csproj"), /<Version>0\.2\.3<\/Version>/);
+  assert.match(read("win-agent/Agent.Service/Agent.Service.csproj"), /<Version>0\.2\.3<\/Version>/);
+  assert.match(read("win-agent/installer/AniGamesReady-StarDesk-Agent.iss"), /AppVersion "0\.2\.3"/);
 });
 
 
@@ -179,14 +180,14 @@ test("StarDesk capture rejects the STARDESK title and never scans arbitrary text
   const capture = read("win-agent/Agent.Tray/StarDeskUiCapture.cs");
   assert.match(capture, /"STARDESK"/);
   assert.match(capture, /TryParseCopiedCredentials/);
-  assert.match(capture, /Verification Method/);
+  assert.match(capture, /verificationmethod/);
   assert.doesNotMatch(capture, /foreach \(var node in nodes\)\s*if \(TryCodeToken\(node\.Text, out var candidate\)\)/);
 });
 
 test("StarDesk uses its Copy button, restores clipboard, and handles tray-hidden windows", () => {
   const capture = read("win-agent/Agent.Tray/StarDeskUiCapture.cs");
   assert.match(capture, /ControlType\.Button/);
-  assert.match(capture, /InvokePattern\.Invoke/);
+  assert.match(capture, /invoke\.Invoke\(\)/);
   assert.match(capture, /Clipboard\.GetDataObject/);
   assert.match(capture, /Clipboard\.SetDataObject\(previous, true\)/);
   assert.match(capture, /SwShowNoActivate/);
