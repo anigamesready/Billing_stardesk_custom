@@ -234,7 +234,8 @@ test("StarDesk Copy must change Windows clipboard sequence and parser accepts on
   assert.match(capture, /ExactCodeLineRegex/);
   assert.match(capture, /candidates\.Length != 1/);
   assert.match(capture, /Clipboard\.SetDataObject\(previous, true\)/);
-  assert.match(capture, /LegacyIAccessiblePattern/);
+  assert.match(capture, /button-found-no-InvokePattern/);
+  assert.doesNotMatch(capture, /LegacyIAccessiblePattern/);
 });
 
 test("Manual sync dialog reports safe diagnostics and does not prefill unvalidated code", () => {

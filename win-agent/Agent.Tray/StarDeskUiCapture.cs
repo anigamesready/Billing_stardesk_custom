@@ -465,17 +465,12 @@ public static class StarDeskUiCapture
                             actionInvoked = true;
                             actionName = "InvokePattern";
                         }
-                        else if (element.TryGetCurrentPattern(
-                                     LegacyIAccessiblePattern.Pattern, out var legacyPattern) &&
-                                 legacyPattern is LegacyIAccessiblePattern legacy)
-                        {
-                            legacy.DoDefaultAction();
-                            actionInvoked = true;
-                            actionName = "LegacyIAccessible";
-                        }
                         else
                         {
-                            actionName = "button-found-no-action-pattern";
+                            // This Windows UI Automation target does not expose
+                            // LegacyIAccessiblePattern; report the unsupported action
+                            // rather than attempting an unverified mouse click.
+                            actionName = "button-found-no-InvokePattern";
                             continue;
                         }
 
@@ -651,8 +646,10 @@ public static class StarDeskUiCapture
     {
         var idState = string.IsNullOrWhiteSpace(deviceId) ? "tidak" : "terbaca";
         var codeState = string.IsNullOrWhiteSpace(verificationCode) ? "tidak" : "terbaca";
-        var buttonState = copy.ButtonFound ? "ditemukan" : "tidak ditemukan";
-        var actionState = copy.ActionInvoked ? copy.Action : copy.Action;
+        var buttonState = copy.Action == "cooldown"
+            ? "belum diuji (cooldown)"
+            : copy.ButtonFound ? "ditemukan" : "tidak ditemukan";
+        var actionState = copy.Action;
         var clipboardState = copy.ClipboardChanged ? "berubah" : "tidak berubah";
         var parsedState = copy.PairParsed ? "valid" :
             copy.ClipboardChanged ? "format tidak cocok" : "belum";

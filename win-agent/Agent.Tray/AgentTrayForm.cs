@@ -220,7 +220,7 @@ public sealed class AgentTrayForm : Form
         autoSyncBusy = true;
         try
         {
-            var capture = await Task.Run(StarDeskUiCapture.ReadPartial);
+            var capture = await Task.Run(() => StarDeskUiCapture.ReadPartial());
             if (string.IsNullOrWhiteSpace(capture.DeviceId) ||
                 string.IsNullOrWhiteSpace(capture.VerificationCode))
             {
