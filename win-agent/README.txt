@@ -4,18 +4,18 @@ Preview version 0.2.0
 PERSYARATAN
 - Windows 10 / Windows 11 x64.
 - Koneksi internet HTTPS.
-- Jalankan install.ps1 menggunakan PowerShell Administrator.
+- Izin Administrator untuk memasang Windows Service.
 
-CARA INSTAL
-1. Ekstrak seluruh isi ZIP ke satu folder.
-2. Klik kanan PowerShell, pilih Run as administrator.
-3. Jalankan:
-   powershell -ExecutionPolicy Bypass -File .\install.ps1
-4. Aplikasi Agent akan muncul di taskbar / system tray.
-5. Buka Agent dan salin kode pairing 8 digit.
-6. Masuk ke Admin Android DB v0 > Agent PC.
-7. Isi kode, nama PC dan kelas GPU, lalu tekan Setujui & pasangkan Agent.
-8. Tunggu Agent menampilkan ONLINE.
+CARA INSTAL PALING MUDAH (SATU KLIK)
+1. Unduh file Ani-Games-Ready-StarDesk-Agent-Setup-0.2.0-win-x64.exe.
+2. Klik dua kali Setup.exe.
+3. Saat Windows menampilkan UAC, pilih Yes.
+4. Installer otomatis memasang atau memperbarui Windows Service dan tray Agent.
+5. Jendela Ani Games Ready StarDesk Agent akan terbuka. Pada instalasi pertama, salin kode pairing 8 digit dan pasangkan melalui Admin > Agent PC.
+6. Bila Agent versi lama sudah terpasang, installer akan mempertahankan credential DPAPI dan pairing; tidak perlu pairing ulang.
+7. Agent otomatis berjalan kembali saat Windows boot dan tray terbuka saat pengguna Windows login.
+
+Tidak perlu mengekstrak ZIP, membuka PowerShell, atau mengetik perintah untuk pemasangan normal. ZIP update dan skrip manual tetap disediakan untuk troubleshooting/admin lanjutan.
 
 FITUR
 - Windows Service otomatis mulai saat Windows boot.
@@ -46,7 +46,7 @@ Jalankan sebagai Administrator:
 Identitas dan credential di ProgramData dipertahankan agar reinstall dapat memakai Agent Device ID yang sama. Cabut pairing dari Admin sebelum PC dipensiunkan.
 
 
-UPDATE DARI PREVIEW 0.1.0 KE 0.2.0 (TANPA PAIRING ULANG)
+UPDATE DARI PREVIEW 0.1.0 KE 0.2.0 (TANPA PAIRING ULANG)\n\nCara paling mudah: jalankan Setup.exe satu kali. Setup mendeteksi service lama, menghentikannya sementara, mengganti Agent, lalu menjalankannya kembali tanpa menghapus credential atau pairing. Tidak perlu menjalankan update.ps1 secara manual.
 1. Ekstrak ZIP update ke satu folder.
 2. Klik kanan PowerShell, pilih Run as administrator.
 3. Jalankan:
