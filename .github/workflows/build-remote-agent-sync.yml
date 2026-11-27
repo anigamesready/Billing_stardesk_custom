@@ -156,7 +156,26 @@ jobs:
         shell: pwsh
         run: |
           dotnet publish win-agent/Agent.Tray/Agent.Tray.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o "$PWD/out/WindowsAgent/Agent.Tray"
-      - name: Assemble update package and verify executable
+      - name: Validate one-click installer PowerShell scripts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $files = @(
+            "win-agent/installer/prepare-install.ps1",
+            "win-agent/installer/complete-install.ps1",
+            "win-agent/installer/cleanup-uninstall.ps1"
+          )
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Join-Path $PWD $file), [ref]$tokens, [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -gt 0) {
+              throw ("PowerShell syntax error in " + $file + ": " + ($errors -join "; "))
+            }
+          }
+      - name: Assemble update ZIP and compile one-click Setup.exe
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -170,12 +189,26 @@ jobs:
           $zip = "Ani-Games-Ready-StarDesk-Windows-Agent-0.2.0-Update-win-x64.zip"
           Compress-Archive -Path "$bundle/*" -DestinationPath "out/$zip" -CompressionLevel Optimal
           Get-FileHash "out/$zip" -Algorithm SHA256 | Format-List | Out-File "out/SHA256-WINDOWS-AGENT.txt"
-          Get-Item "out/$zip" | Format-Table Name,Length
+
+          $iscc = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"
+          if (!(Test-Path -LiteralPath $iscc)) {
+            choco install innosetup --no-progress -y
+          }
+          if (!(Test-Path -LiteralPath $iscc)) { throw "Inno Setup compiler not found." }
+          & $iscc "/O$PWD\$bundle" "win-agent/installer/AniGamesReady-StarDesk-Agent.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed (exit $LASTEXITCODE)." }
+
+          $setup = "$bundle/Ani-Games-Ready-StarDesk-Agent-Setup-0.2.0-win-x64.exe"
+          if (!(Test-Path -LiteralPath $setup -PathType Leaf)) { throw "One-click Setup.exe was not generated." }
+          Get-FileHash $setup -Algorithm SHA256 | Format-List | Out-File "out/SHA256-ONE-CLICK-SETUP.txt"
+          Get-Item $setup | Format-Table Name,Length
       - uses: actions/upload-artifact@v4
         with:
           name: Ani-Games-Ready-StarDesk-Windows-Agent-0.2.0-Update
           path: |
             out/Ani-Games-Ready-StarDesk-Windows-Agent-0.2.0-Update-win-x64.zip
             out/SHA256-WINDOWS-AGENT.txt
+            out/WindowsAgent/Ani-Games-Ready-StarDesk-Agent-Setup-0.2.0-win-x64.exe
+            out/SHA256-ONE-CLICK-SETUP.txt
           if-no-files-found: error
           retention-days: 30
