@@ -104,7 +104,12 @@ node --check --input-type=module < "$SERVER_DIR/server.mjs.new" || die "API baru
 
 # Create a dedicated random AES-256-GCM key only when the .env has none.
 # The key remains on this Redmi and is never printed or stored in the DB.
-if ! grep -q '^ANI_STARDESK_PAIRING_KEY=' "$ENV_FILE"; then
+if grep -q '^ANI_STARDESK_PAIRING_KEY=' "$ENV_FILE"; then
+  KEY_VALUE="$(sed -n 's/^ANI_STARDESK_PAIRING_KEY=//p' "$ENV_FILE" | tail -n 1)"
+  [ -n "$KEY_VALUE" ] || die "Key enkripsi lama kosong. Tidak akan mengganti key agar ciphertext yang sudah ada tetap dapat dibuka."
+  printf '%s' "$KEY_VALUE" | node -e "let s='';process.stdin.on('data',c=>s+=c).on('end',()=>{const b=Buffer.from(s,'base64');process.exit(b.length===32&&b.toString('base64')===s?0:1)})" || die "Key enkripsi yang tersimpan bukan Base64 256-bit valid."
+  unset KEY_VALUE
+else
   KEY="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64'))")"
   [ "${#KEY}" -ge 40 ] || die "Pembuatan key enkripsi gagal."
   cp "$ENV_FILE" "$BACKUP_DIR/.env.before-remote-sync-030.$STAMP"
