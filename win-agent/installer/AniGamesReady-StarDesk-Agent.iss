@@ -38,13 +38,16 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Files]
 Source: "prepare-install.ps1"; Flags: dontcopy noencryption
 Source: "complete-install.ps1"; Flags: dontcopy noencryption
-Source: "cleanup-uninstall.ps1"; Flags: dontcopy noencryption
+Source: "cleanup-uninstall.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BundleRoot}\Agent.Service\*"; DestDir: "{app}\Agent.Service"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#BundleRoot}\Agent.Tray\*"; DestDir: "{app}\Agent.Tray"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#BundleRoot}\README.txt"; DestDir: "{app}"; Flags: ignoreversion
 [Icons]
 Name: "{commonprograms}\Ani Games Ready\StarDesk Agent"; Filename: "{app}\Agent.Tray\AniGamesReady.Agent.Tray.exe"; WorkingDir: "{app}"
 Name: "{commonstartup}\Ani Games Ready StarDesk Agent"; Filename: "{app}\Agent.Tray\AniGamesReady.Agent.Tray.exe"; WorkingDir: "{app}"
+
+[UninstallRun]
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ""{app}\cleanup-uninstall.ps1"""; Flags: runhidden waituntilterminated; RunOnceId: "RemoveStarDeskAgentService"
 
 [Code]
 function RunPowerShellScript(const ScriptName, ScriptParameters: string): Boolean;
@@ -79,13 +82,4 @@ begin
     if not RunPowerShellScript('complete-install.ps1', Params) then
       RaiseException('Agent gagal dipasang atau dijalankan. Periksa Windows Service AniGamesReadyStarDeskAgent.');
   end;
-end;
-
-function InitializeUninstall(): Boolean;
-begin
-  Result := RunPowerShellScript('cleanup-uninstall.ps1', '');
-  if not Result then
-    MsgBox('Windows Service mungkin belum terhapus. Credential di ProgramData tetap dipertahankan.',
-      mbInformation, MB_OK);
-  Result := True;
 end;
