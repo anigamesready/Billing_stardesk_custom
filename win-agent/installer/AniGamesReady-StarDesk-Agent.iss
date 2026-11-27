@@ -32,13 +32,12 @@ VersionInfoProductVersion={#AppVersion}
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
+Source: "prepare-install.ps1"; Flags: dontcopy noencryption
+Source: "complete-install.ps1"; Flags: dontcopy noencryption
+Source: "cleanup-uninstall.ps1"; Flags: dontcopy noencryption
 Source: "{#BundleRoot}\Agent.Service\*"; DestDir: "{app}\Agent.Service"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#BundleRoot}\Agent.Tray\*"; DestDir: "{app}\Agent.Tray"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#BundleRoot}\README.txt"; DestDir: "{app}"; Flags: ignoreversion
-Source: "prepare-install.ps1"; Flags: dontcopy
-Source: "complete-install.ps1"; Flags: dontcopy
-Source: "cleanup-uninstall.ps1"; Flags: dontcopy
-
 [Icons]
 Name: "{commonprograms}\Ani Games Ready\StarDesk Agent"; Filename: "{app}\Agent.Tray\AniGamesReady.Agent.Tray.exe"; WorkingDir: "{app}"
 Name: "{commonstartup}\Ani Games Ready StarDesk Agent"; Filename: "{app}\Agent.Tray\AniGamesReady.Agent.Tray.exe"; WorkingDir: "{app}"
