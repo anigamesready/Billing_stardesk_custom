@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.IO;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
@@ -133,7 +134,7 @@ internal static class StarDeskScreenOcr
             return [];
 
         using var stream = new MemoryStream();
-        bitmap.Save(stream, ImageFormat.Png);
+        bitmap.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
         return stream.ToArray();
     }
 
