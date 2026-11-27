@@ -13,6 +13,7 @@ const manifest = read("admin-androiddb-v0/app/src/main/AndroidManifest.xml");
 const shared = read("win-agent/Agent.Shared/AgentContracts.cs");
 const tray = read("win-agent/Agent.Tray/AgentTrayForm.cs");
 const worker = read("win-agent/Agent.Service/AgentWorker.cs");
+const gateway = read("edge/cloudflare/ani-games-db-android-stage-gateway.mjs");
 const commandSql = migration.slice(migration.indexOf("CREATE OR REPLACE FUNCTION api.androiddb_v0_admin_agent_enqueue_command"));
 
 test("Agent database is separate from legacy PC Billing and device tables", () => {
@@ -100,4 +101,12 @@ test("Admin Android build identity is a separate preview version", () => {
   assert.match(gradle, /versionCode 9/);
   assert.match(gradle, /versionName "0\.2\.7-agent-preview"/);
   assert.match(manifest, /Ani Games Admin Coin x100 \+ Agent Preview 0\.2\.7/);
+});
+
+
+
+test("StarDesk gateway forwards the /stardesk namespace and its generic RPC endpoints", () => {
+  assert.ok(gateway.includes('path.startsWith("/stardesk/")'));
+  assert.ok(gateway.includes('"/rest/v1/rpc/"') || gateway.includes('/rest\\/v1\\/rpc/'));
+  assert.ok(gateway.includes('const relayUrl = new URL(routePath + url.search, "https://relay.internal")'));
 });

@@ -107,7 +107,7 @@ jobs:
           assert 'versionName "0.2.7-agent-preview"' in gradle
           java = Path("admin-androiddb-v0/app/src/main/java/com/anigamesready/adminandroiddbv0/MainActivity.java").read_text()
           assert 'return "0.2.7-agent-preview";' in java
-          assert '"/stardesk"' in java
+          assert 'https://ani-games-db-android-stage-gateway.anigamesready.workers.dev/stardesk' in java
           manifest = Path("admin-androiddb-v0/app/src/main/AndroidManifest.xml").read_text()
           assert 'android:usesCleartextTraffic="false"' in manifest
           PY
