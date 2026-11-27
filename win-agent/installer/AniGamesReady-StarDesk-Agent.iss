@@ -2,7 +2,7 @@
 #define BundleRoot "..\..\out\WindowsAgent"
 
 [Setup]
-AppId={{7B0C17A1-E5D8-4DBA-B8B7-AGENT02000001}
+AppId={{7B0C17A1-E5D8-4DBA-B8B7-0A0200000001}
 AppName=Ani Games Ready StarDesk Agent
 AppVersion={#AppVersion}
 AppPublisher=Ani Games Ready
@@ -59,12 +59,11 @@ begin
     Params, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
 end;
 
-function InitializeSetup(): Boolean;
+function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
-  Result := RunPowerShellScript('prepare-install.ps1', '');
-  if not Result then
-    MsgBox('Persiapan Agent gagal. Instalasi dibatalkan agar pairing dan credential lama tetap aman.',
-      mbCriticalError, MB_OK);
+  Result := '';
+  if not RunPowerShellScript('prepare-install.ps1', '') then
+    Result := 'Persiapan Agent gagal. Instalasi dibatalkan agar pairing dan credential lama tetap aman.';
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
