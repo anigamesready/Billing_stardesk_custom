@@ -1,6 +1,5 @@
 using System.Runtime.InteropServices;
 using System.IO.Pipes;
-using System.IO.Pipes.AccessControl;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text;
