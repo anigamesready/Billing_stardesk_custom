@@ -467,8 +467,8 @@ public static class StarDeskUiCapture
                         }
                         else
                         {
-                            // This Windows UI Automation target does not expose
-                            // LegacyIAccessiblePattern; report the unsupported action
+                            // This target does not expose another supported action pattern;
+                            // report the unsupported action
                             // rather than attempting an unverified mouse click.
                             actionName = "button-found-no-InvokePattern";
                             continue;
