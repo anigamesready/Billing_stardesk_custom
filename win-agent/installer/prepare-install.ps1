@@ -48,4 +48,26 @@ if ($null -ne $service) {
         Stop-Process -Force -ErrorAction SilentlyContinue
 }
 
+
+# TesseractOCR 5.5.2 native x64 binaries require the Microsoft Visual C++ 2015-2022 runtime.
+$vcRuntimeKey = "HKLM:\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64"
+$vcRuntime = Get-ItemProperty -Path $vcRuntimeKey -ErrorAction SilentlyContinue
+if ($null -eq $vcRuntime -or [int]$vcRuntime.Installed -ne 1) {
+    $redistPath = Join-Path $env:TEMP "AniGamesReady-vc_redist.x64.exe"
+    try {
+        Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile $redistPath -UseBasicParsing
+        $signature = Get-AuthenticodeSignature -FilePath $redistPath
+        if ($signature.Status.ToString() -ne "Valid" -or $signature.SignerCertificate.Subject -notmatch "Microsoft Corporation") {
+            throw "Tanda tangan Microsoft VC++ Redistributable tidak valid."
+        }
+        $runtimeProcess = Start-Process -FilePath $redistPath -ArgumentList "/install /quiet /norestart" -Wait -PassThru
+        if ($runtimeProcess.ExitCode -notin @(0, 3010)) {
+            throw "Pemasangan Microsoft Visual C++ runtime gagal (exit $($runtimeProcess.ExitCode))."
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $redistPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
 Write-Host "Installer preparation completed."

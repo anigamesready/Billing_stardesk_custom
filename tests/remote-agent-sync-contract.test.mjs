@@ -134,8 +134,9 @@ test("StarDesk 1.6.x temporary code is read from Verification Method visual row"
   assert.match(capture, /verificationmethod/);
   assert.match(capture, /CodeValueRegex/);
   assert.match(capture, /BoundingRectangle/);
-  assert.match(capture, /SwShowNoActivate/);
-  assert.match(capture, /RestoreOriginalWindowState/);
+  assert.match(capture, /IsStarDeskMainProcess/);
+  assert.match(capture, /process\.MainWindowHandle/);
+  assert.match(capture, /StarDeskScreenOcr\.Read/);
   assert.match(capture, /FindVerificationCode/);
   assert.match(capture, /RemoteSessionStateKnown/);
   assert.match(capture, /DetectRemoteSession/);
@@ -168,11 +169,11 @@ test("Automatic temporal sync reuses isolated encrypted pairing RPC without a ne
 });
 
 test("Windows Agent version metadata is bumped together for the auto-sync build", () => {
-  assert.match(read("win-agent/Agent.Service/AgentWorker.cs"), /Version = "0\.2\.4"/);
-  assert.match(read("win-agent/Agent.Shared/AgentContracts.cs"), /AgentVersion .*"0\.2\.4"/);
-  assert.match(read("win-agent/Agent.Tray/Agent.Tray.csproj"), /<Version>0\.2\.4<\/Version>/);
-  assert.match(read("win-agent/Agent.Service/Agent.Service.csproj"), /<Version>0\.2\.4<\/Version>/);
-  assert.match(read("win-agent/installer/AniGamesReady-StarDesk-Agent.iss"), /AppVersion "0\.2\.4"/);
+  assert.match(read("win-agent/Agent.Service/AgentWorker.cs"), /Version = "0\.2\.5"/);
+  assert.match(read("win-agent/Agent.Shared/AgentContracts.cs"), /AgentVersion .*"0\.2\.5"/);
+  assert.match(read("win-agent/Agent.Tray/Agent.Tray.csproj"), /<Version>0\.2\.5<\/Version>/);
+  assert.match(read("win-agent/Agent.Service/Agent.Service.csproj"), /<Version>0\.2\.5<\/Version>/);
+  assert.match(read("win-agent/installer/AniGamesReady-StarDesk-Agent.iss"), /AppVersion "0\.2\.5"/);
 });
 
 
@@ -190,9 +191,8 @@ test("StarDesk uses its Copy button, restores clipboard, and handles tray-hidden
   assert.match(capture, /invoke\.Invoke\(\)/);
   assert.match(capture, /Clipboard\.GetDataObject/);
   assert.match(capture, /Clipboard\.SetDataObject\(previous, true\)/);
-  assert.match(capture, /SwShowNoActivate/);
   assert.match(capture, /IsIconic/);
-  assert.match(capture, /RestoreOriginalWindowState/);
+  assert.match(capture, /IsStarDeskHelperProcess/);
   assert.match(capture, /EnumWindows/);
 });
 
@@ -206,14 +206,14 @@ test("Copied credentials parser requires a Device ID and one unambiguous valid c
 });
 
 
-test("StarDesk 0.2.4 selects a main top-level window and does not stop on the first partial helper window", () => {
+test("StarDesk 0.2.5 selects the actual desktop main process and excludes USBIP monitor helpers", () => {
   const capture = read("win-agent/Agent.Tray/StarDeskUiCapture.cs");
-  assert.match(capture, /EnumWindows/);
-  assert.match(capture, /GetWindowRect/);
-  assert.match(capture, /OrderByDescending\(x => x\.Title\.Contains\("StarDesk"/);
-  assert.match(capture, /ThenByDescending\(x => x\.Area/);
-  assert.match(capture, /bestScore/);
-  assert.match(capture, /Never stop at the first partial/);
+  assert.match(capture, /IsStarDeskMainProcess/);
+  assert.match(capture, /IsStarDeskHelperProcess/);
+  assert.match(capture, /process\.MainWindowHandle/);
+  assert.match(capture, /OrderByDescending\(x => x\.IsMainWindow/);
+  assert.match(capture, /StarDeskUsbipDeviceMonitor/);
+  assert.doesNotMatch(capture, /!processIds\.Contains\(pid\)\s*&&\s*!title\.Contains\("StarDesk"/);
 });
 
 test("Verification Code capture cannot accept arbitrary eight-character words such as KARAKTER", () => {
@@ -249,9 +249,55 @@ test("Manual sync dialog reports safe diagnostics and does not prefill unvalidat
 });
 
 test("Agent build version is bumped consistently to 0.2.4", () => {
-  assert.match(read("win-agent/Agent.Service/AgentWorker.cs"), /Version = "0\.2\.4"/);
-  assert.match(read("win-agent/Agent.Shared/AgentContracts.cs"), /AgentVersion .*"0\.2\.4"/);
-  assert.match(read("win-agent/Agent.Tray/Agent.Tray.csproj"), /<Version>0\.2\.4<\/Version>/);
-  assert.match(read("win-agent/Agent.Service/Agent.Service.csproj"), /<Version>0\.2\.4<\/Version>/);
-  assert.match(read("win-agent/installer/AniGamesReady-StarDesk-Agent.iss"), /AppVersion "0\.2\.4"/);
+  assert.match(read("win-agent/Agent.Service/AgentWorker.cs"), /Version = "0\.2\.5"/);
+  assert.match(read("win-agent/Agent.Shared/AgentContracts.cs"), /AgentVersion .*"0\.2\.5"/);
+  assert.match(read("win-agent/Agent.Tray/Agent.Tray.csproj"), /<Version>0\.2\.5<\/Version>/);
+  assert.match(read("win-agent/Agent.Service/Agent.Service.csproj"), /<Version>0\.2\.5<\/Version>/);
+  assert.match(read("win-agent/installer/AniGamesReady-StarDesk-Agent.iss"), /AppVersion "0\.2\.5"/);
+});
+
+
+test("Local OCR uses an in-memory StarDesk main-window image, not a file or network upload", () => {
+  const ocr = read("win-agent/Agent.Tray/StarDeskScreenOcr.cs");
+  assert.match(ocr, /PrintWindow/);
+  assert.match(ocr, /TesseractImage\.LoadFromMemory/);
+  assert.match(ocr, /engine\.Process\(image, PageSegMode\.Auto\)/);
+  assert.match(ocr, /ImageFormat\.Png/);
+  assert.doesNotMatch(ocr, /File\.WriteAllText|File\.AppendAllText|HttpClient|PostAsync|FileStream/);
+});
+
+test("OCR parser validates the Remote Support page and accepts only one same-line ID and code", () => {
+  const ocr = read("win-agent/Agent.Tray/StarDeskScreenOcr.cs");
+  assert.match(ocr, /remotesupport/);
+  assert.match(ocr, /thisdev/);
+  assert.match(ocr, /verificationmethod/);
+  assert.match(ocr, /afterId/);
+  assert.match(ocr, /candidates\.Length == 1/);
+  assert.match(ocr, /unique\.Length != 1/);
+  assert.match(ocr, /KARAKTER/);
+  assert.match(ocr, /DetectRemoteSession/);
+});
+
+test("Tray OCR falls back locally and throttles repeated screen capture", () => {
+  const capture = read("win-agent/Agent.Tray/StarDeskUiCapture.cs");
+  assert.match(capture, /AutoOcrCooldown = TimeSpan\.FromSeconds\(6\)/);
+  assert.match(capture, /ShouldAttemptOcr/);
+  assert.match(capture, /StarDeskScreenOcr\.Read/);
+  assert.match(capture, /helperProcessesIgnored/);
+});
+
+test("Tray publishes OCR engine and English tessdata with the one-click app", () => {
+  const project = read("win-agent/Agent.Tray/Agent.Tray.csproj");
+  const installer = read("win-agent/installer/AniGamesReady-StarDesk-Agent.iss");
+  assert.match(project, /TesseractOCR.*5\.5\.2/);
+  assert.match(project, /TesseractOCR\.Languages\.English.*5\.5\.2/);
+  assert.match(installer, /Agent\.Tray\\\\\*/);
+});
+
+test("One-click installer validates and installs official Microsoft VC++ x64 runtime when missing", () => {
+  const prepare = read("win-agent/installer/prepare-install.ps1");
+  assert.match(prepare, /vc_redist\.x64\.exe/);
+  assert.match(prepare, /Get-AuthenticodeSignature/);
+  assert.match(prepare, /Microsoft Corporation/);
+  assert.match(prepare, /\/install \/quiet \/norestart/);
 });
