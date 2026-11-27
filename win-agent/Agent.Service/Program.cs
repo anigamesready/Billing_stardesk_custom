@@ -1,4 +1,5 @@
 using AniGamesReady.Agent.Service;
+using AniGamesReady.Agent.Shared;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
