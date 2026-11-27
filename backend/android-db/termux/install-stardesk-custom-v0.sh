@@ -133,6 +133,7 @@ done
 grep -q "androiddb_v0_remote_login" "$SOURCE_ROOT/backend/android-db/server/server.mjs" || die "API Remote Coin v0 tidak ditemukan."
 grep -q "androiddb_v0_admin_dashboard" "$SOURCE_ROOT/backend/android-db/server/server.mjs" || die "RPC Admin Coin v0 tidak ditemukan."
 grep -q "androiddb_v0_agent_heartbeat" "$SOURCE_ROOT/backend/android-db/server/server.mjs" || die "RPC Windows Agent StarDesk tidak ditemukan."
+grep -q "androiddb_v0_agent_sync_stardesk_pairing" "$SOURCE_ROOT/backend/android-db/server/server.mjs" || die "RPC sinkronisasi Device ID StarDesk tidak ditemukan."
 
 mkdir -p "$SERVER_DIR" "$MIGRATIONS_DIR"
 cp -R "$SOURCE_ROOT/backend/android-db/server/." "$SERVER_DIR/"
