@@ -96,7 +96,7 @@ sed -i \
   -e 's/Database lokal Ani Games Ready. Blynk\/WoL tidak disentuh./Database khusus StarDesk Custom. Database Ani Games Ready lama tidak disentuh./g' \
   -e 's/ani-games-ready-local-api/stardesk-custom-v0-api/g' \
   "$SERVER_DIR/server.mjs.new"
-node --check "$SERVER_DIR/server.mjs.new" || die "API baru gagal diperiksa. API lama tetap aktif."
+node --check --input-type=module < "$SERVER_DIR/server.mjs.new" || die "API baru gagal diperiksa. API lama tetap aktif."
 mv "$SERVER_DIR/server.mjs.new" "$SERVER_DIR/server.mjs"
 
 log "Restart hanya service $SERVICE_NAME pada port $API_PORT..."
