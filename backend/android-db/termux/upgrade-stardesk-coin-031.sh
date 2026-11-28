@@ -27,7 +27,7 @@ psql_admin(){ psql -X -h "$PREFIX/tmp" -p "$DB_PORT" -U "$PG_ADMIN_USER" -v ON_E
 
 [ -n "${PREFIX:-}" ] && [ -x "$PREFIX/bin/pkg" ] || die "Khusus Termux Android."
 [ -r /dev/tty ] || die "Jalankan dari terminal interaktif Termux."
-for bin in psql pg_isready node curl tar readlink date sed sv grep chmod; do
+for bin in psql pg_isready node curl tar readlink date sed sv grep chmod find seq sleep; do
   command -v "$bin" >/dev/null 2>&1 || die "$bin belum tersedia."
 done
 [[ "$SOURCE_REF" =~ ^[0-9a-fA-F]{40}$ ]] || die "ANI_STARDESK_SOURCE_REF wajib SHA commit 40 karakter."
@@ -84,13 +84,13 @@ SOURCE_ROOT="$(find "$TMP_DIR" -mindepth 1 -maxdepth 1 -type d -print -quit)"
 MIGRATION="$SOURCE_ROOT/backend/android-db/migrations/031_stardesk_invite_coin_sessions.sql"
 NEW_SERVER="$SOURCE_ROOT/backend/android-db/server/server.mjs"
 [ -s "$MIGRATION" ] && [ -s "$NEW_SERVER" ] || die "Migration 031/API source tidak lengkap."
-for rpc in androiddb_v0_agent_sync_stardesk_pairing androiddb_v0_agent_stardesk_session_event androiddb_v0_agent_stardesk_session_tick androiddb_v0_remote_request_session androiddb_v0_remote_dashboard; do
+for rpc in androiddb_v0_agent_sync_stardesk_pairing androiddb_v0_agent_ui_monitor_heartbeat androiddb_v0_agent_stardesk_session_event androiddb_v0_agent_stardesk_session_tick androiddb_v0_remote_request_session androiddb_v0_remote_dashboard; do
   grep -q "$rpc" "$NEW_SERVER" || die "RPC baru tidak ditemukan: $rpc"
 done
 node --check "$NEW_SERVER" || die "Syntax API gagal sebelum database diubah."
 
 log "Menerapkan migrasi additive 031 pada $DB_NAME..."
-{ printf 'SET ROLE %s;\\n' "$DB_OWNER_ROLE"; cat "$MIGRATION"; } | psql_admin -d "$DB_NAME" >/dev/null
+{ printf 'SET ROLE %s;\n' "$DB_OWNER_ROLE"; cat "$MIGRATION"; } | psql_admin -d "$DB_NAME" >/dev/null
 
 BACKUP_DIR="$APP_DIR/backups"
 mkdir -p "$BACKUP_DIR"
@@ -128,7 +128,7 @@ rpc_route_check(){
   [ "$status" = "401" ] && grep -q 'AUTH_REQUIRED' "$body"
 }
 if [ "$HEALTH" = "1" ]; then
-  for rpc in androiddb_v0_agent_sync_stardesk_pairing androiddb_v0_agent_stardesk_session_event androiddb_v0_agent_stardesk_session_tick androiddb_v0_remote_request_session androiddb_v0_remote_dashboard; do
+  for rpc in androiddb_v0_agent_sync_stardesk_pairing androiddb_v0_agent_ui_monitor_heartbeat androiddb_v0_agent_stardesk_session_event androiddb_v0_agent_stardesk_session_tick androiddb_v0_remote_request_session androiddb_v0_remote_dashboard; do
     if ! rpc_route_check "$rpc"; then
       HEALTH=0
       log "RPC $rpc gagal preflight (harus HTTP 401 AUTH_REQUIRED)."
