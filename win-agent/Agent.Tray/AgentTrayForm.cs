@@ -472,6 +472,18 @@ public sealed class AgentTrayForm : Form
 
     private static string SafeReason(string message)
     {
+        const string retryPrefix = "STAR_DESK_EVENT_SYNC_RETRY_EXHAUSTED:";
+        var retryIndex = message.IndexOf(retryPrefix, StringComparison.Ordinal);
+        if (retryIndex >= 0)
+        {
+            var code = message[(retryIndex + retryPrefix.Length)..].Trim();
+            if (System.Text.RegularExpressions.Regex.IsMatch(
+                code, "^[A-Z0-9_]{3,120}$", System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+                return "sync gagal • " + code;
+        }
+        if (System.Text.RegularExpressions.Regex.IsMatch(
+            message, "^[A-Z0-9_]{3,120}$", System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+            return message;
         if (message.Contains("STAR_DESK_WINDOW_NOT_FOUND", StringComparison.OrdinalIgnoreCase))
             return "StarDesk belum terbuka";
         if (message.Contains("timeout", StringComparison.OrdinalIgnoreCase))
