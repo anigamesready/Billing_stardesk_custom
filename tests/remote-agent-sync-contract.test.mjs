@@ -192,7 +192,6 @@ test("StarDesk uses its Copy button, restores clipboard, and handles tray-hidden
   assert.match(capture, /Clipboard\.GetDataObject/);
   assert.match(capture, /Clipboard\.SetDataObject\(previous, true\)/);
   assert.match(capture, /IsIconic/);
-  assert.match(capture, /IsStarDeskHelperProcess/);
   assert.match(capture, /EnumWindows/);
 });
 
@@ -206,14 +205,13 @@ test("Copied credentials parser requires a Device ID and one unambiguous valid c
 });
 
 
-test("StarDesk 0.2.5 selects the actual desktop main process and excludes USBIP monitor helpers", () => {
+test("StarDesk 0.2.6 selects exact desktop UI process and ignores server/service processes", () => {
   const capture = read("win-agent/Agent.Tray/StarDeskUiCapture.cs");
   assert.match(capture, /IsStarDeskMainProcess/);
-  assert.match(capture, /IsStarDeskHelperProcess/);
   assert.match(capture, /process\.MainWindowHandle/);
   assert.match(capture, /OrderByDescending\(x => x\.IsMainWindow/);
-  assert.match(capture, /usbip/);
-  assert.match(capture, /monitor/);
+  assert.match(capture, /StarDeskServer/);
+  assert.match(capture, /StarDesk Health Monitor/);
   assert.doesNotMatch(capture, /!processIds\.Contains\(pid\)\s*&&\s*!title\.Contains\("StarDesk"/);
 });
 
@@ -309,10 +307,9 @@ test("StarDesk 0.2.6 selects only the actual desktop UI process, never StarDeskS
   const capture = read("win-agent/Agent.Tray/StarDeskUiCapture.cs");
   assert.match(capture, /string\.Equals\([\s\S]*?"StarDesk"/);
   assert.match(capture, /IsStarDeskUiWindowTitle/);
-  assert.match(capture, /HiddenWindow/);
+  assert.match(capture, /hiddenwindow/i);
   assert.match(capture, /StarDeskServer/);
   assert.match(capture, /StarDeskService/);
-  assert.doesNotMatch(capture, /name\.StartsWith\("StarDesk"[\s\S]{0,120}!IsStarDeskHelperProcess/);
 });
 
 test("Hidden/minimized StarDesk is restored behind other windows without activation and navigated by UI Automation", () => {
