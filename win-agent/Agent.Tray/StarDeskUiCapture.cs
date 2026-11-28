@@ -127,7 +127,7 @@ public static class StarDeskUiCapture
 
     public static StarDeskCaptureSnapshot Read() => ReadPartial(forceCopy: true);
 
-    public static StarDeskCaptureSnapshot ReadPartial(bool forceCopy = false)
+    public static StarDeskCaptureSnapshot ReadPartial(bool forceCopy = false, bool allowCopy = true)
     {
         var windows = FindStarDeskWindows(out var helperProcessesIgnored);
         if (windows.Count == 0)
@@ -179,8 +179,8 @@ public static class StarDeskUiCapture
 
                 var inviteUrl = "";
                 CopyCaptureResult copy = new("", false, false, false, false, "not-needed");
-                if (forceCopy || string.IsNullOrWhiteSpace(deviceId) ||
-                    string.IsNullOrWhiteSpace(verificationCode))
+                if (allowCopy && (forceCopy || string.IsNullOrWhiteSpace(deviceId) ||
+                    string.IsNullOrWhiteSpace(verificationCode)))
                 {
                     if (ShouldAttemptCopy(forceCopy))
                     {
