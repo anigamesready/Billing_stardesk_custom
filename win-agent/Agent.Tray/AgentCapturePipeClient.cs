@@ -70,13 +70,36 @@ public static class AgentCapturePipeClient
                 await SendAsync(request, cancellationToken);
                 return;
             }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // A named-pipe timeout is retryable; cancellation requested by shutdown
+                // must still propagate immediately.
+                lastError = new TimeoutException("PIPE_TIMEOUT");
+            }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 lastError = ex;
             }
         }
 
-        throw new InvalidOperationException("STAR_DESK_EVENT_SYNC_RETRY_EXHAUSTED", lastError);
+        var reason = SafeFailureReason(lastError);
+        throw new InvalidOperationException(
+            "STAR_DESK_EVENT_SYNC_RETRY_EXHAUSTED:" + reason, lastError);
+    }
+
+    private static string SafeFailureReason(Exception? error)
+    {
+        var message = error?.Message?.Trim() ?? "";
+        // Server error messages are opaque identifiers; only expose a strict code token.
+        // Never surface clipboard text, invite URLs, verification codes, or raw responses.
+        if (System.Text.RegularExpressions.Regex.IsMatch(
+            message, "^[A-Z0-9_]{3,120}$", System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+            return message;
+        if (error is TimeoutException || error is OperationCanceledException)
+            return "PIPE_TIMEOUT";
+        if (error is IOException)
+            return "PIPE_UNAVAILABLE";
+        return "SYNC_REJECTED";
     }
 
     private static async Task SendAsync(object request, CancellationToken cancellationToken, string pipeName = PipeName, TimeSpan? timeoutPeriod = null)
