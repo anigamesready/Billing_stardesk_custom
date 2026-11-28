@@ -5,6 +5,7 @@ on:
     branches:
       - feature/androiddb-termux-coin-x100-20261125
       - feature/admin-androiddb-v0-full-db-20261126
+      - feature/stardesk-coin-remote-task1-3-20261128
     paths:
       - "backend/android-db/termux/**"
       - "backend/android-db/server/**"
