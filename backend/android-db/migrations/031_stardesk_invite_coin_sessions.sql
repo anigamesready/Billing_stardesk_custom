@@ -400,7 +400,7 @@ DECLARE
   v_end_reason text;
   event_name text:=lower(btrim(coalesce(p_event_type,'')));
 BEGIN
-  IF event_name NOT IN ('connected','ended') OR p_event_id IS NULL THEN
+  IF event_name NOT IN ('connected','ended','monitor_lost') OR p_event_id IS NULL THEN
     RAISE EXCEPTION 'ANDROIDDB_V0_STARDESK_SESSION_EVENT_INVALID';
   END IF;
   SELECT * INTO d FROM androiddb_v0.agent_devices
@@ -435,9 +435,11 @@ BEGIN
       'hourly_coin_units',s.hourly_coin_units,'started_at',s.connected_at);
   END IF;
 
-  UPDATE androiddb_v0.agent_devices SET
-    stardesk_session_active=false,last_stardesk_session_state_at=clock_timestamp()
-  WHERE id=d.id;
+  IF event_name='ended' THEN
+    UPDATE androiddb_v0.agent_devices SET
+      stardesk_session_active=false,last_stardesk_session_state_at=clock_timestamp()
+    WHERE id=d.id;
+  END IF;
 
   SELECT * INTO s FROM androiddb_v0.coin_rental_sessions
   WHERE rental_pc_id=d.rental_pc_id AND agent_device_id=d.id
@@ -447,7 +449,7 @@ BEGIN
     RETURN jsonb_build_object('ok',true,'idempotent',true,'status','no_active_session');
   END IF;
 
-  IF d.last_ui_monitor_at IS NULL OR
+  IF event_name='monitor_lost' OR d.last_ui_monitor_at IS NULL OR
       d.last_ui_monitor_at<=clock_timestamp()-interval '45 seconds' THEN
     v_billing_until:=least(clock_timestamp(),s.last_billed_at+interval '45 seconds');
     v_end_reason:='agent_heartbeat_timeout';
