@@ -49,6 +49,8 @@ test("Three-field clipboard contract is strict and only accepts the official inv
   assert.match(capture, /parsedUri\.AbsolutePath/);
   assert.match(capture, /ReadPartial\(bool forceCopy = false, bool allowCopy = true\)/);
   assert.match(capture, /if \(allowCopy && \(forceCopy/);
+  assert.match(capture, /recoveredWindow \|\| \(forceCopy && allowCopy\)/);
+  assert.match(capture, /TryNavigateRemoteSupport\(root\)/);
 });
 
 test("Agent pairing copy/sync is event-driven rather than a 4-second polling loop", () => {
