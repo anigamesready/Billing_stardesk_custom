@@ -17,9 +17,11 @@ public sealed class AgentTrayForm : Form
     private readonly Label autoSyncLabel = new();
     private readonly NotifyIcon trayIcon;
     private readonly System.Windows.Forms.Timer refreshTimer = new();
+    private readonly System.Windows.Forms.Timer monitorHeartbeatTimer = new();
     private AgentStatus? currentStatus;
     private bool allowClose;
     private bool manualSyncBusy;
+    private bool monitorHeartbeatBusy;
     private string lastSyncedFingerprint = "";
     private string lastObservedPairFingerprint = "";
     private bool? previousSessionActive;
@@ -129,6 +131,11 @@ public sealed class AgentTrayForm : Form
         refreshTimer.Tick += (_, _) => RefreshStatus();
         refreshTimer.Start();
 
+        // Local liveness only: this does not copy credentials or sync the pairing.
+        monitorHeartbeatTimer.Interval = 15000;
+        monitorHeartbeatTimer.Tick += async (_, _) => await SendMonitorHeartbeatAsync();
+        monitorHeartbeatTimer.Start();
+
         try
         {
             starDeskWatcher = new StarDeskWindowEventWatcher();
@@ -219,6 +226,25 @@ public sealed class AgentTrayForm : Form
         var material = capture.DeviceId + "\0" + capture.VerificationCode;
         return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
             System.Text.Encoding.UTF8.GetBytes(material))).ToLowerInvariant();
+    }
+
+    private async Task SendMonitorHeartbeatAsync()
+    {
+        if (monitorHeartbeatBusy || AgentStorage.ReadStatus()?.IsPaired != true)
+            return;
+        monitorHeartbeatBusy = true;
+        try
+        {
+            await AgentCapturePipeClient.SendMonitorHeartbeatAsync();
+        }
+        catch
+        {
+            // The Windows Service expires the monitor lease if this local heartbeat stops.
+        }
+        finally
+        {
+            monitorHeartbeatBusy = false;
+        }
     }
 
     private void OnStarDeskWindowChanged(object? sender, StarDeskWindowEventArgs e)
@@ -460,6 +486,7 @@ public sealed class AgentTrayForm : Form
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
         refreshTimer.Stop();
+        monitorHeartbeatTimer.Stop();
         starDeskEventDebounce?.Cancel();
         starDeskEventDebounce?.Dispose();
         if (starDeskWatcher is not null)
