@@ -26,8 +26,11 @@ INSTALL / UPGRADE
 CARA KERJA EVENT-DRIVEN
 - Agent 0.2.8 tidak lagi menjalankan auto-sync Copy & Share setiap 4 detik.
 - Tray memakai Windows WinEvent untuk memantau perubahan jendela StarDesk. Event yang beruntun digabung dengan debounce singkat.
-- Pemeriksaan status sesi membaca UI tanpa menekan Copy & Share.
-- Copy & Share dilakukan satu kali ketika StarDesk baru dibuka/halaman Remote Assistance kembali tersedia setelah sesi selesai/perubahan pairing terdeteksi.
+- Pemeriksaan status sesi membaca UI tanpa menekan Copy & Share dan tidak pernah memanggil perintah Windows untuk menampilkan/memulihkan jendela StarDesk.
+- Saat sesi remote terdeteksi aktif, Agent standby: tidak membaca/copy/sync kredensial. Jendela StarDesk boleh tetap diminimalkan tanpa dibuka ulang oleh Agent.
+- Copy & Share hanya dicoba satu kali setelah PC terbukti idle saat StarDesk baru dibuka, sesi remote selesai, atau pairing berubah.
+- Jika sesi berakhir ketika jendela masih minimized, event sync ditahan sampai StarDesk ditampilkan kembali oleh pengguna. Agent tidak membuka jendela secara otomatis.
+- Jika sync gagal, Agent menampilkan kode penyebab backend yang sudah difilter; tidak menampilkan token undangan atau Verification Code.
 - Snapshot atomik berisi Device ID, Verification Code, dan Invite URL. URL hanya diterima dari host https://app.stardesk.net dengan path /invite/<token> dan parameter lang opsional.
 - Fingerprint tiga field dibandingkan. Snapshot yang sama tidak ditulis ulang ke DB.
 - Verification Code dan Invite URL dienkripsi AES-256-GCM oleh API sebelum disimpan.
@@ -44,7 +47,7 @@ COIN SESSION
 
 STATUS DAN BATASAN
 - Agent Online hanya menunjukkan Service/API heartbeat; kesiapan host juga mensyaratkan Tray monitor dan pairing tersedia.
-- Build 0.2.8 berhasil dipublish di CI Windows x64 dan lolos tes kontrak statis. Ini belum membuktikan UI StarDesk dapat dideteksi konsisten pada semua tampilan/versi/overlay Windows.
+- Build 0.2.8 adalah kandidat perubahan. Kelulusan CI dan hasil build EXE harus diperiksa pada workflow terbaru sebelum instalasi. Build berhasil pun belum membuktikan UI StarDesk terdeteksi konsisten pada semua tampilan/versi/overlay Windows.
 - Uji perangkat nyata tetap wajib untuk sesi mulai, sesi berakhir, aplikasi ditutup, minimize, remote reconnect, dan API/network loss.
 - Remote APK belum dihubungkan pada tahap build ini ke API request-session/status; tombol Play/countdown belum dirilis.
 - Saat saldo habis, DB menghentikan billing dan menutup lifecycle Coin. Agent belum mempunyai kontrol resmi untuk memutus streaming StarDesk; jangan menganggap stream sudah pasti terputus.
