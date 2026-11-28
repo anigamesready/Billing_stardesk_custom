@@ -251,6 +251,7 @@ const RPC = {
   androiddb_v0_admin_agent_revoke: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_agent_revoke($1::text,$2::uuid) AS result", args: ["p_agent_device_id"] },
   androiddb_v0_agent_heartbeat: { auth: "agent", sql: "SELECT api.androiddb_v0_agent_heartbeat($1::text,$2::text,$3::text,$4::text,$5::text) AS result", args: ["p_agent_version","p_computer_name","p_windows_version","p_gpu_name"] },
   androiddb_v0_agent_ack: { auth: "agent", sql: "SELECT api.androiddb_v0_agent_ack($1::text,$2::uuid,$3::text,$4::text) AS result", args: ["p_command_id","p_status","p_result"] },
+  androiddb_v0_agent_ui_monitor_heartbeat: { auth: "agent", sql: "SELECT api.androiddb_v0_agent_ui_monitor_heartbeat($1::text) AS result", args: [] },
   androiddb_v0_agent_stardesk_session_tick: { auth: "agent", sql: "SELECT api.androiddb_v0_agent_stardesk_session_tick($1::text,$2::uuid) AS result", args: ["p_event_id"] },
   androiddb_v0_remote_session_status: { auth: "remote_client", sql: "SELECT api.androiddb_v0_remote_session_status($1::text) AS result", args: [] },
   androiddb_v0_host_heartbeat: { auth: "remote_host", sql: "SELECT api.androiddb_v0_host_heartbeat($1::text,$2::boolean,$3::text) AS result", args: ["p_stardesk_ready","p_agent_version"] },
