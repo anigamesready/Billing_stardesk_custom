@@ -195,7 +195,7 @@ Pemilik menjelaskan model operasional yang digunakan: setiap penyewa mengunduh d
 - 2026-11-28 (validasi source): Node API syntax, Termux shell syntax, dan static contract tests lulus pada CI. Windows Agent build 0.2.7 untuk commit terbaru masih menunggu job publish x64.
 - 2026-11-28: Agent Tray restart mencoba membersihkan host lock yang stale hanya setelah StarDesk dipastikan tertutup atau UI idle. Event `monitor_lost` menghentikan billing tetapi tidak melepaskan host lock.
 
-- 2026-11-28 (CI final kandidat): run `46134622175` pada commit `d8c92f3e (isi commit lengkap lihat GitHub run 46134622175)` selesai sukses untuk `contract-tests`, `postgres-smoke`, dan `windows-agent`. Artifact Windows x64 Agent 0.2.7 berhasil dibuat dan checksum paket diverifikasi terhadap checksum CI.
-- Artifact kandidat: `Ani-Games-Ready-StarDesk-Coin-Agent-0.2.7-win-x64-package.zip`; SHA-256 `HASH_CHECKED_AT_DELIVERY`.
+- 2026-11-28 (CI final kandidat): run `46134622175` selesai sukses untuk `contract-tests`, `postgres-smoke`, dan `windows-agent`. Artifact Windows x64 Agent 0.2.7 berhasil dibuat dan checksum paket diverifikasi terhadap checksum CI.
+- Artifact kandidat: `Ani-Games-Ready-StarDesk-Coin-Agent-0.2.7-win-x64-package.zip`; checksum disertakan pada file `SHA256-WINDOWS-AGENT-0.2.7.txt` dari artifact CI.
 - Batas uji: build dan PostgreSQL disposable lulus, tetapi Agent belum diuji pada PC Windows nyata dengan StarDesk. Status Connected/Idle/exit, restore/navigasi Remote Assistance, dan copy clipboard tiga field harus diuji langsung sebelum dipakai untuk rental.
 - Perubahan Task 2–3 belum digabung ke `main`, belum diterapkan ke DB produksi, dan belum dihubungkan ke Remote APK. Stable Billing tetap tidak disentuh.
