@@ -8,6 +8,7 @@ namespace AniGamesReady.Agent.Tray;
 public static class AgentCapturePipeClient
 {
     private const string PipeName = "AniGamesReady.StarDeskAgent.Capture.v1";
+    private const string MonitorPipeName = "AniGamesReady.StarDeskAgent.Monitor.v1";
 
     public static Task SyncAsync(
         StarDeskCaptureSnapshot capture,
@@ -50,14 +51,14 @@ public static class AgentCapturePipeClient
         {
             action = "monitor_heartbeat",
             event_id = Guid.NewGuid()
-        }, cancellationToken);
+        }, cancellationToken, MonitorPipeName, TimeSpan.FromSeconds(5));
 
-    private static async Task SendAsync(object request, CancellationToken cancellationToken)
+    private static async Task SendAsync(object request, CancellationToken cancellationToken, string pipeName = PipeName, TimeSpan? timeoutPeriod = null)
     {
         using var pipe = new NamedPipeClientStream(
-            ".", PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+            ".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(15));
+        timeout.CancelAfter(timeoutPeriod ?? TimeSpan.FromSeconds(15));
         await pipe.ConnectAsync(timeout.Token);
 
         using var writer = new StreamWriter(pipe, new UTF8Encoding(false), 1024, true)
