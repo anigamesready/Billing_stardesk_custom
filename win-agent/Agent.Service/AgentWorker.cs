@@ -38,6 +38,7 @@ public sealed class AgentWorker(
         }
 
         _ = RunStarDeskCapturePipeAsync(stoppingToken);
+        _ = RunStarDeskMonitorPipeAsync(stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -69,6 +70,7 @@ public sealed class AgentWorker(
     }
 
     private const string CapturePipeName = "AniGamesReady.StarDeskAgent.Capture.v1";
+    private const string MonitorPipeName = "AniGamesReady.StarDeskAgent.Monitor.v1";
 
     private async Task RunStarDeskCapturePipeAsync(CancellationToken stoppingToken)
     {
@@ -109,20 +111,7 @@ public sealed class AgentWorker(
                     using var document = JsonDocument.Parse(line);
                     var request = document.RootElement;
                     var action = AgentApiClient.ReadString(request, "action")?.Trim().ToLowerInvariant() ?? "";
-                    if (action == "monitor_heartbeat")
-                    {
-                        var monitorResult = await api.RpcAsync(
-                            "androiddb_v0_agent_ui_monitor_heartbeat",
-                            new { }, config.AgentToken, stoppingToken);
-                        Interlocked.Exchange(ref lastUiMonitorHeartbeatUtcTicks, DateTimeOffset.UtcNow.UtcTicks);
-                        Interlocked.Exchange(ref monitorTimeoutEndSent, 0);
-                        await writer.WriteLineAsync(JsonSerializer.Serialize(new
-                        {
-                            ok = true,
-                            monitor_at = AgentApiClient.ReadString(monitorResult, "monitor_at")
-                        }));
-                    }
-                    else if (action == "pairing_refresh")
+                    if (action == "pairing_refresh")
                     {
                         var deviceId = AgentApiClient.ReadString(request, "stardesk_device_id")?.Trim() ?? "";
                         var verificationCode = AgentApiClient.ReadString(request, "verification_code")?.Trim().ToUpperInvariant() ?? "";
@@ -202,6 +191,78 @@ public sealed class AgentWorker(
         }
     }
 
+    private async Task RunStarDeskMonitorPipeAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                var security = new PipeSecurity();
+                security.SetAccessRuleProtection(true, false);
+                security.AddAccessRule(new PipeAccessRule(
+                    new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
+                    PipeAccessRights.FullControl, AccessControlType.Allow));
+                security.AddAccessRule(new PipeAccessRule(
+                    new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null),
+                    PipeAccessRights.FullControl, AccessControlType.Allow));
+                security.AddAccessRule(new PipeAccessRule(
+                    new SecurityIdentifier(WellKnownSidType.InteractiveSid, null),
+                    PipeAccessRights.ReadWrite, AccessControlType.Allow));
+
+                using var pipe = NamedPipeServerStreamAcl.Create(
+                    MonitorPipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte,
+                    PipeOptions.Asynchronous, 1024, 1024, security);
+                await pipe.WaitForConnectionAsync(stoppingToken);
+                using var reader = new StreamReader(pipe, Encoding.UTF8, false, 512, true);
+                using var writer = new StreamWriter(pipe, new UTF8Encoding(false), 512, true)
+                {
+                    AutoFlush = true
+                };
+
+                try
+                {
+                    var line = await reader.ReadLineAsync(stoppingToken);
+                    if (string.IsNullOrWhiteSpace(line) || line.Length > 512 ||
+                        config?.IsPaired != true)
+                        throw new InvalidOperationException("STAR_DESK_MONITOR_HEARTBEAT_INVALID");
+                    using var document = JsonDocument.Parse(line);
+                    var root = document.RootElement;
+                    if (!root.TryGetProperty("action", out var action) ||
+                        action.GetString() != "monitor_heartbeat")
+                        throw new InvalidOperationException("STAR_DESK_MONITOR_HEARTBEAT_INVALID");
+
+                    Interlocked.Exchange(ref lastUiMonitorHeartbeatUtcTicks,
+                        DateTimeOffset.UtcNow.UtcDateTime.Ticks);
+                    Interlocked.Exchange(ref monitorTimeoutEndSent, 0);
+                    await writer.WriteLineAsync(JsonSerializer.Serialize(new
+                    {
+                        ok = true,
+                        received_at = DateTimeOffset.UtcNow
+                    }));
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    logger.LogWarning("StarDesk UI monitor heartbeat rejected: {Reason}", ex.Message);
+                    await writer.WriteLineAsync(JsonSerializer.Serialize(new
+                    {
+                        ok = false,
+                        error = "STAR_DESK_MONITOR_HEARTBEAT_REJECTED"
+                    }));
+                }
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning("StarDesk UI monitor pipe restarted: {Reason}", ex.Message);
+                try { await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken); }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
+            }
+        }
+    }
+
     private async Task RequestEnrollmentAsync(CancellationToken cancellationToken)
     {
         var c = config ?? throw new InvalidOperationException("AGENT_CONFIG_MISSING");
@@ -262,6 +323,8 @@ public sealed class AgentWorker(
             Interlocked.Exchange(ref monitorTimeoutEndSent, 0);
             try
             {
+                await api.RpcAsync("androiddb_v0_agent_ui_monitor_heartbeat", new { },
+                    c.AgentToken, cancellationToken);
                 var meter = await api.RpcAsync("androiddb_v0_agent_stardesk_session_tick", new
                 {
                     p_event_id = Guid.NewGuid()
