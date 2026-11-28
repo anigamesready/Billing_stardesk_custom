@@ -320,7 +320,7 @@ BEGIN
 
   UPDATE androiddb_v0.coin_rental_sessions SET status='failed',ended_at=clock_timestamp(),
     end_reason='request_timeout',updated_at=clock_timestamp()
-  WHERE rental_account_id=r.id AND status='requested'
+  WHERE org_id=r.org_id AND status='requested'
     AND request_expires_at<=clock_timestamp();
 
   SELECT * INTO pc FROM androiddb_v0.rental_pcs
@@ -565,7 +565,7 @@ BEGIN
   bal:=private.androiddb_v0_expire_wallet(w.id);
   UPDATE androiddb_v0.coin_rental_sessions SET status='failed',
     ended_at=request_expires_at,end_reason='request_timeout',updated_at=clock_timestamp()
-  WHERE rental_account_id=r.id AND status='requested'
+  WHERE org_id=r.org_id AND status='requested'
     AND request_expires_at<=clock_timestamp();
 
   SELECT * INTO active_row FROM androiddb_v0.coin_rental_sessions
