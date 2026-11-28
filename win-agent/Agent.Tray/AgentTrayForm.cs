@@ -25,6 +25,8 @@ public sealed class AgentTrayForm : Form
     private string lastSyncedFingerprint = "";
     private string lastObservedPairFingerprint = "";
     private bool? previousSessionActive;
+    private bool remoteSessionStateKnown;
+    private bool remoteSessionActive;
     private bool starDeskWindowWasOpen;
     private CancellationTokenSource? starDeskEventDebounce;
     private StarDeskWindowEventWatcher? starDeskWatcher;
@@ -197,7 +199,9 @@ public sealed class AgentTrayForm : Form
             ? "PAIRING SUDAH SELESAI"
             : "KODE: " + currentStatus.PairingCode;
         copyButton.Enabled = !currentStatus.IsPaired && !string.IsNullOrWhiteSpace(currentStatus.PairingCode);
-        syncButton.Enabled = currentStatus.IsPaired;
+        // Disable manual capture while a remote user is connected. The state is kept
+        // conservatively when a minimized window cannot be inspected.
+        syncButton.Enabled = currentStatus.IsPaired && !remoteSessionActive && !manualSyncBusy;
         starDeskLabel.Text = string.IsNullOrWhiteSpace(currentStatus.StarDeskDeviceId)
             ? "StarDesk: belum disinkronkan"
             : "StarDesk ID: " + currentStatus.StarDeskDeviceId + " • " + (currentStatus.LastStarDeskSyncUtc?.ToLocalTime().ToString("dd MMM HH:mm:ss") ?? "tersimpan");
@@ -313,6 +317,8 @@ public sealed class AgentTrayForm : Form
 
         if (windowEvent?.MainWindowDestroyed == true)
         {
+            remoteSessionStateKnown = true;
+            remoteSessionActive = false;
             starDeskWindowWasOpen = false;
             if (previousSessionActive == true)
             {
@@ -330,21 +336,30 @@ public sealed class AgentTrayForm : Form
         // Read UI state only. This pass never presses Copy & Share or changes clipboard.
         var observed = await Task.Run(
             () => StarDeskUiCapture.ReadPartial(allowCopy: false), cancellationToken);
+        if (observed.RemoteSessionStateKnown)
+        {
+            remoteSessionStateKnown = true;
+            remoteSessionActive = observed.RemoteSessionActive;
+            RefreshStatus();
+        }
+
         if (observed.RemoteSessionStateKnown && observed.RemoteSessionActive)
         {
             starDeskWindowWasOpen = true;
             if (previousSessionActive != true)
-            {
                 await SendSessionEventOnceAsync("connected", cancellationToken);
-                previousSessionActive = true;
-            }
-            autoSyncLabel.Text = "SESI REMOTE AKTIF • Coin meter berjalan di Windows Service.";
+            previousSessionActive = true;
+            autoSyncLabel.Text = "SESI REMOTE AKTIF • Agent standby; tidak menyalin/sync kredensial. Meter Coin server tetap berjalan.";
             return;
         }
 
         if (!observed.RemoteSessionStateKnown)
         {
-            autoSyncLabel.Text = "Status sesi StarDesk belum terbaca • counter tidak diubah.";
+            // Unknown is not proof of idle. Keep a previously active state locked and
+            // never copy credentials until an explicit idle state is observed.
+            autoSyncLabel.Text = remoteSessionActive
+                ? "SESI REMOTE • StarDesk diminimalkan/tertutup dari pembacaan UI; Agent tetap standby."
+                : "Status sesi StarDesk belum terbaca • tidak melakukan Copy & Share atau sync.";
             return;
         }
 
@@ -437,16 +452,58 @@ public sealed class AgentTrayForm : Form
         if (manualSyncBusy) return;
         manualSyncBusy = true;
         syncButton.Enabled = false;
-        syncButton.Text = "Membaca StarDesk...";
+        syncButton.Text = "Memeriksa sesi...";
         try
         {
+            // First inspect without restoring, navigating, reading clipboard, or clicking
+            // Copy & Share. Manual sync is permitted only after an explicit idle signal.
+            var sessionProbe = await Task.Run(
+                () => StarDeskUiCapture.ReadPartial(allowCopy: false));
+            if (!sessionProbe.RemoteSessionStateKnown)
+            {
+                MessageBox.Show(
+                    "Status StarDesk belum bisa dipastikan.
+
+Buka/tampilkan StarDesk dan tunggu sampai status Remote Assistance terbaca. Agent tidak akan membuka jendela yang diminimalkan. Sinkronisasi ditahan demi keamanan sesi rental.",
+                    "Ani Games Ready Agent", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            remoteSessionStateKnown = true;
+            remoteSessionActive = sessionProbe.RemoteSessionActive;
+            RefreshStatus();
+            if (remoteSessionActive)
+            {
+                MessageBox.Show(
+                    "Ada pengguna yang sedang menjalankan sesi remote StarDesk.
+
+Agent sekarang standby. Tidak ada Copy & Share atau sinkronisasi kredensial sampai sesi selesai.",
+                    "Ani Games Ready Agent", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            syncButton.Text = "Membaca StarDesk...";
             var capture = await Task.Run(() => StarDeskUiCapture.ReadPartial(forceCopy: true));
+            if (!capture.RemoteSessionStateKnown || capture.RemoteSessionActive)
+            {
+                remoteSessionStateKnown = capture.RemoteSessionStateKnown;
+                if (capture.RemoteSessionStateKnown)
+                    remoteSessionActive = capture.RemoteSessionActive;
+                RefreshStatus();
+                MessageBox.Show(
+                    "Status sesi berubah atau tidak dapat dipastikan saat proses capture. Tidak ada kredensial yang dikirim. Coba lagi setelah StarDesk benar-benar idle.",
+                    "Ani Games Ready Agent", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(capture.DeviceId) ||
                 string.IsNullOrWhiteSpace(capture.VerificationCode) ||
                 string.IsNullOrWhiteSpace(capture.InviteUrl))
             {
                 MessageBox.Show(
-                    "Agent belum menerima tiga data lengkap dari StarDesk.\n\nBuka StarDesk → Remote Assistance → tekan Copy & Share, lalu ulangi sinkronisasi.",
+                    "Agent belum menerima tiga data lengkap dari StarDesk.
+
+Pastikan halaman Remote Assistance tampil, lalu coba lagi setelah sesi remote berakhir.",
                     "Ani Games Ready Agent", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
@@ -454,25 +511,36 @@ public sealed class AgentTrayForm : Form
             await AgentCapturePipeClient.SyncAsync(capture);
             lastSyncedFingerprint = Fingerprint(capture);
             lastObservedPairFingerprint = PairFingerprint(capture);
-            autoSyncLabel.Text = "Manual sync berhasil • event monitoring tetap aktif.";
+            remoteSessionStateKnown = true;
+            remoteSessionActive = false;
+            autoSyncLabel.Text = "Manual sync berhasil • Agent kembali memantau event, bukan polling kredensial.";
             MessageBox.Show(
-                "Tiga data StarDesk berhasil disinkronkan ke Android DB.\n\nDevice ID: " + capture.DeviceId +
-                "\nVerification Code dan Invite URL tidak ditampilkan dan disimpan terenkripsi.",
+                "Tiga data StarDesk berhasil disinkronkan ke Android DB.
+
+Device ID: " + capture.DeviceId +
+                "
+Verification Code dan Invite URL tidak ditampilkan dan disimpan terenkripsi.",
                 "Ani Games Ready Agent", MessageBoxButtons.OK, MessageBoxIcon.Information);
             RefreshStatus();
         }
         catch (Exception ex)
         {
+            // The pipe client exposes only an allowlisted backend error code/category.
+            // Clipboard credentials and invitation tokens are never included here.
             MessageBox.Show(
-                "Sinkronisasi StarDesk belum berhasil.\n\n" + ex.Message +
-                "\n\nPeriksa koneksi Agent dan backend StarDesk, lalu coba lagi.",
+                "Sinkronisasi StarDesk belum berhasil.
+
+Kode penyebab: " + ex.Message +
+                "
+
+Periksa kode tersebut; Agent tidak akan mengulang Copy & Share secara berkala.",
                 "Ani Games Ready Agent", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
         finally
         {
             syncButton.Text = "Sinkronkan StarDesk";
-            RefreshStatus();
             manualSyncBusy = false;
+            RefreshStatus();
         }
     }
 
