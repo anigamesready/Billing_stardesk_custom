@@ -1,0 +1,76 @@
+name: StarDesk Coin 031 — Windows Agent 0.2.7 Candidate
+
+on:
+  push:
+    branches:
+      - feature/stardesk-coin-remote-task1-3-20261128
+    paths:
+      - "win-agent/**"
+      - "backend/android-db/migrations/031_stardesk_invite_coin_sessions.sql"
+      - "backend/android-db/server/server.mjs"
+      - "backend/android-db/termux/install-stardesk-custom-v0.sh"
+      - "backend/android-db/termux/upgrade-stardesk-coin-031.sh"
+      - "tests/stardesk-agent-coin-contract.test.mjs"
+      - ".github/workflows/build-stardesk-coin-agent-0.2.7.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contract-tests:
+    name: Validate SQL/API/Agent contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check Node API syntax
+        run: node --check backend/android-db/server/server.mjs
+      - name: Check isolated Termux scripts
+        run: |
+          bash -n backend/android-db/termux/install-stardesk-custom-v0.sh
+          bash -n backend/android-db/termux/upgrade-stardesk-coin-031.sh
+      - name: Run Coin and event-driven Agent contract tests
+        run: node --test tests/stardesk-agent-coin-contract.test.mjs
+
+  windows-agent:
+    name: Build Windows x64 Agent 0.2.7
+    runs-on: windows-2022
+    needs: contract-tests
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Publish Windows Service
+        shell: pwsh
+        run: dotnet publish win-agent/Agent.Service/Agent.Service.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o "$PWD/out/WindowsAgent/Agent.Service"
+      - name: Publish Windows Tray
+        shell: pwsh
+        run: dotnet publish win-agent/Agent.Tray/Agent.Tray.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o "$PWD/out/WindowsAgent/Agent.Tray"
+      - name: Assemble and verify package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path out/WindowsAgent | Out-Null
+          Copy-Item win-agent/scripts/install.ps1 out/WindowsAgent/install.ps1
+          Copy-Item win-agent/scripts/uninstall.ps1 out/WindowsAgent/uninstall.ps1
+          Copy-Item win-agent/README.txt out/WindowsAgent/README.txt
+          if (!(Test-Path out/WindowsAgent/Agent.Service/AniGamesReady.Agent.Service.exe)) { throw "Service binary missing" }
+          if (!(Test-Path out/WindowsAgent/Agent.Tray/AniGamesReady.Agent.Tray.exe)) { throw "Tray binary missing" }
+          $zip = "Ani-Games-Ready-StarDesk-Coin-Agent-0.2.7-win-x64.zip"
+          Compress-Archive -Path out/WindowsAgent/* -DestinationPath "out/$zip" -CompressionLevel Optimal
+          Get-FileHash "out/$zip" -Algorithm SHA256 | Format-List | Out-File "out/SHA256-WINDOWS-AGENT.txt"
+          Get-Item "out/$zip" | Format-Table Name,Length
+      - name: Upload Windows Agent candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ani-Games-Ready-StarDesk-Coin-Agent-0.2.7-win-x64
+          path: |
+            out/Ani-Games-Ready-StarDesk-Coin-Agent-0.2.7-win-x64.zip
+            out/SHA256-WINDOWS-AGENT.txt
+          if-no-files-found: error
+          retention-days: 30
