@@ -170,7 +170,7 @@ public static class StarDeskUiCapture
                     }
                 }
 
-                var ocr = new StarDeskOcrResult("", "", false, false, "not-needed");
+                var ocr = new StarDeskOcrResult("", "", false, false, false, "not-needed");
                 if (string.IsNullOrWhiteSpace(deviceId) ||
                     string.IsNullOrWhiteSpace(verificationCode) ||
                     !session.Known)
@@ -195,7 +195,7 @@ public static class StarDeskUiCapture
                     }
                     else
                     {
-                        ocr = new StarDeskOcrResult("", "", false, false, "cooldown");
+                        ocr = new StarDeskOcrResult("", "", false, false, false, "cooldown");
                     }
                 }
 
