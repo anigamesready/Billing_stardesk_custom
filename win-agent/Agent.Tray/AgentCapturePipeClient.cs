@@ -9,7 +9,42 @@ public static class AgentCapturePipeClient
 {
     private const string PipeName = "AniGamesReady.StarDeskAgent.Capture.v1";
 
-    public static async Task SyncAsync(StarDeskCaptureSnapshot capture, CancellationToken cancellationToken = default)
+    public static Task SyncAsync(
+        StarDeskCaptureSnapshot capture,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(capture.DeviceId) ||
+            string.IsNullOrWhiteSpace(capture.VerificationCode) ||
+            string.IsNullOrWhiteSpace(capture.InviteUrl))
+            throw new InvalidOperationException("STARDESK_THREE_FIELD_CAPTURE_REQUIRED");
+
+        return SendAsync(new
+        {
+            action = "pairing_refresh",
+            event_id = Guid.NewGuid(),
+            stardesk_device_id = capture.DeviceId,
+            verification_code = capture.VerificationCode,
+            invite_url = capture.InviteUrl
+        }, cancellationToken);
+    }
+
+    public static Task SendSessionEventAsync(
+        string eventType,
+        CancellationToken cancellationToken = default)
+    {
+        var normalized = (eventType ?? "").Trim().ToLowerInvariant();
+        if (normalized is not ("connected" or "ended"))
+            throw new ArgumentOutOfRangeException(nameof(eventType), "STARDESK_SESSION_EVENT_INVALID");
+
+        return SendAsync(new
+        {
+            action = "session_event",
+            event_type = normalized,
+            event_id = Guid.NewGuid()
+        }, cancellationToken);
+    }
+
+    private static async Task SendAsync(object request, CancellationToken cancellationToken)
     {
         using var pipe = new NamedPipeClientStream(
             ".", PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
@@ -23,12 +58,7 @@ public static class AgentCapturePipeClient
         };
         using var reader = new StreamReader(pipe, Encoding.UTF8, false, 1024, true);
 
-        var request = JsonSerializer.Serialize(new
-        {
-            stardesk_device_id = capture.DeviceId,
-            verification_code = capture.VerificationCode
-        });
-        await writer.WriteLineAsync(request);
+        await writer.WriteLineAsync(JsonSerializer.Serialize(request));
         var responseLine = await reader.ReadLineAsync(timeout.Token);
         if (string.IsNullOrWhiteSpace(responseLine) || responseLine.Length > 4096)
             throw new InvalidOperationException("AGENT_CAPTURE_PIPE_INVALID_RESPONSE");
