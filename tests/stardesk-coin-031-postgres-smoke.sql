@@ -263,10 +263,12 @@ BEGIN
   INSERT INTO androiddb_v0.rental_pcs(id,org_id,display_name,hourly_coin_units)
     VALUES(pc_id,org_id,'CI-PC-STALE',6000);
   INSERT INTO androiddb_v0.agent_devices(
-    id,org_id,rental_pc_id,agent_token_hash,status,last_heartbeat_at,updated_at,last_ui_monitor_at
+    id,org_id,rental_pc_id,agent_token_hash,status,last_heartbeat_at,updated_at,
+    last_ui_monitor_at,stardesk_session_active
   ) VALUES(agent_id,org_id,pc_id,
     encode(extensions.digest(agent_token,'sha256'),'hex'),'online',
-    clock_timestamp()-interval '2 minutes',clock_timestamp(),clock_timestamp()-interval '2 minutes');
+    clock_timestamp()-interval '2 minutes',clock_timestamp(),
+    clock_timestamp()-interval '2 minutes',true);
   INSERT INTO androiddb_v0.client_sessions(id,rental_account_id,token_hash,expires_at)
     VALUES(client_id,account_id,encode(extensions.digest('test-client-stale-031','sha256'),'hex'),
       clock_timestamp()+interval '1 day');
