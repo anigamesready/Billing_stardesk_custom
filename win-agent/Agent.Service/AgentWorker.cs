@@ -17,6 +17,9 @@ public sealed class AgentWorker(
     private const string Version = "0.2.7";
     private AgentConfig? config;
     private AgentStatus status = new();
+    private DateTimeOffset serviceStartedUtc = DateTimeOffset.UtcNow;
+    private long lastUiMonitorHeartbeatUtcTicks;
+    private int monitorTimeoutEndSent;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -106,7 +109,20 @@ public sealed class AgentWorker(
                     using var document = JsonDocument.Parse(line);
                     var request = document.RootElement;
                     var action = AgentApiClient.ReadString(request, "action")?.Trim().ToLowerInvariant() ?? "";
-                    if (action == "pairing_refresh")
+                    if (action == "monitor_heartbeat")
+                    {
+                        var monitorResult = await api.RpcAsync(
+                            "androiddb_v0_agent_ui_monitor_heartbeat",
+                            new { }, config.AgentToken, stoppingToken);
+                        Interlocked.Exchange(ref lastUiMonitorHeartbeatUtcTicks, DateTimeOffset.UtcNow.UtcTicks);
+                        Interlocked.Exchange(ref monitorTimeoutEndSent, 0);
+                        await writer.WriteLineAsync(JsonSerializer.Serialize(new
+                        {
+                            ok = true,
+                            monitor_at = AgentApiClient.ReadString(monitorResult, "monitor_at")
+                        }));
+                    }
+                    else if (action == "pairing_refresh")
                     {
                         var deviceId = AgentApiClient.ReadString(request, "stardesk_device_id")?.Trim() ?? "";
                         var verificationCode = AgentApiClient.ReadString(request, "verification_code")?.Trim().ToUpperInvariant() ?? "";
@@ -231,20 +247,49 @@ public sealed class AgentWorker(
         status.LastHeartbeatUtc = DateTimeOffset.UtcNow;
         PublishStatus("ONLINE", "Agent terhubung. Heartbeat PC dan Coin meter berjalan terpisah dari sinkronisasi Copy & Share.");
 
-        // This metering tick never reads StarDesk UI or copies credentials.
-        // The database bills only the currently connected rental session using server time.
-        try
+        // Copy & Share synchronization is event-only. The 15s meter tick is separate.
+        // It is allowed only while the interactive UI event monitor is still alive.
+        var nowUtc = DateTimeOffset.UtcNow;
+        var monitorTicks = Interlocked.Read(ref lastUiMonitorHeartbeatUtcTicks);
+        var monitorFresh = monitorTicks > 0 &&
+            nowUtc - new DateTimeOffset(monitorTicks, TimeSpan.Zero) <= TimeSpan.FromSeconds(30);
+        var monitorExpired = monitorTicks > 0
+            ? nowUtc - new DateTimeOffset(monitorTicks, TimeSpan.Zero) > TimeSpan.FromSeconds(45)
+            : nowUtc - serviceStartedUtc > TimeSpan.FromSeconds(45);
+
+        if (monitorFresh)
         {
-            var meter = await api.RpcAsync("androiddb_v0_agent_stardesk_session_tick", new
+            Interlocked.Exchange(ref monitorTimeoutEndSent, 0);
+            try
             {
-                p_event_id = Guid.NewGuid()
-            }, c.AgentToken, cancellationToken);
-            if (AgentApiClient.ReadBoolean(meter, "coin_exhausted"))
-                PublishStatus("ONLINE", "Saldo Coin habis. Counter server berhenti; sesi rental ditandai selesai.");
+                var meter = await api.RpcAsync("androiddb_v0_agent_stardesk_session_tick", new
+                {
+                    p_event_id = Guid.NewGuid()
+                }, c.AgentToken, cancellationToken);
+                if (AgentApiClient.ReadBoolean(meter, "coin_exhausted"))
+                    PublishStatus("ONLINE", "Saldo Coin habis. Counter server berhenti; sesi rental ditandai selesai.");
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning("Coin meter tick belum berhasil: {Reason}", ex.Message);
+            }
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        else if (monitorExpired && Interlocked.Exchange(ref monitorTimeoutEndSent, 1) == 0)
         {
-            logger.LogWarning("Coin meter tick belum berhasil: {Reason}", ex.Message);
+            try
+            {
+                await api.RpcAsync("androiddb_v0_agent_stardesk_session_event", new
+                {
+                    p_event_type = "ended",
+                    p_event_id = Guid.NewGuid()
+                }, c.AgentToken, cancellationToken);
+                PublishStatus("ONLINE", "Pemantau StarDesk terputus lebih dari 45 detik. Sesi Coin ditutup demi mencegah penagihan tanpa pengawasan.");
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning("Penutupan sesi saat monitor offline belum berhasil: {Reason}", ex.Message);
+                Interlocked.Exchange(ref monitorTimeoutEndSent, 0);
+            }
         }
 
         if (!result.TryGetProperty("commands", out var commands) || commands.ValueKind != JsonValueKind.Array)
