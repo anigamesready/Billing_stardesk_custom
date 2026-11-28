@@ -850,7 +850,7 @@ public static class StarDeskUiCapture
 
         var query = parsedUri.Query;
         if (!string.IsNullOrEmpty(query) &&
-            !Regex.IsMatch(query, "^\?lang=[A-Za-z]{2}(?:-[A-Za-z]{2})?$", RegexOptions.CultureInvariant))
+            !Regex.IsMatch(query, "^\\?lang=[A-Za-z]{2}(?:-[A-Za-z]{2})?$", RegexOptions.CultureInvariant))
             return false;
 
         deviceId = parsedDeviceId;
