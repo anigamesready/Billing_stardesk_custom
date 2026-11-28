@@ -145,8 +145,9 @@ test("Remote request decrypts the invite URL only after remote session authentic
   assert.match(server, /const token = bearer\(req\)/);
   assert.match(server, /androiddb_v0_remote_request_session\(\$1::text,\$2::uuid,\$3::text\)/);
   assert.match(server, /createDecipheriv\("aes-256-gcm"/);
-  assert.match(server, /const \{invite_url_ciphertext,invite_url_nonce,invite_url_tag,\.\.\.safeResult\} = result/);
-  assert.match(server, /verification_code:verificationCode/);\n  assert.match(server, /invite_url:parsedInvite\\.toString\\(\\)/);
+  assert.match(server, /verification_ciphertext,verification_nonce,verification_tag,[\s\S]*invite_url_ciphertext,invite_url_nonce,invite_url_tag,[\s\S]*\.\.\.safeResult/);
+  assert.match(server, /verification_code:verificationCode/);
+  assert.match(server, /invite_url:parsedInvite\.toString\(\)/);
 });
 
 test("New install and upgrade scripts only target the StarDesk Custom database and API", () => {
