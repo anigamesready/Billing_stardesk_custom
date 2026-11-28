@@ -18,7 +18,7 @@ Branch kerja awal: feature/stardesk-coin-remote-task1-3-20261128
 ## B. Alur produk yang dituju
 
 1. Agent Windows memantau aplikasi desktop StarDesk yang tepat.
-2. Setelah kredensial perangkat tersedia dan valid, Agent mengirim snapshot terikat satu perangkat: Device ID, Verification Code, dan informasi link jika link khusus perangkat memang disediakan secara resmi dan berhasil dibuktikan.
+2. Setelah snapshot kredensial perangkat tersedia dan valid, Agent mengirim satu bundle atomik yang terikat ke satu PC: Device ID, Verification Code, dan `invite_url` dari tombol Copy & Share. Nilai invite token bersifat rahasia; Agent tidak boleh menulisnya ke log atau status plaintext.
 3. Android DB menyimpan identitas PC yang konsisten, status Agent, pairing StarDesk, dan rahasia dalam bentuk terenkripsi.
 4. Penyewa login dengan User ID, melihat PC yang tersedia, dan memilih PC.
 5. Backend memeriksa akun, saldo, expiry, status PC/Agent, dan izin komersial/integrasi StarDesk sebelum menyiapkan sesi.
@@ -28,19 +28,30 @@ Branch kerja awal: feature/stardesk-coin-remote-task1-3-20261128
 9. Ketika saldo/lease habis, backend memerintahkan disconnect khusus untuk sesi tersebut. Agent mengonfirmasi hasil. Backend menyelesaikan settlement.
 10. Setelah sesi berakhir, Agent mendeteksi perubahan kredensial yang nyata dan menyinkronkan snapshot baru.
 
-## C. Batas antara data link
+## C. Kontrak clipboard aktual dan pemisahan jenis link
 
-Jangan mencampur tiga hal berikut:
+Contoh tombol Copy & Share yang diberikan Owner pada 28 November 2026 memiliki susunan berikut (semua nilai rahasia disamarkan):
 
-- `share_url`: URL website/help/share publik dari clipboard atau Share sheet. Ini belum tentu dapat membuka PC.
-- `device_deep_link`: URI aplikasi StarDesk khusus perangkat. APK 1.6.1 memuat pola statis `stardesk://external/device/control?id=...&source=...&from=...&expire=...`; nilai dan makna parameternya belum diverifikasi dengan peluncuran nyata.
-- `verification_code`: kredensial sementara yang berubah dan harus diperlakukan sebagai rahasia.
+```text
+Use StarDesk to initiate remote assistance
+Device ID: [DEVICE_ID]
+Verification Code: [VERIFICATION_CODE]
+Click the link to initiate directly: https://app.stardesk.net/invite/[OPAQUE_INVITE_TOKEN]?lang=en-US
+```
 
-Dokumentasi resmi Remote Assist yang diperiksa menyebut Device ID + Verification Code sebagai data yang dibagikan. Dokumentasi itu tidak membuktikan bahwa Copy & Share selalu menghasilkan URL akses PC. Karena itu parser tidak boleh mengarang URL atau parameter deep link. Ambil contoh payload clipboard aktual yang sudah disamarkan dan verifikasi launch di StarDesk 1.6.1 sebelum menyimpan/menampilkan deep link.
+Kontrak data yang terbukti dari contoh clipboard adalah:
+
+- `stardesk_device_id`: nilai setelah label `Device ID:`.
+- `verification_code`: nilai setelah label `Verification Code:`; rahasia sementara.
+- `invite_url`: URL setelah label `Click the link to initiate directly:` dengan host `app.stardesk.net` dan path `/invite/<opaque-token>`; perlakukan seluruh URL/token sebagai rahasia seperti verification code.
+
+Jangan samakan `invite_url` dengan URI aplikasi `device_deep_link`. APK StarDesk 1.6.1 memuat pola statis `stardesk://external/device/control?id=...&source=...&from=...&expire=...`, tetapi nilai/arti parameternya belum diverifikasi dan pola itu bukan URL yang diberikan pada contoh clipboard ini.
+
+Pemeriksa web tidak dapat mengambil halaman invite contoh (cache miss/internal route), sehingga masa berlaku token, apakah token satu-kali-pakai, redirect target, dan perilaku ketika aplikasi Android belum terpasang belum terbukti. Jangan mengasumsikannya. Simpan `invite_url` hanya dalam bentuk terenkripsi, jangan tampilkan di log/status, dan jangan menerbitkan URL itu kecuali sesi telah diotorisasi. Validasi format/host allowlist dan fingerprint harus mencakup ketiga field.
 
 ## D. Gate lisensi dan integrasi pihak ketiga
 
-StarDesk Terms yang diperiksa pada 28 November 2026 memberikan lisensi personal yang revocable, non-assignable, non-sublicensable, dan non-transferable (pasal 3.1). Ketentuan yang tampil tidak secara eksplisit menjelaskan skema rental komersial ini, sehingga ini adalah risiko/ketidakjelasan lisensi, bukan klaim bahwa pasal tersebut secara eksplisit melarang semua penyewaan PC. Sebelum menjual akses StarDesk kepada penyewa atau mengotomasi pemakaian akun/remote assist, minta konfirmasi tertulis dari StarDesk/GearUp mengenai:
+Terms of Use StarDesk versi yang ditemukan dan diperbarui 11 November 2026 kini secara eksplisit menyebut pada Addendum B pasal 10.1 bahwa membership hanya untuk penggunaan pribadi non-komersial; menyediakan remote access/remote support kepada orang lain dengan pembayaran atau menjual kembali akses StarDesk bukan penggunaan pribadi. Pasal 11.1(a)-(c) juga melarang membership untuk resale/keuntungan komersial, menyediakan akun membership kepada pihak ketiga, dan penggunaan cara otomatis (termasuk bot/script) untuk memperoleh atau menggunakan membership; pasal 11.2 memungkinkan penangguhan atau penghentian membership jika dilanggar. Ini bukan lagi sekadar ketidakjelasan umum: model rental Coin yang menjual sesi remote melalui StarDesk bertentangan dengan ketentuan yang dipublikasikan, kecuali StarDesk/GearUP memberi pengecualian/kontrak tertulis. Sebelum implementasi komersial apa pun, minta konfirmasi tertulis atau perjanjian bisnis khusus yang mengizinkan:
 - penggunaan host/client untuk layanan rental remote PC berbayar;
 - penyimpanan dan distribusi Device ID/Verification Code;
 - deep link atau API resmi untuk meluncurkan koneksi;
@@ -74,19 +85,22 @@ Status: [x] = selesai dengan bukti; [~] = audit sebagian / sedang berjalan; [ ] 
 - [x] Audit strings/URI statis dari APK StarDesk 1.6.1 yang diunggah.
 - [x] Cocokkan alur Remote Assist dengan dokumentasi resmi StarDesk.
 - [x] Periksa Terms of Service dan catat risiko lisensi.
-- [ ] Dapatkan contoh teks clipboard Copy & Share aktual (nilai rahasia disamarkan, struktur/label/URL tetap dipertahankan).
+- [x] Dapatkan contoh teks clipboard Copy & Share aktual: Device ID + Verification Code + URL undangan `app.stardesk.net/invite/<token>?lang=en-US` (token dan kredensial tidak disimpan di dokumen).
 - [ ] Verifikasi handler deep link APK 1.6.1 pada device Android nyata dan nilai parameter `source`, `from`, `expire`.
-- [ ] Dapatkan persetujuan tertulis/konfirmasi lisensi komersial untuk rental akses berbayar dan automasi.
+- [!] Dapatkan pengecualian/perjanjian tertulis dari StarDesk/GearUP untuk rental remote berbayar dan automasi. Terms saat ini secara eksplisit membatasi membership ke penggunaan pribadi non-komersial.
 - [ ] Buktikan API/SDK atau mekanisme resmi untuk mendeteksi dan memutus satu sesi.
 
 Acceptance: format clipboard, jenis link, otorisasi, dan batas lisensi terdokumentasi; tidak ada asumsi yang belum dibuktikan.
 
 ### TASK 2 — Windows Agent: capture dan sinkronisasi data
-- [ ] Tetapkan schema payload dari contoh clipboard aktual.
-- [ ] Ambil snapshot konsisten dari satu aksi Copy: Device ID + Verification Code + link yang benar-benar tersedia.
-- [ ] Pisahkan `share_url` dan `device_deep_link`; jangan membuat URL palsu.
+- [x] Tetapkan bentuk payload dari contoh clipboard: Device ID + Verification Code + `invite_url`.
+- [ ] Implementasikan snapshot konsisten dari satu aksi Copy: Device ID + Verification Code + invite URL.
+- [x] Pisahkan `invite_url` dari `device_deep_link`; jangan membuat URL palsu.
 - [ ] Validasi relasi ID/kode/link, panjang, scheme, host allowlist, dan expiry.
-- [ ] Hindari plaintext credential dalam log, status file, dan diagnostic.
+- [ ] Hindari plaintext credential/invite token dalam log, status file, clipboard history, dan diagnostic.
+- [ ] Ganti timer `AutoSyncStarDeskAsync` 4 detik dengan event-driven observer (Windows UI Automation + WinEvent/process/window events); event hanya memicu pemeriksaan dan satu capture setelah transisi stabil.
+- [ ] Ketika event menunjukkan sesi berakhir dan StarDesk kembali ke halaman Remote Assist, jalankan Copy & Share satu kali, parse ketiga field, fingerprint ketiga field, lalu sync hanya jika fingerprint berbeda.
+- [ ] Jangan menggunakan polling beberapa detik untuk mengirim sync. Retry network hanya untuk snapshot event yang sama dengan idempotency key/backoff; jangan menghasilkan snapshot baru kecuali ada event baru.
 - [ ] Kirim snapshot atomik ke Service melalui named pipe; batasi ACL.
 - [ ] Enkripsi Verification Code dan setiap link yang mengandung token/credential sebelum disimpan.
 - [ ] Tambahkan idempotency/fingerprint dan retry dengan backoff.
@@ -99,7 +113,8 @@ Acceptance: tiga data yang benar-benar tersedia tersinkron sebagai satu snapshot
 - [x] Inventarisasi tabel PC Agent dan pairing StarDesk.
 - [x] Identifikasi duplikasi jalur tarif lama vs inventaris Agent.
 - [x] Identifikasi perbedaan FK `public.devices.id` vs `androiddb_v0.rental_pcs.id`.
-- [ ] Putuskan satu identitas kanonis baru: `rental_pc_id` untuk jalur Agent/Remote baru.
+- [x] Tetapkan satu identitas kanonis baru untuk jalur Agent/Remote: `rental_pc_id`.
+- [ ]
 - [ ] Rancang jembatan additive untuk data lama `public.devices`; jangan menganggap UUID keduanya sama.
 - [ ] Tentukan satu sumber tarif otoritatif untuk PC yang memakai Agent; hindari update dua tarif yang berbeda.
 - [ ] Buat migration additive dan rollback notes setelah semua read/write call sites diperiksa.
