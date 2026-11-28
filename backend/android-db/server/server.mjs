@@ -413,25 +413,67 @@ async function rpcRequest(req, res, name, body) {
       await clearRateLimit([key]);
       return send(res,503,{ok:false,error:"STARDESK_PAIRING_ENCRYPTION_NOT_CONFIGURED"});
     }
+
     const result = await scalar(
       "SELECT api.androiddb_v0_remote_request_session($1::text,$2::uuid,$3::text) AS result",
       [token,pcId,idempotency]
     );
-    const cipherText = String(result?.invite_url_ciphertext || "");
-    const nonceText = String(result?.invite_url_nonce || "");
-    const tagText = String(result?.invite_url_tag || "");
-    if (!cipherText || !nonceText || !tagText) {
+
+    const verificationCiphertext = String(result?.verification_ciphertext || "");
+    const verificationNonce = String(result?.verification_nonce || "");
+    const verificationTag = String(result?.verification_tag || "");
+    const inviteCiphertext = String(result?.invite_url_ciphertext || "");
+    const inviteNonce = String(result?.invite_url_nonce || "");
+    const inviteTag = String(result?.invite_url_tag || "");
+    const deviceId = str(result?.stardesk_device_id,180);
+
+    if (!deviceId || !verificationCiphertext || !verificationNonce || !verificationTag ||
+        !inviteCiphertext || !inviteNonce || !inviteTag) {
       await clearRateLimit([key]);
       return send(res,409,{ok:false,error:"STARDESK_INVITE_NOT_READY"});
     }
-    const decipher = crypto.createDecipheriv("aes-256-gcm",secret,Buffer.from(nonceText,"base64"));
-    decipher.setAuthTag(Buffer.from(tagText,"base64"));
-    const inviteUrl = Buffer.concat([
-      decipher.update(Buffer.from(cipherText,"base64")),decipher.final()
-    ]).toString("utf8");
-    const {invite_url_ciphertext,invite_url_nonce,invite_url_tag,...safeResult} = result;
-    await clearRateLimit([key]);
-    return send(res,200,{...safeResult,invite_url:inviteUrl});
+
+    try {
+      const decrypt = (ciphertext,nonce,tag) => {
+        const decipher = crypto.createDecipheriv("aes-256-gcm",secret,Buffer.from(nonce,"base64"));
+        decipher.setAuthTag(Buffer.from(tag,"base64"));
+        return Buffer.concat([
+          decipher.update(Buffer.from(ciphertext,"base64")),decipher.final()
+        ]).toString("utf8");
+      };
+      const verificationCode = decrypt(verificationCiphertext,verificationNonce,verificationTag);
+      const inviteUrl = decrypt(inviteCiphertext,inviteNonce,inviteTag);
+      const parsedInvite = new URL(inviteUrl);
+      const tokenMatch = parsedInvite.pathname.match(/^\/invite\/([A-Za-z0-9_-]{20,256})$/);
+      const queryKeys = [...parsedInvite.searchParams.keys()];
+      const safeInvite = parsedInvite.protocol === "https:" &&
+        parsedInvite.hostname === "app.stardesk.net" && !parsedInvite.port &&
+        !parsedInvite.username && !parsedInvite.password && !parsedInvite.hash &&
+        tokenMatch && queryKeys.every(x => x === "lang") &&
+        parsedInvite.searchParams.size <= 1 &&
+        (!parsedInvite.searchParams.has("lang") ||
+          /^[A-Za-z]{2}(?:-[A-Za-z]{2})?$/.test(parsedInvite.searchParams.get("lang") || ""));
+      if (!/^[A-Z0-9]{8}$/.test(verificationCode) || !safeInvite) {
+        await clearRateLimit([key]);
+        return send(res,502,{ok:false,error:"STARDESK_PAIRING_PAYLOAD_INVALID"});
+      }
+
+      const {
+        verification_ciphertext,verification_nonce,verification_tag,
+        invite_url_ciphertext,invite_url_nonce,invite_url_tag,
+        ...safeResult
+      } = result;
+      await clearRateLimit([key]);
+      return send(res,200,{
+        ...safeResult,
+        stardesk_device_id:deviceId,
+        verification_code:verificationCode,
+        invite_url:parsedInvite.toString()
+      });
+    } catch {
+      await clearRateLimit([key]);
+      return send(res,502,{ok:false,error:"STARDESK_PAIRING_DECRYPT_FAILED"});
+    }
   }
   if (name === "androiddb_v0_admin_agent_pair" || name === "androiddb_v0_admin_agent_pair_manual") {
     const token = bearer(req);
