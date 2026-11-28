@@ -77,6 +77,24 @@ public static class StarDeskUiCapture
         public int Bottom;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativePoint
+    {
+        public int X;
+        public int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeWindowPlacement
+    {
+        public int Length;
+        public int Flags;
+        public int ShowCommand;
+        public NativePoint MinPosition;
+        public NativePoint MaxPosition;
+        public NativeRect NormalPosition;
+    }
+
     [DllImport("user32.dll")]
     private static extern bool EnumWindows(EnumWindowsCallback callback, IntPtr lParam);
     [DllImport("user32.dll")]
@@ -94,6 +112,9 @@ public static class StarDeskUiCapture
         IntPtr hwnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
     [DllImport("user32.dll")]
     private static extern bool GetWindowRect(IntPtr hwnd, out NativeRect rect);
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool GetWindowPlacement(
+        IntPtr hwnd, ref NativeWindowPlacement placement);
     [DllImport("user32.dll")]
     private static extern uint GetClipboardSequenceNumber();
 
@@ -329,7 +350,30 @@ public static class StarDeskUiCapture
         if (!isMainWindow && !IsStarDeskUiWindowTitle(title))
             return;
 
-        if (!GetWindowRect(hwnd, out var rect))
+        var hasBounds = GetWindowRect(hwnd, out var rect);
+
+        // A minimized window may expose only its small taskbar/icon rectangle.
+        // For hidden or minimized StarDesk UI, prefer the restored rectangle kept
+        // by Windows so the main app is not rejected by the minimum-size filter.
+        if (!IsWindowVisible(hwnd) || IsIconic(hwnd))
+        {
+            var placement = new NativeWindowPlacement
+            {
+                Length = Marshal.SizeOf<NativeWindowPlacement>()
+            };
+            if (GetWindowPlacement(hwnd, ref placement))
+            {
+                var normalWidth = placement.NormalPosition.Right - placement.NormalPosition.Left;
+                var normalHeight = placement.NormalPosition.Bottom - placement.NormalPosition.Top;
+                if (normalWidth >= 320 && normalHeight >= 220)
+                {
+                    rect = placement.NormalPosition;
+                    hasBounds = true;
+                }
+            }
+        }
+
+        if (!hasBounds)
             return;
 
         var width = Math.Max(0, rect.Right - rect.Left);
