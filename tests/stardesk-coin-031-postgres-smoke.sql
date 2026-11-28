@@ -1,4 +1,4 @@
-\\set ON_ERROR_STOP on
+\set ON_ERROR_STOP on
 
 CREATE ROLE stardesk_v0_runtime NOLOGIN;
 CREATE SCHEMA androiddb_v0;
@@ -127,8 +127,8 @@ CREATE FUNCTION api.androiddb_v0_agent_sync_stardesk_pairing(
 
 INSERT INTO androiddb_v0.coin_unit_config(singleton,coin_scale) VALUES(true,100);
 
-\\echo 'Applying migration 031 to a temporary PostgreSQL database'
-\\i backend/android-db/migrations/031_stardesk_invite_coin_sessions.sql
+\echo 'Applying migration 031 to a temporary PostgreSQL database'
+\i backend/android-db/migrations/031_stardesk_invite_coin_sessions.sql
 
 DO $$
 DECLARE
@@ -269,4 +269,4 @@ BEGIN
 END;
 $$;
 
-\\echo 'PASS: reservation has no upfront debit; connected starts billing; 60 Coin/hour = 6000 x100 units/hour; duplicate tick is idempotent; end stops billing; stale monitor caps charge at 45 seconds.'
+\echo 'PASS: reservation has no upfront debit; connected starts billing; 60 Coin/hour = 6000 x100 units/hour; duplicate tick is idempotent; end stops billing; stale monitor caps charge at 45 seconds.'
