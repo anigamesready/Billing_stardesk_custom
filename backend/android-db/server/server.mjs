@@ -251,6 +251,8 @@ const RPC = {
   androiddb_v0_admin_agent_revoke: { auth: "admin", sql: "SELECT api.androiddb_v0_admin_agent_revoke($1::text,$2::uuid) AS result", args: ["p_agent_device_id"] },
   androiddb_v0_agent_heartbeat: { auth: "agent", sql: "SELECT api.androiddb_v0_agent_heartbeat($1::text,$2::text,$3::text,$4::text,$5::text) AS result", args: ["p_agent_version","p_computer_name","p_windows_version","p_gpu_name"] },
   androiddb_v0_agent_ack: { auth: "agent", sql: "SELECT api.androiddb_v0_agent_ack($1::text,$2::uuid,$3::text,$4::text) AS result", args: ["p_command_id","p_status","p_result"] },
+  androiddb_v0_agent_stardesk_session_tick: { auth: "agent", sql: "SELECT api.androiddb_v0_agent_stardesk_session_tick($1::text,$2::uuid) AS result", args: ["p_event_id"] },
+  androiddb_v0_remote_session_status: { auth: "remote_client", sql: "SELECT api.androiddb_v0_remote_session_status($1::text) AS result", args: [] },
   androiddb_v0_host_heartbeat: { auth: "remote_host", sql: "SELECT api.androiddb_v0_host_heartbeat($1::text,$2::boolean,$3::text) AS result", args: ["p_stardesk_ready","p_agent_version"] },
   androiddb_v0_remote_logout: { auth: "remote_client", sql: "SELECT api.androiddb_v0_remote_logout($1::text) AS result", args: [] },
   androiddb_v0_remote_dashboard: { auth: "remote_client", sql: "SELECT api.androiddb_v0_remote_dashboard($1::text) AS result", args: [] },
@@ -332,23 +334,103 @@ async function rpcRequest(req, res, name, body) {
       return send(res,503,{ok:false,error:"STARDESK_PAIRING_ENCRYPTION_NOT_CONFIGURED"});
     }
     const deviceId = str(val(body,"p_stardesk_device_id"),180);
-    const verificationCode = str(val(body,"p_verification_code"),128);
-    if (!deviceId || !verificationCode) {
+    const verificationCode = str(val(body,"p_verification_code"),128).toUpperCase();
+    const rawInviteUrl = str(val(body,"p_invite_url"),2048);
+    let inviteUrl;
+    try {
+      const parsed = new URL(rawInviteUrl);
+      const tokenMatch = parsed.pathname.match(/^\/invite\/([A-Za-z0-9_-]{20,256})$/);
+      const queryKeys = [...parsed.searchParams.keys()];
+      if (parsed.protocol !== "https:" || parsed.hostname !== "app.stardesk.net" ||
+          parsed.port || parsed.username || parsed.password || parsed.hash ||
+          !tokenMatch || queryKeys.some(x => x !== "lang") ||
+          parsed.searchParams.size > 1 ||
+          (parsed.searchParams.has("lang") && !/^[A-Za-z]{2}(?:-[A-Za-z]{2})?$/.test(parsed.searchParams.get("lang") || ""))) {
+        throw new Error("INVITE_URL_NOT_ALLOWED");
+      }
+      inviteUrl = parsed.origin + parsed.pathname + parsed.search;
+    } catch {
+      await clearRateLimit([key]);
+      return send(res,400,{ok:false,error:"STARDESK_INVITE_URL_INVALID"});
+    }
+    if (!deviceId || !/^[A-Z0-9]{8}$/.test(verificationCode) || !inviteUrl) {
       await clearRateLimit([key]);
       return send(res,400,{ok:false,error:"STARDESK_CAPTURE_FIELDS_REQUIRED"});
     }
-    const nonce = crypto.randomBytes(12);
-    const cipher = crypto.createCipheriv("aes-256-gcm",secret,nonce);
-    const encrypted = Buffer.concat([
-      cipher.update(verificationCode,"utf8"),
-      cipher.final()
-    ]);
+    const encryptSecret = value => {
+      const nonce = crypto.randomBytes(12);
+      const cipher = crypto.createCipheriv("aes-256-gcm",secret,nonce);
+      const encrypted = Buffer.concat([cipher.update(value,"utf8"),cipher.final()]);
+      return {
+        ciphertext: encrypted.toString("base64"),
+        nonce: nonce.toString("base64"),
+        tag: cipher.getAuthTag().toString("base64")
+      };
+    };
+    const verification = encryptSecret(verificationCode);
+    const invite = encryptSecret(inviteUrl);
+    const fingerprint = sha256([deviceId,verificationCode,inviteUrl].join("\n"));
     const result = await scalar(
-      "SELECT api.androiddb_v0_agent_sync_stardesk_pairing($1::text,$2::text,$3::text,$4::text,$5::text) AS result",
-      [token,deviceId,encrypted.toString("base64"),nonce.toString("base64"),cipher.getAuthTag().toString("base64")]
+      "SELECT api.androiddb_v0_agent_sync_stardesk_pairing($1::text,$2::text,$3::text,$4::text,$5::text,$6::text,$7::text,$8::text,$9::text) AS result",
+      [token,deviceId,verification.ciphertext,verification.nonce,verification.tag,
+        invite.ciphertext,invite.nonce,invite.tag,fingerprint]
     );
     await clearRateLimit([key]);
     return send(res,200,result);
+  }
+  if (name === "androiddb_v0_agent_stardesk_session_event") {
+    const token = bearer(req);
+    if (!token) return send(res,401,{message:"AUTH_REQUIRED"});
+    const eventType = str(val(body,"p_event_type"),16).toLowerCase();
+    const eventId = str(val(body,"p_event_id"),36);
+    if (!["connected","ended"].includes(eventType) ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(eventId)) {
+      return send(res,400,{ok:false,error:"STARDESK_SESSION_EVENT_INVALID"});
+    }
+    const key = bucketHash("androiddb-v0-stardesk-session-event",clientIp(req),token.slice(0,24));
+    await callRateLimit(key,20);
+    const result = await scalar(
+      "SELECT api.androiddb_v0_agent_stardesk_session_event($1::text,$2::text,$3::uuid) AS result",
+      [token,eventType,eventId]
+    );
+    await clearRateLimit([key]);
+    return send(res,200,result);
+  }
+  if (name === "androiddb_v0_remote_request_session") {
+    const token = bearer(req);
+    if (!token) return send(res,401,{message:"AUTH_REQUIRED"});
+    const pcId = str(val(body,"p_rental_pc_id"),36);
+    const idempotency = str(val(body,"p_idempotency_key"),128);
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pcId) ||
+        idempotency.length < 8) {
+      return send(res,400,{ok:false,error:"COIN_SESSION_REQUEST_INVALID"});
+    }
+    const key = bucketHash("androiddb-v0-remote-session-request",clientIp(req),token.slice(0,24));
+    await callRateLimit(key,5);
+    const secret = Buffer.from(STARDESK_PAIRING_KEY, "base64");
+    if (secret.length !== 32) {
+      await clearRateLimit([key]);
+      return send(res,503,{ok:false,error:"STARDESK_PAIRING_ENCRYPTION_NOT_CONFIGURED"});
+    }
+    const result = await scalar(
+      "SELECT api.androiddb_v0_remote_request_session($1::text,$2::uuid,$3::text) AS result",
+      [token,pcId,idempotency]
+    );
+    const cipherText = String(result?.invite_url_ciphertext || "");
+    const nonceText = String(result?.invite_url_nonce || "");
+    const tagText = String(result?.invite_url_tag || "");
+    if (!cipherText || !nonceText || !tagText) {
+      await clearRateLimit([key]);
+      return send(res,409,{ok:false,error:"STARDESK_INVITE_NOT_READY"});
+    }
+    const decipher = crypto.createDecipheriv("aes-256-gcm",secret,Buffer.from(nonceText,"base64"));
+    decipher.setAuthTag(Buffer.from(tagText,"base64"));
+    const inviteUrl = Buffer.concat([
+      decipher.update(Buffer.from(cipherText,"base64")),decipher.final()
+    ]).toString("utf8");
+    const {invite_url_ciphertext,invite_url_nonce,invite_url_tag,...safeResult} = result;
+    await clearRateLimit([key]);
+    return send(res,200,{...safeResult,invite_url:inviteUrl});
   }
   if (name === "androiddb_v0_admin_agent_pair" || name === "androiddb_v0_admin_agent_pair_manual") {
     const token = bearer(req);
