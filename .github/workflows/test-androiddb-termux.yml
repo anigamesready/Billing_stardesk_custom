@@ -31,6 +31,7 @@ jobs:
         run: |
           set -euo pipefail
           bash -n backend/android-db/termux/install.sh
+          bash -n backend/android-db/termux/resume-stardesk-coin-031-api.sh
 
       - name: Validate dedicated StarDesk Custom installer and Relay Agent syntax
         run: |
