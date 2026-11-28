@@ -11,6 +11,7 @@ on:
       - "backend/android-db/termux/install-stardesk-custom-v0.sh"
       - "backend/android-db/termux/upgrade-stardesk-coin-031.sh"
       - "tests/stardesk-agent-coin-contract.test.mjs"
+      - "tests/stardesk-coin-031-postgres-smoke.sql"
       - ".github/workflows/build-stardesk-coin-agent-0.2.7.yml"
 
 permissions:
