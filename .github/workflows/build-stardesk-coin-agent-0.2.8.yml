@@ -1,0 +1,129 @@
+name: StarDesk Coin 031 — Windows Agent 0.2.8 + EXE Installer
+
+on:
+  push:
+    branches:
+      - feature/stardesk-coin-remote-task1-3-20261128
+    paths:
+      - "win-agent/**"
+      - "backend/android-db/migrations/031_stardesk_invite_coin_sessions.sql"
+      - "backend/android-db/server/server.mjs"
+      - "backend/android-db/termux/install-stardesk-custom-v0.sh"
+      - "backend/android-db/termux/upgrade-stardesk-coin-031.sh"
+      - "backend/android-db/termux/resume-stardesk-coin-031-api.sh"
+      - "tests/stardesk-agent-contract.test.mjs"
+      - "tests/stardesk-agent-coin-contract.test.mjs"
+      - "tests/stardesk-coin-031-postgres-smoke.sql"
+      - ".github/workflows/build-stardesk-coin-agent-0.2.8.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contract-tests:
+    name: Validate SQL/API/Agent contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check Node API syntax
+        run: node --check backend/android-db/server/server.mjs
+      - name: Check isolated Termux scripts
+        run: |
+          bash -n backend/android-db/termux/install-stardesk-custom-v0.sh
+          bash -n backend/android-db/termux/upgrade-stardesk-coin-031.sh
+          bash -n backend/android-db/termux/resume-stardesk-coin-031-api.sh
+      - name: Run Agent, Coin, session standby and minimize contract tests
+        run: node --test tests/stardesk-agent-contract.test.mjs tests/stardesk-agent-coin-contract.test.mjs
+
+  postgres-smoke:
+    name: Execute Coin session migration on disposable PostgreSQL
+    runs-on: ubuntu-latest
+    needs: contract-tests
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+      - name: Apply 031 and execute Coin lifecycle smoke tests
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -p 5432 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/stardesk-coin-031-postgres-smoke.sql
+
+  windows-agent:
+    name: Build Windows x64 Agent 0.2.8 and one-file installer
+    runs-on: windows-2022
+    needs: [contract-tests, postgres-smoke]
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Publish Windows Service
+        shell: pwsh
+        run: dotnet publish win-agent/Agent.Service/Agent.Service.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o "$PWD/out/WindowsAgent/Agent.Service"
+      - name: Publish Windows Tray
+        shell: pwsh
+        run: dotnet publish win-agent/Agent.Tray/Agent.Tray.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o "$PWD/out/WindowsAgent/Agent.Tray"
+      - name: Assemble and verify package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path out/WindowsAgent | Out-Null
+          Copy-Item win-agent/scripts/install.ps1 out/WindowsAgent/install.ps1
+          Copy-Item win-agent/scripts/uninstall.ps1 out/WindowsAgent/uninstall.ps1
+          Copy-Item win-agent/README.txt out/WindowsAgent/README.txt
+          if (!(Test-Path out/WindowsAgent/Agent.Service/AniGamesReady.Agent.Service.exe)) { throw "Service binary missing" }
+          if (!(Test-Path out/WindowsAgent/Agent.Tray/AniGamesReady.Agent.Tray.exe)) { throw "Tray binary missing" }
+          $zip = "Ani-Games-Ready-StarDesk-Coin-Agent-0.2.8-win-x64.zip"
+          Compress-Archive -Path out/WindowsAgent/* -DestinationPath "out/$zip" -CompressionLevel Optimal
+          Get-FileHash "out/$zip" -Algorithm SHA256 | Format-List | Out-File "out/SHA256-WINDOWS-AGENT.txt"
+          Get-Item "out/$zip" | Format-Table Name,Length
+      - name: Install Inno Setup compiler
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+      - name: Compile one-file Windows installer EXE
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $iscc = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"
+          if (!(Test-Path -LiteralPath $iscc -PathType Leaf)) { throw "Inno Setup compiler not found: $iscc" }
+          & $iscc /Qp win-agent/installer/AniGamesReady-StarDesk-Agent.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed: $LASTEXITCODE" }
+          $setup = "out/WindowsAgent/Ani-Games-Ready-StarDesk-Agent-Setup-0.2.8-win-x64.exe"
+          if (!(Test-Path -LiteralPath $setup -PathType Leaf)) { throw "Installer EXE missing" }
+          $item = Get-Item $setup
+          if ($item.Length -lt 50000000) { throw "Installer EXE unexpectedly small ($($item.Length) bytes)" }
+          Get-FileHash $setup -Algorithm SHA256 | Format-List | Out-File "out/SHA256-AGENT-INSTALLER.txt"
+          Write-Host "Installer EXE created: $($item.Length) bytes"
+      - name: Upload Windows Agent ZIP and one-file EXE installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ani-Games-Ready-StarDesk-Coin-Agent-0.2.8-Windows-Installer
+          path: |
+            out/Ani-Games-Ready-StarDesk-Coin-Agent-0.2.8-win-x64.zip
+            out/WindowsAgent/Ani-Games-Ready-StarDesk-Agent-Setup-0.2.8-win-x64.exe
+            out/SHA256-WINDOWS-AGENT.txt
+            out/SHA256-AGENT-INSTALLER.txt
+          if-no-files-found: error
+          retention-days: 30
