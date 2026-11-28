@@ -236,6 +236,17 @@ public sealed class AgentTrayForm : Form
         try
         {
             await AgentCapturePipeClient.SendMonitorHeartbeatAsync();
+
+            // Safety net: if the StarDesk process exits without a final WinEvent callback,
+            // close any active Coin session. This check never reads/copies credentials.
+            if (previousSessionActive == true &&
+                System.Diagnostics.Process.GetProcessesByName("StarDesk").Length == 0)
+            {
+                await SendSessionEventOnceAsync("ended", CancellationToken.None);
+                previousSessionActive = false;
+                starDeskWindowWasOpen = false;
+                autoSyncLabel.Text = "StarDesk sudah ditutup • sesi Coin dihentikan oleh watchdog.";
+            }
         }
         catch
         {
