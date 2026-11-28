@@ -150,10 +150,26 @@ public static class StarDeskUiCapture
                 // Never foreground it or interact with the separate Server/Service process.
                 var recovery = "not-needed";
                 var wasHiddenOrMinimized = !window.WasVisible || window.WasMinimized;
-                var recoveredWindow = false;
-                if (wasHiddenOrMinimized)
+                var explicitIdleCapture = forceCopy && allowCopy;
+
+                // A passive WinEvent probe must never restore/show StarDesk. Windows emits
+                // OBJECT_HIDE when users minimize a window; restoring it here caused the
+                // renter's StarDesk window to pop back onto the desktop repeatedly.
+                if (wasHiddenOrMinimized && !explicitIdleCapture)
                 {
-                    if (ShouldAttemptWindowRecovery(forceCopy))
+                    if (best is null)
+                    {
+                        best = new StarDeskCaptureSnapshot(
+                            "", "", window.Title,
+                            Diagnostics: "Passive monitor skipped hidden/minimized StarDesk window; no window was restored.");
+                    }
+                    continue;
+                }
+
+                var recoveredWindow = false;
+                if (wasHiddenOrMinimized && explicitIdleCapture)
+                {
+                    if (ShouldAttemptWindowRecovery(true))
                     {
                         recovery = RestoreWindowToBackground(window.Handle);
                         recoveredWindow = recovery.StartsWith("restored", StringComparison.Ordinal);
@@ -166,22 +182,27 @@ public static class StarDeskUiCapture
 
                 var root = AutomationElement.FromHandle(window.Handle);
                 var nodes = CollectAccessibleText(root);
-                if ((recoveredWindow || (forceCopy && allowCopy)) && !IsRemoteSupportPage(nodes))
+                var session = DetectRemoteSession(nodes);
+                if (explicitIdleCapture && session.Known && !session.Active &&
+                    (recoveredWindow || explicitIdleCapture) && !IsRemoteSupportPage(nodes))
                 {
-                    // On a confirmed idle/app-open event, return the visible StarDesk window
-                    // to Remote Assistance before invoking Copy & Share.
+                    // Only an explicit capture after an idle-state check may navigate the
+                    // StarDesk UI. Never navigate or copy while a remote session is active.
                     var navigation = TryNavigateRemoteSupport(root);
                     recovery += ";" + navigation;
                     if (navigation is "remote-support-invoked" or "remote-support-selected")
+                    {
                         nodes = WaitForRemoteSupportPage(root);
+                        session = DetectRemoteSession(nodes);
+                    }
                 }
                 var deviceId = FindDeviceId(nodes);
                 var verificationCode = FindVerificationCode(nodes);
-                var session = DetectRemoteSession(nodes);
 
                 var inviteUrl = "";
                 CopyCaptureResult copy = new("", false, false, false, false, "not-needed");
-                if (allowCopy && (forceCopy || string.IsNullOrWhiteSpace(deviceId) ||
+                if (allowCopy && session.Known && !session.Active &&
+                    (forceCopy || string.IsNullOrWhiteSpace(deviceId) ||
                     string.IsNullOrWhiteSpace(verificationCode)))
                 {
                     if (ShouldAttemptCopy(forceCopy))
