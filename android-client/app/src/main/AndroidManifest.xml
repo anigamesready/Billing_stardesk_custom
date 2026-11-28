@@ -5,7 +5,7 @@
     <application
         android:allowBackup="false"
         android:icon="@drawable/ic_launcher"
-        android:label="Ani Games Ready Remote Agent Sync 0.6.7"
+        android:label="Ani Games Ready Remote Coin Session 0.6.8"
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="false">
