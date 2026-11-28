@@ -29,10 +29,10 @@ public static class StarDeskUiCapture
         @"(?<!\d)(\d{3}(?:[\s-]+\d{3}){2,3}|\d{9})(?!\d)",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly Regex DeviceLabelRegex = new(
-        @"(?im)^\\s*Device\\s*ID\\s*:\\s*([0-9][0-9\\s-]{7,19})\\s*$",
+        @"(?im)^\s*Device\s*ID\s*:\s*([0-9][0-9\s-]{7,19})\s*$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly Regex InviteUrlLabelRegex = new(
-        @"(?im)^\\s*Click the link to initiate directly\\s*:\\s*(https://app\\.stardesk\\.net/invite/[A-Za-z0-9_-]{20,256}(?:\\?lang=[A-Za-z]{2}(?:-[A-Za-z]{2})?)?)\\s*$",
+        @"(?im)^\s*Click the link to initiate directly\s*:\s*(https://app\.stardesk\.net/invite/[A-Za-z0-9_-]{20,256}(?:\?lang=[A-Za-z]{2}(?:-[A-Za-z]{2})?)?)\s*$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly Regex CodeValueRegex = new(
         @"(?<![A-Z0-9])[A-Z0-9]{8}(?![A-Z0-9])",
@@ -850,7 +850,7 @@ public static class StarDeskUiCapture
 
         var query = parsedUri.Query;
         if (!string.IsNullOrEmpty(query) &&
-            !Regex.IsMatch(query, "^\\?lang=[A-Za-z]{2}(?:-[A-Za-z]{2})?$", RegexOptions.CultureInvariant))
+            !Regex.IsMatch(query, "^\?lang=[A-Za-z]{2}(?:-[A-Za-z]{2})?$", RegexOptions.CultureInvariant))
             return false;
 
         deviceId = parsedDeviceId;
