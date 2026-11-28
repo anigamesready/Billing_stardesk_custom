@@ -14,7 +14,7 @@ public sealed class AgentWorker(
     AgentApiClient api,
     ILogger<AgentWorker> logger) : BackgroundService
 {
-    private const string Version = "0.2.6";
+    private const string Version = "0.2.7";
     private AgentConfig? config;
     private AgentStatus status = new();
 
@@ -105,27 +105,62 @@ public sealed class AgentWorker(
 
                     using var document = JsonDocument.Parse(line);
                     var request = document.RootElement;
-                    var deviceId = AgentApiClient.ReadString(request, "stardesk_device_id")?.Trim() ?? "";
-                    var verificationCode = AgentApiClient.ReadString(request, "verification_code")?.Trim() ?? "";
-                    if (deviceId.Length is < 1 or > 180 || verificationCode.Length is < 1 or > 128)
-                        throw new InvalidOperationException("STAR_DESK_CAPTURE_FIELDS_INVALID");
-
-                    var result = await api.RpcAsync("androiddb_v0_agent_sync_stardesk_pairing", new
+                    var action = AgentApiClient.ReadString(request, "action")?.Trim().ToLowerInvariant() ?? "";
+                    if (action == "pairing_refresh")
                     {
-                        p_stardesk_device_id = deviceId,
-                        p_verification_code = verificationCode
-                    }, config.AgentToken, stoppingToken);
+                        var deviceId = AgentApiClient.ReadString(request, "stardesk_device_id")?.Trim() ?? "";
+                        var verificationCode = AgentApiClient.ReadString(request, "verification_code")?.Trim().ToUpperInvariant() ?? "";
+                        var inviteUrl = AgentApiClient.ReadString(request, "invite_url")?.Trim() ?? "";
+                        if (deviceId.Length is < 1 or > 180 ||
+                            !System.Text.RegularExpressions.Regex.IsMatch(verificationCode, "^[A-Z0-9]{8}$") ||
+                            inviteUrl.Length is < 32 or > 2048)
+                            throw new InvalidOperationException("STAR_DESK_THREE_FIELD_CAPTURE_INVALID");
 
-                    status.StarDeskDeviceId = AgentApiClient.ReadString(result, "stardesk_device_id") ?? deviceId;
-                    status.LastStarDeskSyncUtc = DateTimeOffset.UtcNow;
-                    PublishStatus("ONLINE", "Agent online. Device ID StarDesk berhasil disinkronkan; kode verifikasi disimpan terenkripsi.");
-                    await writer.WriteLineAsync(JsonSerializer.Serialize(new
+                        var result = await api.RpcAsync("androiddb_v0_agent_sync_stardesk_pairing", new
+                        {
+                            p_stardesk_device_id = deviceId,
+                            p_verification_code = verificationCode,
+                            p_invite_url = inviteUrl
+                        }, config.AgentToken, stoppingToken);
+
+                        status.StarDeskDeviceId = AgentApiClient.ReadString(result, "stardesk_device_id") ?? deviceId;
+                        status.LastStarDeskSyncUtc = DateTimeOffset.UtcNow;
+                        PublishStatus("ONLINE", "Agent online. Tiga data StarDesk tersinkron; kode dan link disimpan terenkripsi.");
+                        await writer.WriteLineAsync(JsonSerializer.Serialize(new
+                        {
+                            ok = true,
+                            message = "Tiga data StarDesk tersinkron. Data rahasia disimpan terenkripsi di Android DB.",
+                            stardesk_device_id = status.StarDeskDeviceId,
+                            captured_at = status.LastStarDeskSyncUtc
+                        }));
+                    }
+                    else if (action == "session_event")
                     {
-                        ok = true,
-                        message = "StarDesk Device ID tersinkron. Kode verifikasi disimpan terenkripsi di Android DB.",
-                        stardesk_device_id = status.StarDeskDeviceId,
-                        captured_at = status.LastStarDeskSyncUtc
-                    }));
+                        var eventType = AgentApiClient.ReadString(request, "event_type")?.Trim().ToLowerInvariant() ?? "";
+                        var eventIdText = AgentApiClient.ReadString(request, "event_id") ?? "";
+                        if (eventType != "connected" && eventType != "ended" || !Guid.TryParse(eventIdText, out var eventId))
+                            throw new InvalidOperationException("STAR_DESK_SESSION_EVENT_INVALID");
+
+                        var result = await api.RpcAsync("androiddb_v0_agent_stardesk_session_event", new
+                        {
+                            p_event_type = eventType,
+                            p_event_id = eventId
+                        }, config.AgentToken, stoppingToken);
+                        var sessionStatus = AgentApiClient.ReadString(result, "status") ?? "unknown";
+                        PublishStatus("ONLINE", eventType == "connected"
+                            ? "Sesi StarDesk terdeteksi. Counter Coin dimulai hanya jika ada reservasi rental yang cocok."
+                            : "Sesi StarDesk selesai. Counter Coin dihentikan dan diselesaikan di server.");
+                        await writer.WriteLineAsync(JsonSerializer.Serialize(new
+                        {
+                            ok = true,
+                            event_type = eventType,
+                            session_status = sessionStatus
+                        }));
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("STAR_DESK_PIPE_ACTION_NOT_ALLOWED");
+                    }
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -194,7 +229,23 @@ public sealed class AgentWorker(
             throw new InvalidOperationException("ANDROIDDB_V0_AGENT_REVOKED_OR_UNPAIRED");
 
         status.LastHeartbeatUtc = DateTimeOffset.UtcNow;
-        PublishStatus("ONLINE", "Agent terhubung. Status ini hanya heartbeat Windows, bukan status StarDesk Streaming.");
+        PublishStatus("ONLINE", "Agent terhubung. Heartbeat PC dan Coin meter berjalan terpisah dari sinkronisasi Copy & Share.");
+
+        // This metering tick never reads StarDesk UI or copies credentials.
+        // The database bills only the currently connected rental session using server time.
+        try
+        {
+            var meter = await api.RpcAsync("androiddb_v0_agent_stardesk_session_tick", new
+            {
+                p_event_id = Guid.NewGuid()
+            }, c.AgentToken, cancellationToken);
+            if (AgentApiClient.ReadBoolean(meter, "coin_exhausted"))
+                PublishStatus("ONLINE", "Saldo Coin habis. Counter server berhenti; sesi rental ditandai selesai.");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning("Coin meter tick belum berhasil: {Reason}", ex.Message);
+        }
 
         if (!result.TryGetProperty("commands", out var commands) || commands.ValueKind != JsonValueKind.Array)
             return;
