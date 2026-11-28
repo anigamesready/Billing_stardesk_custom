@@ -314,6 +314,10 @@ BEGIN
     SELECT * INTO sp FROM androiddb_v0.stardesk_pairings WHERE rental_pc_id=s.rental_pc_id;
     RETURN jsonb_build_object('ok',true,'idempotent',true,'session_id',s.id,
       'status',s.status,'rental_pc_id',s.rental_pc_id,'hourly_coin_units',s.hourly_coin_units,
+      'stardesk_device_id',sp.stardesk_device_id,
+      'verification_ciphertext',sp.verification_ciphertext,
+      'verification_nonce',sp.verification_nonce,
+      'verification_tag',sp.verification_tag,
       'invite_url_ciphertext',sp.invite_url_ciphertext,'invite_url_nonce',sp.invite_url_nonce,
       'invite_url_tag',sp.invite_url_tag,'coin_unit_scale',100,'server_time',clock_timestamp());
   END IF;
@@ -360,6 +364,10 @@ BEGIN
   RETURN jsonb_build_object('ok',true,'idempotent',false,'session_id',s.id,
     'status',s.status,'rental_pc_id',pc.id,'device_name',pc.display_name,
     'hourly_coin_units',pc.hourly_coin_units,'hourly_coins',pc.hourly_coin_units::numeric/100,
+    'stardesk_device_id',sp.stardesk_device_id,
+    'verification_ciphertext',sp.verification_ciphertext,
+    'verification_nonce',sp.verification_nonce,
+    'verification_tag',sp.verification_tag,
     'invite_url_ciphertext',sp.invite_url_ciphertext,'invite_url_nonce',sp.invite_url_nonce,
     'invite_url_tag',sp.invite_url_tag,'coin_unit_scale',100,'server_time',clock_timestamp());
 END;
