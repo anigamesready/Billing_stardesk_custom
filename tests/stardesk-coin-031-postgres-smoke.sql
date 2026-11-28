@@ -198,6 +198,10 @@ BEGIN
   IF NOT (SELECT stardesk_session_active FROM androiddb_v0.agent_devices WHERE id=agent_id) THEN
     RAISE EXCEPTION 'Agent must record StarDesk as active immediately after observing the stream.';
   END IF;
+  SELECT balance INTO actual_balance FROM androiddb_v0.coin_wallets WHERE id=wallet_id;
+  IF actual_balance<>12000 THEN
+    RAISE EXCEPTION 'Coin must not be deducted on connected event itself; got %',actual_balance;
+  END IF;
 
   UPDATE androiddb_v0.coin_rental_sessions
     SET last_billed_at=clock_timestamp()-interval '30 seconds'
