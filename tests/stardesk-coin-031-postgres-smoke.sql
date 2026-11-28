@@ -165,9 +165,11 @@ BEGIN
   );
   INSERT INTO androiddb_v0.stardesk_pairings(
     rental_pc_id,org_id,stardesk_device_id,verification_ciphertext,
-    verification_nonce,verification_tag,status
+    verification_nonce,verification_tag,status,invite_url_ciphertext,
+    invite_url_nonce,invite_url_tag,capture_fingerprint
   ) VALUES(pc_id,org_id,'861260101','encrypted-code','0123456789abcdef',
-    '0123456789abcdefghijklmn','captured');
+    '0123456789abcdefghijklmn','captured','encrypted-invite','0123456789abcdef',
+    '0123456789abcdefghijklmn',repeat('a',64));
 
   INSERT INTO androiddb_v0.client_sessions(id,rental_account_id,token_hash,expires_at)
     VALUES(client_id,account_id,encode(extensions.digest(client_token,'sha256'),'hex'),
@@ -234,7 +236,7 @@ BEGIN
     RAISE EXCEPTION 'Ended request idempotency key must not disclose a stale invite URL.';
   END IF;
 END;
-$;
+$$;
 
 DO $$
 DECLARE
