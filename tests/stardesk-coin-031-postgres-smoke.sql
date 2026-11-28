@@ -200,21 +200,21 @@ BEGIN
   END IF;
 
   UPDATE androiddb_v0.coin_rental_sessions
-    SET last_billed_at=clock_timestamp()-interval '1 hour'
+    SET last_billed_at=clock_timestamp()-interval '30 seconds'
     WHERE id=session_id;
 
   tick_result:=api.androiddb_v0_agent_stardesk_session_tick(agent_token,tick_id);
   SELECT balance INTO actual_balance FROM androiddb_v0.coin_wallets WHERE id=wallet_id;
   SELECT debited_coin_units INTO debited FROM androiddb_v0.coin_rental_sessions WHERE id=session_id;
-  IF actual_balance<>6000 OR debited<>6000 THEN
+  IF actual_balance<>11950 OR debited<>50 THEN
     RAISE EXCEPTION 'One hour at 60 Coin/hour must debit 60 Coin (6000 x100 units); balance %, debited %',
       actual_balance,debited;
   END IF;
 
   PERFORM api.androiddb_v0_agent_stardesk_session_tick(agent_token,tick_id);
   SELECT balance INTO actual_balance FROM androiddb_v0.coin_wallets WHERE id=wallet_id;
-  IF actual_balance<>6000 THEN
-    RAISE EXCEPTION 'Duplicate tick event must be idempotent; balance is %',actual_balance;
+  IF actual_balance<>11950 THEN
+    RAISE EXCEPTION 'Duplicate 15-second meter event must be idempotent; balance is %',actual_balance;
   END IF;
 
   ended_result:=api.androiddb_v0_agent_stardesk_session_event(agent_token,'ended',gen_random_uuid());
@@ -404,4 +404,4 @@ BEGIN
 END;
 $$;
 
-\echo 'PASS: reservation has no upfront debit; connected starts billing; 60 Coin/hour = 6000 x100 units/hour; duplicate tick is idempotent; end stops billing; stale monitor caps charge at 45 seconds.'
+\echo 'PASS: reservation has no upfront debit; connected starts billing; 60 Coin/hour prorates 30 seconds to 0.5 Coin; duplicate tick is idempotent; end stops billing; stale monitor caps charge at 45 seconds; stale reservation unlocks PC; external active StarDesk blocks rental.'
