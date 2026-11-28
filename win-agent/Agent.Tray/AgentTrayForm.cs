@@ -150,6 +150,14 @@ public sealed class AgentTrayForm : Form
         Shown += async (_, _) =>
         {
             RefreshStatus();
+            if (currentStatus?.IsPaired == true &&
+                System.Diagnostics.Process.GetProcessesByName("StarDesk").Length == 0)
+            {
+                // Reconcile a host that may have been left locked by a previous monitor_lost.
+                // A service restart or Tray restart must not leave the PC stuck indefinitely.
+                await SendSessionEventOnceAsync("ended", CancellationToken.None);
+                previousSessionActive = false;
+            }
             await ProbeStarDeskAsync(null, CancellationToken.None);
         };
         FormClosing += OnFormClosing;
@@ -341,13 +349,15 @@ public sealed class AgentTrayForm : Form
         }
 
         var sessionJustEnded = previousSessionActive == true;
-        if (sessionJustEnded)
+        var appJustOpened = !starDeskWindowWasOpen;
+        if (sessionJustEnded || appJustOpened)
         {
+            // Also clears a stale host lock left by a previous Tray process if StarDesk
+            // is now visibly idle; the API event is idempotent when no Coin session exists.
             await SendSessionEventOnceAsync("ended", cancellationToken);
             previousSessionActive = false;
         }
 
-        var appJustOpened = !starDeskWindowWasOpen;
         starDeskWindowWasOpen = true;
         var pairFingerprint = PairFingerprint(observed);
         var pairChanged = !string.IsNullOrWhiteSpace(observed.DeviceId) &&
