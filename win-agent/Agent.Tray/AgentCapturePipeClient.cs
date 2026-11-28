@@ -19,7 +19,7 @@ public static class AgentCapturePipeClient
             string.IsNullOrWhiteSpace(capture.InviteUrl))
             throw new InvalidOperationException("STARDESK_THREE_FIELD_CAPTURE_REQUIRED");
 
-        return SendAsync(new
+        return SendWithRetryAsync(new
         {
             action = "pairing_refresh",
             event_id = Guid.NewGuid(),
@@ -37,7 +37,7 @@ public static class AgentCapturePipeClient
         if (normalized is not ("connected" or "ended"))
             throw new ArgumentOutOfRangeException(nameof(eventType), "STARDESK_SESSION_EVENT_INVALID");
 
-        return SendAsync(new
+        return SendWithRetryAsync(new
         {
             action = "session_event",
             event_type = normalized,
@@ -52,6 +52,32 @@ public static class AgentCapturePipeClient
             action = "monitor_heartbeat",
             event_id = Guid.NewGuid()
         }, cancellationToken, MonitorPipeName, TimeSpan.FromSeconds(5));
+
+    private static async Task SendWithRetryAsync(
+        object request,
+        CancellationToken cancellationToken)
+    {
+        var delays = new[] { TimeSpan.Zero, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5) };
+        Exception? lastError = null;
+        foreach (var delay in delays)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (delay > TimeSpan.Zero)
+                await Task.Delay(delay, cancellationToken);
+            try
+            {
+                // Retry the exact same request; never press Copy & Share again.
+                await SendAsync(request, cancellationToken);
+                return;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                lastError = ex;
+            }
+        }
+
+        throw new InvalidOperationException("STAR_DESK_EVENT_SYNC_RETRY_EXHAUSTED", lastError);
+    }
 
     private static async Task SendAsync(object request, CancellationToken cancellationToken, string pipeName = PipeName, TimeSpan? timeoutPeriod = null)
     {
