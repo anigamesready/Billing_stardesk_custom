@@ -51,7 +51,7 @@ test("Remote validates direct invite URL host, path, and optional lang query bef
   assert.match(html, /window\.location\.href=invite/);
   assert.match(java, /isAllowedStarDeskInvite\(uri\)/);
   assert.match(java, /"app\.stardesk\.net"/);
-  assert.match(java, /\/invite\/\[A-Za-z0-9_-/);
+  assert.ok(java.includes('path.matches("^/invite/[A-Za-z0-9_-]{20,256}$")'));
   assert.match(java, /i\.setPackage\("com\.stardesk"\)/);
 });
 
