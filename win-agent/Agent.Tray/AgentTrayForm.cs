@@ -27,6 +27,7 @@ public sealed class AgentTrayForm : Form
     private bool? previousSessionActive;
     private bool remoteSessionStateKnown;
     private bool remoteSessionActive;
+    private bool pendingSyncAfterIdle;
     private bool starDeskWindowWasOpen;
     private CancellationTokenSource? starDeskEventDebounce;
     private StarDeskWindowEventWatcher? starDeskWatcher;
@@ -201,7 +202,8 @@ public sealed class AgentTrayForm : Form
         copyButton.Enabled = !currentStatus.IsPaired && !string.IsNullOrWhiteSpace(currentStatus.PairingCode);
         // Disable manual capture while a remote user is connected. The state is kept
         // conservatively when a minimized window cannot be inspected.
-        syncButton.Enabled = currentStatus.IsPaired && !remoteSessionActive && !manualSyncBusy;
+        syncButton.Enabled = currentStatus.IsPaired &&
+            (!remoteSessionStateKnown || !remoteSessionActive) && !manualSyncBusy;
         starDeskLabel.Text = string.IsNullOrWhiteSpace(currentStatus.StarDeskDeviceId)
             ? "StarDesk: belum disinkronkan"
             : "StarDesk ID: " + currentStatus.StarDeskDeviceId + " • " + (currentStatus.LastStarDeskSyncUtc?.ToLocalTime().ToString("dd MMM HH:mm:ss") ?? "tersimpan");
@@ -322,14 +324,16 @@ public sealed class AgentTrayForm : Form
             starDeskWindowWasOpen = false;
             if (previousSessionActive == true)
             {
+                pendingSyncAfterIdle = true;
                 await SendSessionEventOnceAsync("ended", cancellationToken);
                 previousSessionActive = false;
-                autoSyncLabel.Text = "StarDesk ditutup • sesi rental dihentikan.";
+                autoSyncLabel.Text = "StarDesk ditutup • sesi rental dihentikan; sync menunggu StarDesk dibuka lagi.";
             }
             else
             {
                 autoSyncLabel.Text = "Jendela StarDesk ditutup • tidak ada sesi aktif yang ditagih.";
             }
+            RefreshStatus();
             return;
         }
 
@@ -366,9 +370,11 @@ public sealed class AgentTrayForm : Form
         var sessionJustEnded = previousSessionActive == true;
         var appJustOpened = !starDeskWindowWasOpen;
         if (sessionJustEnded || appJustOpened)
+            pendingSyncAfterIdle = true;
+
+        if (sessionJustEnded || appJustOpened)
         {
-            // Also clears a stale host lock left by a previous Tray process if StarDesk
-            // is now visibly idle; the API event is idempotent when no Coin session exists.
+            // Close any stale host lock only after an explicit idle observation.
             await SendSessionEventOnceAsync("ended", cancellationToken);
             previousSessionActive = false;
         }
@@ -378,37 +384,73 @@ public sealed class AgentTrayForm : Form
         var pairChanged = !string.IsNullOrWhiteSpace(observed.DeviceId) &&
             !string.IsNullOrWhiteSpace(observed.VerificationCode) &&
             !string.Equals(pairFingerprint, lastObservedPairFingerprint, StringComparison.Ordinal);
-        var needCopy = appJustOpened || sessionJustEnded || pairChanged;
+        if (pairChanged)
+            pendingSyncAfterIdle = true;
 
-        if (!needCopy)
+        if (!pendingSyncAfterIdle)
         {
             autoSyncLabel.Text = "Event sync aktif • tidak ada perubahan sesi atau data.";
             return;
         }
 
-        // Exactly one Copy & Share attempt for app-open, session-ended, or changed credentials.
+        // If the renter minimized StarDesk, keep it minimized. Remember the pending
+        // sync and perform one capture only after a visible idle window event.
+        if (observed.WindowHiddenOrMinimized)
+        {
+            autoSyncLabel.Text = "SESI IDLE • sync ditunda sampai StarDesk ditampilkan; jendela tidak akan dibuka otomatis.";
+            return;
+        }
+
+        // Exactly one Copy & Share attempt for this idle transition / app-open event.
         var capture = await Task.Run(
             () => StarDeskUiCapture.ReadPartial(forceCopy: true), cancellationToken);
+        if (capture.WindowHiddenOrMinimized)
+        {
+            autoSyncLabel.Text = "StarDesk kembali diminimalkan • sync menunggu sampai jendela ditampilkan.";
+            return;
+        }
+        if (!capture.RemoteSessionStateKnown || capture.RemoteSessionActive)
+        {
+            if (capture.RemoteSessionStateKnown)
+            {
+                remoteSessionStateKnown = true;
+                remoteSessionActive = capture.RemoteSessionActive;
+                RefreshStatus();
+            }
+            autoSyncLabel.Text = "Status sesi berubah/tidak diketahui • Agent standby, tidak mengirim kredensial.";
+            return;
+        }
         if (string.IsNullOrWhiteSpace(capture.DeviceId) ||
             string.IsNullOrWhiteSpace(capture.VerificationCode) ||
             string.IsNullOrWhiteSpace(capture.InviteUrl))
         {
-            autoSyncLabel.Text = "Belum dapat membaca tiga data Copy & Share • buka Remote Assistance lalu coba Refresh.";
+            pendingSyncAfterIdle = false;
+            autoSyncLabel.Text = "Capture belum lengkap • tidak ada sync berkala. Gunakan Sinkronkan StarDesk saat PC idle.";
             return;
         }
 
-        lastObservedPairFingerprint = PairFingerprint(capture);
+        var capturedPairFingerprint = PairFingerprint(capture);
+        lastObservedPairFingerprint = capturedPairFingerprint;
         var fingerprint = Fingerprint(capture);
         if (string.Equals(fingerprint, lastSyncedFingerprint, StringComparison.Ordinal))
         {
-            autoSyncLabel.Text = sessionJustEnded
-                ? "Sesi selesai • data undangan tidak berubah, tidak perlu sync ulang."
-                : "Event sync aktif • tiga data sudah sama dengan DB.";
+            pendingSyncAfterIdle = false;
+            autoSyncLabel.Text = "Sesi selesai • data undangan tidak berubah, tidak perlu sync ulang.";
             return;
         }
 
-        await AgentCapturePipeClient.SyncAsync(capture, cancellationToken);
-        lastSyncedFingerprint = fingerprint;
+        try
+        {
+            await AgentCapturePipeClient.SyncAsync(capture, cancellationToken);
+            lastSyncedFingerprint = fingerprint;
+            pendingSyncAfterIdle = false;
+        }
+        catch
+        {
+            // A failed transition gets one attempt, not a repeating sync loop.
+            pendingSyncAfterIdle = false;
+            throw;
+        }
         autoSyncLabel.Text = sessionJustEnded
             ? "SESI SELESAI • tiga data StarDesk terbaru tersinkron."
             : "Tiga data StarDesk berhasil disinkronkan pada event perubahan.";
