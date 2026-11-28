@@ -281,7 +281,7 @@ BEGIN
     'connected','ci-stale-session-031',6000,
     clock_timestamp()-interval '20 minutes',clock_timestamp()-interval '20 minutes');
 
-  result:=api.androiddb_v0_agent_stardesk_session_event(agent_token,'ended',gen_random_uuid());
+  result:=api.androiddb_v0_agent_stardesk_session_event(agent_token,'monitor_lost',gen_random_uuid());
   SELECT debited_coin_units,end_reason INTO debited,end_reason
     FROM androiddb_v0.coin_rental_sessions WHERE id=session_id;
   IF debited>75.000001 OR debited<74.999999 OR end_reason<>'agent_heartbeat_timeout' THEN
