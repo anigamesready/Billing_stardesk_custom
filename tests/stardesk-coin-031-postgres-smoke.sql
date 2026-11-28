@@ -193,6 +193,9 @@ BEGIN
   IF connected_result->>'status'<>'connected' OR connected_result->>'session_id'<>session_id::text THEN
     RAISE EXCEPTION 'Connected event did not claim the matching pending reservation: %',connected_result;
   END IF;
+  IF NOT (SELECT stardesk_session_active FROM androiddb_v0.agent_devices WHERE id=agent_id) THEN
+    RAISE EXCEPTION 'Agent must record StarDesk as active immediately after observing the stream.';
+  END IF;
 
   UPDATE androiddb_v0.coin_rental_sessions
     SET last_billed_at=clock_timestamp()-interval '1 hour'
@@ -217,8 +220,21 @@ BEGIN
   IF session_status<>'ended' THEN
     RAISE EXCEPTION 'Ended event did not stop the session; status %',session_status;
   END IF;
+  IF (SELECT stardesk_session_active FROM androiddb_v0.agent_devices WHERE id=agent_id) THEN
+    RAISE EXCEPTION 'Agent must record StarDesk idle after the session ends.';
+  END IF;
+
+  request_result:=NULL;
+  BEGIN
+    request_result:=api.androiddb_v0_remote_request_session(client_token,pc_id,'ci-session-031-001');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM<>'ANDROIDDB_V0_COIN_SESSION_NO_LONGER_REQUESTABLE' THEN RAISE; END IF;
+  END;
+  IF request_result IS NOT NULL THEN
+    RAISE EXCEPTION 'Ended request idempotency key must not disclose a stale invite URL.';
+  END IF;
 END;
-$$;
+$;
 
 DO $$
 DECLARE
