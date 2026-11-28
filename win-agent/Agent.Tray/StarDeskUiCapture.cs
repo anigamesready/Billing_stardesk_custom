@@ -166,8 +166,10 @@ public static class StarDeskUiCapture
 
                 var root = AutomationElement.FromHandle(window.Handle);
                 var nodes = CollectAccessibleText(root);
-                if (recoveredWindow && !IsRemoteSupportPage(nodes))
+                if ((recoveredWindow || (forceCopy && allowCopy)) && !IsRemoteSupportPage(nodes))
                 {
+                    // On a confirmed idle/app-open event, return the visible StarDesk window
+                    // to Remote Assistance before invoking Copy & Share.
                     var navigation = TryNavigateRemoteSupport(root);
                     recovery += ";" + navigation;
                     if (navigation is "remote-support-invoked" or "remote-support-selected")
