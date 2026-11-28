@@ -82,7 +82,19 @@ public class MainActivity extends Activity {
         String scheme=uri.getScheme()==null?"":uri.getScheme().toLowerCase();
         if("stardesk".equals(scheme)){
             try{Intent i=new Intent(Intent.ACTION_VIEW,uri);i.setPackage("com.stardesk");startActivity(i);}
-            catch(Exception e){showMessage("StarDesk belum terpasang.");}
+            catch(Exception e){showMessage("StarDesk belum terpasang atau link tidak didukung.");}
+            return true;
+        }
+        if("https".equals(scheme)&&"app.stardesk.net".equalsIgnoreCase(uri.getHost())
+                &&isAllowedStarDeskInvite(uri)){
+            try{
+                Intent i=new Intent(Intent.ACTION_VIEW,uri);
+                i.setPackage("com.stardesk");
+                startActivity(i);
+            }catch(Exception appError){
+                try{startActivity(new Intent(Intent.ACTION_VIEW,uri));}
+                catch(Exception browserError){showMessage("Link undangan StarDesk tidak dapat dibuka.");}
+            }
             return true;
         }
         if("https".equals(scheme)&&"wa.me".equalsIgnoreCase(uri.getHost())){
@@ -91,6 +103,22 @@ public class MainActivity extends Activity {
             return true;
         }
         return true;
+    }
+
+    private boolean isAllowedStarDeskInvite(Uri uri){
+        try{
+            if(!"https".equalsIgnoreCase(uri.getScheme())
+                    ||!"app.stardesk.net".equalsIgnoreCase(uri.getHost())
+                    ||uri.getPort()!=-1||uri.getUserInfo()!=null
+                    ||uri.getFragment()!=null) return false;
+            String path=uri.getPath()==null?"":uri.getPath();
+            if(!path.matches("^/invite/[A-Za-z0-9_-]{20,256}$")) return false;
+            java.util.Set<String> keys=uri.getQueryParameterNames();
+            if(keys.size()>1||(!keys.isEmpty()&&!keys.contains("lang"))) return false;
+            if(uri.getQueryParameter("lang")!=null
+                    &&!uri.getQueryParameter("lang").matches("^[A-Za-z]{2}(-[A-Za-z]{2})?$")) return false;
+            return true;
+        }catch(Exception ignored){return false;}
     }
 
     private void showMessage(String m){runOnUiThread(()->Toast.makeText(MainActivity.this,m,Toast.LENGTH_LONG).show());}
