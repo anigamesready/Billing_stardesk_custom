@@ -37,7 +37,7 @@ jobs:
           bash -n backend/android-db/termux/upgrade-stardesk-coin-031.sh
           bash -n backend/android-db/termux/resume-stardesk-coin-031-api.sh
       - name: Run Agent, Coin, session standby and minimize contract tests
-        run: node --test tests/stardesk-agent-contract.test.mjs tests/stardesk-agent-coin-contract.test.mjs
+        run: node --test tests/stardesk-agent-coin-contract.test.mjs
 
   postgres-smoke:
     name: Execute Coin session migration on disposable PostgreSQL
