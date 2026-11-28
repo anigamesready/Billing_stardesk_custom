@@ -343,10 +343,10 @@ public sealed class AgentWorker(
             {
                 await api.RpcAsync("androiddb_v0_agent_stardesk_session_event", new
                 {
-                    p_event_type = "ended",
+                    p_event_type = "monitor_lost",
                     p_event_id = Guid.NewGuid()
                 }, c.AgentToken, cancellationToken);
-                PublishStatus("ONLINE", "Pemantau StarDesk terputus lebih dari 45 detik. Sesi Coin ditutup demi mencegah penagihan tanpa pengawasan.");
+                PublishStatus("ONLINE", "Pemantau StarDesk terputus lebih dari 45 detik. Counter Coin ditutup; PC tetap terkunci sampai status idle terkonfirmasi.");
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
