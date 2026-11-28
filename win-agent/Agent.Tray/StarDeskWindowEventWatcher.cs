@@ -23,6 +23,8 @@ public sealed class StarDeskWindowEventWatcher : IDisposable
     private const int ObjidWindow = 0;
     private const int ChildidSelf = 0;
 
+    private delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
+
     private delegate void WinEventProc(
         IntPtr hook, uint eventType, IntPtr hwnd, int idObject, int idChild,
         uint eventThread, uint eventTime);
@@ -76,12 +78,14 @@ public sealed class StarDeskWindowEventWatcher : IDisposable
 
             var destroyedTopLevel = eventType == EventObjectDestroy &&
                 idObject == ObjidWindow && idChild == ChildidSelf;
-            if (eventType == EventObjectDestroy && destroyedTopLevel)
+            var lastVisibleWindowDestroyed = destroyedTopLevel &&
+                CountVisibleTopLevelWindows(processId) == 0;
+            if (lastVisibleWindowDestroyed)
                 knownStarDeskProcesses.Remove(processId);
 
             StarDeskChanged?.Invoke(this, new StarDeskWindowEventArgs
             {
-                MainWindowDestroyed = destroyedTopLevel,
+                MainWindowDestroyed = lastVisibleWindowDestroyed,
                 ProcessId = processId,
                 EventId = eventType
             });
@@ -90,6 +94,19 @@ public sealed class StarDeskWindowEventWatcher : IDisposable
         {
             // A disappearing StarDesk window is an expected WinEvent race.
         }
+    }
+
+    private static int CountVisibleTopLevelWindows(uint targetProcessId)
+    {
+        var count = 0;
+        EnumWindows((hwnd, _) =>
+        {
+            GetWindowThreadProcessId(hwnd, out var processId);
+            if (processId == targetProcessId && IsWindowVisible(hwnd))
+                count++;
+            return true;
+        }, IntPtr.Zero);
+        return count;
     }
 
     public void Dispose()
@@ -103,6 +120,12 @@ public sealed class StarDeskWindowEventWatcher : IDisposable
         hooks.Clear();
         knownStarDeskProcesses.Clear();
     }
+
+    [DllImport("user32.dll")]
+    private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hwnd);
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern IntPtr SetWinEventHook(
