@@ -16,7 +16,8 @@ public sealed record StarDeskCaptureSnapshot(
     bool RemoteSessionStateKnown = false,
     bool RemoteSessionActive = false,
     string Diagnostics = "",
-    string InviteUrl = "");
+    string InviteUrl = "",
+    bool WindowHiddenOrMinimized = false);
 
 public static class StarDeskUiCapture
 {
@@ -152,42 +153,20 @@ public static class StarDeskUiCapture
                 var wasHiddenOrMinimized = !window.WasVisible || window.WasMinimized;
                 var explicitIdleCapture = forceCopy && allowCopy;
 
-                // A passive WinEvent probe must never restore/show StarDesk. Windows emits
-                // OBJECT_HIDE when users minimize a window; restoring it here caused the
-                // renter's StarDesk window to pop back onto the desktop repeatedly.
-                if (wasHiddenOrMinimized && !explicitIdleCapture)
-                {
-                    if (best is null)
-                    {
-                        best = new StarDeskCaptureSnapshot(
-                            "", "", window.Title,
-                            Diagnostics: "Passive monitor skipped hidden/minimized StarDesk window; no window was restored.");
-                    }
-                    continue;
-                }
-
-                var recoveredWindow = false;
-                if (wasHiddenOrMinimized && explicitIdleCapture)
-                {
-                    if (ShouldAttemptWindowRecovery(true))
-                    {
-                        recovery = RestoreWindowToBackground(window.Handle);
-                        recoveredWindow = recovery.StartsWith("restored", StringComparison.Ordinal);
-                    }
-                    else
-                    {
-                        recovery = "restore-throttled";
-                    }
-                }
+                // Never show, restore, move, or activate StarDesk from the Agent.
+                // Passive UI Automation reads are read-only; clipboard/OCR/navigation
+                // are skipped for hidden or minimized windows.
+                if (wasHiddenOrMinimized)
+                    recovery = "hidden-or-minimized; passive-read-only";
 
                 var root = AutomationElement.FromHandle(window.Handle);
                 var nodes = CollectAccessibleText(root);
                 var session = DetectRemoteSession(nodes);
-                if (explicitIdleCapture && session.Known && !session.Active &&
-                    (recoveredWindow || explicitIdleCapture) && !IsRemoteSupportPage(nodes))
+                if (explicitIdleCapture && !wasHiddenOrMinimized &&
+                    session.Known && !session.Active && !IsRemoteSupportPage(nodes))
                 {
-                    // Only an explicit capture after an idle-state check may navigate the
-                    // StarDesk UI. Never navigate or copy while a remote session is active.
+                    // Navigation is allowed only for an explicit capture on a visible,
+                    // confirmed-idle StarDesk window.
                     var navigation = TryNavigateRemoteSupport(root);
                     recovery += ";" + navigation;
                     if (navigation is "remote-support-invoked" or "remote-support-selected")
@@ -201,7 +180,7 @@ public static class StarDeskUiCapture
 
                 var inviteUrl = "";
                 CopyCaptureResult copy = new("", false, false, false, false, "not-needed");
-                if (allowCopy && session.Known && !session.Active &&
+                if (allowCopy && !wasHiddenOrMinimized && session.Known && !session.Active &&
                     (forceCopy || string.IsNullOrWhiteSpace(deviceId) ||
                     string.IsNullOrWhiteSpace(verificationCode)))
                 {
@@ -228,7 +207,7 @@ public static class StarDeskUiCapture
                     string.IsNullOrWhiteSpace(verificationCode) ||
                     !session.Known)
                 {
-                    if (ShouldAttemptOcr(forceCopy))
+                    if (!wasHiddenOrMinimized && ShouldAttemptOcr(forceCopy))
                     {
                         ocr = StarDeskScreenOcr.Read(window.Handle);
 
@@ -248,7 +227,8 @@ public static class StarDeskUiCapture
                     }
                     else
                     {
-                        ocr = new StarDeskOcrResult("", "", false, false, false, "cooldown");
+                        ocr = new StarDeskOcrResult("", "", false, false, false,
+                            wasHiddenOrMinimized ? "hidden/minimized; OCR skipped" : "cooldown");
                     }
                 }
 
@@ -256,7 +236,7 @@ public static class StarDeskUiCapture
                     windows.Count, window, nodes.Count, deviceId, verificationCode, copy, ocr, recovery);
                 var candidate = new StarDeskCaptureSnapshot(
                     deviceId, verificationCode, window.Title,
-                    session.Known, session.Active, diagnostics, inviteUrl);
+                    session.Known, session.Active, diagnostics, inviteUrl, wasHiddenOrMinimized);
 
                 if (!string.IsNullOrWhiteSpace(deviceId) &&
                     !string.IsNullOrWhiteSpace(verificationCode))
@@ -424,36 +404,6 @@ public static class StarDeskUiCapture
         var builder = new StringBuilder(512);
         var length = GetWindowText(hwnd, builder, builder.Capacity);
         return length > 0 ? builder.ToString(0, length) : "";
-    }
-
-    private static bool ShouldAttemptWindowRecovery(bool force)
-    {
-        lock (WindowRecoveryLock)
-        {
-            var now = DateTime.UtcNow;
-            if (!force && now - lastWindowRecoveryUtc < WindowRecoveryCooldown)
-                return false;
-
-            lastWindowRecoveryUtc = now;
-            return true;
-        }
-    }
-
-    private static string RestoreWindowToBackground(IntPtr hwnd)
-    {
-        // SW_SHOWNOACTIVATE restores/shows without stealing keyboard focus.
-        ShowWindowAsync(hwnd, SwShowNoActivate);
-        SetWindowPos(hwnd, HwndBottom, 0, 0, 0, 0,
-            SwpNoSize | SwpNoMove | SwpNoActivate | SwpShowWindow);
-
-        for (var attempt = 0; attempt < 10; attempt++)
-        {
-            if (IsWindowVisible(hwnd) && !IsIconic(hwnd))
-                return "restored-no-activate-background";
-            Thread.Sleep(100);
-        }
-
-        return "restore-failed-window-still-hidden-or-minimized";
     }
 
     private static bool IsRemoteSupportPage(IReadOnlyList<AccessibleText> nodes)
