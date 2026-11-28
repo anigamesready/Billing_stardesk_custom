@@ -369,7 +369,7 @@ async function rpcRequest(req, res, name, body) {
     };
     const verification = encryptSecret(verificationCode);
     const invite = encryptSecret(inviteUrl);
-    const fingerprint = sha256([deviceId,verificationCode,inviteUrl].join("\n"));
+    const fingerprint = crypto.createHash("sha256").update([deviceId,verificationCode,inviteUrl].join("\n"),"utf8").digest("hex");
     const result = await scalar(
       "SELECT api.androiddb_v0_agent_sync_stardesk_pairing($1::text,$2::text,$3::text,$4::text,$5::text,$6::text,$7::text,$8::text,$9::text) AS result",
       [token,deviceId,verification.ciphertext,verification.nonce,verification.tag,
