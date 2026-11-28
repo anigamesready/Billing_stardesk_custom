@@ -48,8 +48,8 @@ test("Three-field clipboard contract is strict and only accepts the official inv
   assert.match(capture, /parsedUri\.Host[\s\S]*app\.stardesk\.net/);
   assert.match(capture, /parsedUri\.AbsolutePath/);
   assert.match(capture, /ReadPartial\(bool forceCopy = false, bool allowCopy = true\)/);
-  assert.match(capture, /if \(allowCopy && session\.Known && !session\.Active/);
-  assert.match(capture, /if \(explicitIdleCapture && session\.Known && !session\.Active/);
+  assert.match(capture, /if \(allowCopy && !wasHiddenOrMinimized && session\.Known && !session\.Active/);
+  assert.match(capture, /if \(explicitIdleCapture && !wasHiddenOrMinimized && session\.Known && !session\.Active/);
   assert.match(capture, /TryNavigateRemoteSupport\(root\)/);
 });
 
@@ -59,7 +59,7 @@ test("Agent pairing copy/sync is event-driven rather than a 4-second polling loo
   assert.match(tray, /QueueStarDeskProbe/);
   assert.match(tray, /ProcessDebouncedStarDeskEventAsync/);
   assert.match(tray, /ReadPartial\(allowCopy:\s*false\)/);
-  assert.match(tray, /var needCopy = appJustOpened \|\| sessionJustEnded \|\| pairChanged/);
+  assert.match(tray, /pendingSyncAfterIdle/);
   assert.match(tray, /ReadPartial\(forceCopy:\s*true\)/);
   assert.match(tray, /lastSyncedFingerprint/);
   assert.match(tray, /GetProcessesByName\("StarDesk"\)/);
@@ -163,23 +163,24 @@ test("New install and upgrade scripts only target the StarDesk Custom database a
 });
 
 test("Agent is built consistently as version 0.2.7", () => {
-  assert.match(worker, /Version = "0\.2\.7"/);
-  assert.match(contracts, /AgentVersion .*"0\.2\.7"/);
-  assert.match(trayProject, /<Version>0\.2\.7<\/Version>/);
-  assert.match(serviceProject, /<Version>0\.2\.7<\/Version>/);
-  assert.match(installerIss, /AppVersion "0\.2\.7"/);
-  assert.match(installerIss, /OutputBaseFilename=.*0\.2\.7-win-x64/);
+  assert.match(worker, /Version = "0\.2\.8"/);
+  assert.match(contracts, /AgentVersion .*"0\.2\.8"/);
+  assert.match(trayProject, /<Version>0\.2\.8<\/Version>/);
+  assert.match(serviceProject, /<Version>0\.2\.8<\/Version>/);
+  assert.match(installerIss, /AppVersion "0\.2\.8"/);
+  assert.match(installerIss, /OutputBaseFilename=.*0\.2\.8-win-x64/);
 });
 
-test("Passive StarDesk monitoring never restores a minimized or hidden window", () => {
-  assert.match(capture, /if \(wasHiddenOrMinimized && !explicitIdleCapture\)[\s\S]*?continue;/);
-  assert.match(capture, /if \(wasHiddenOrMinimized && explicitIdleCapture\)[\s\S]*?RestoreWindowToBackground/);
-  assert.match(capture, /if \(allowCopy && session\.Known && !session\.Active/);
+test("Passive StarDesk monitoring never restores, shows or OCR-captures a minimized window", () => {
+  assert.doesNotMatch(capture, /RestoreWindowToBackground|ShowWindowAsync|SetWindowPos/);
+  assert.match(capture, /if \(wasHiddenOrMinimized\)[\s\S]*?passive-read-only/);
+  assert.match(capture, /if \(allowCopy && !wasHiddenOrMinimized && session\.Known && !session\.Active/);
+  assert.match(capture, /WindowHiddenOrMinimized/);
 });
 
 test("Agent stays standby during an active or unverified remote session", () => {
   assert.match(tray, /remoteSessionActive/);
-  assert.match(tray, /syncButton\.Enabled = currentStatus\.IsPaired && !remoteSessionActive && !manualSyncBusy/);
+  assert.match(tray, /syncButton\.Enabled = currentStatus\.IsPaired &&[\s\S]*remoteSessionActive/);
 
   const activeStart = tray.indexOf("if (observed.RemoteSessionStateKnown && observed.RemoteSessionActive)");
   const activeEnd = tray.indexOf("if (!observed.RemoteSessionStateKnown)", activeStart);
@@ -192,11 +193,14 @@ test("Agent stays standby during an active or unverified remote session", () => 
   assert.ok(manualStart >= 0 && manualEnd > manualStart, "manual sync method not found");
   const manual = tray.slice(manualStart, manualEnd);
   assert.match(manual, /ReadPartial\(allowCopy:\s*false\)/);
+  assert.match(manual, /if \(sessionProbe\.WindowHiddenOrMinimized\)/);
   assert.match(manual, /if \(!sessionProbe\.RemoteSessionStateKnown\)/);
   assert.match(manual, /if \(remoteSessionActive\)/);
   assert.match(manual, /if \(!capture\.RemoteSessionStateKnown \|\| capture\.RemoteSessionActive\)/);
 
   // This is the credential sync cadence. The separate monitor/coin meter must remain live.
+  assert.match(tray, /pendingSyncAfterIdle/);
+  assert.match(tray, /if \(observed\.WindowHiddenOrMinimized\)/);
   assert.match(tray, /monitorHeartbeatTimer\.Interval = 15000/);
   assert.match(worker, /androiddb_v0_agent_stardesk_session_tick/);
 });
