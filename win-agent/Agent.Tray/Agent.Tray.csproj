@@ -8,7 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>AniGamesReady.Agent.Tray</AssemblyName>
     <RootNamespace>AniGamesReady.Agent.Tray</RootNamespace>
-    <Version>0.2.7</Version>
+    <Version>0.2.8</Version>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Agent.Shared\Agent.Shared.csproj" />
