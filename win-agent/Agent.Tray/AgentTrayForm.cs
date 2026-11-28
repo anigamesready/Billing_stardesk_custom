@@ -501,17 +501,28 @@ public sealed class AgentTrayForm : Form
             // Manual sync is allowed only after StarDesk explicitly reports an idle session.
             var sessionProbe = await Task.Run(
                 () => StarDeskUiCapture.ReadPartial(allowCopy: false));
+            if (sessionProbe.RemoteSessionStateKnown)
+            {
+                remoteSessionStateKnown = true;
+                remoteSessionActive = sessionProbe.RemoteSessionActive;
+                RefreshStatus();
+            }
+
+            if (sessionProbe.WindowHiddenOrMinimized)
+            {
+                MessageBox.Show(
+                    "StarDesk sedang diminimalkan. Agent tidak akan membukanya otomatis. Tampilkan StarDesk secara manual, lalu lakukan sync saat sesi remote sudah idle.",
+                    "Ani Games Ready Agent", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
             if (!sessionProbe.RemoteSessionStateKnown)
             {
                 MessageBox.Show(
-                    "Status StarDesk belum bisa dipastikan.\n\nBuka/tampilkan StarDesk dan tunggu sampai status Remote Assistance terbaca. Agent tidak akan membuka jendela yang diminimalkan. Sinkronisasi ditahan demi keamanan sesi rental.",
+                    "Status StarDesk belum bisa dipastikan.\n\nTampilkan StarDesk dan tunggu sampai status Remote Assistance terbaca. Sinkronisasi ditahan demi keamanan sesi rental.",
                     "Ani Games Ready Agent", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
-            remoteSessionStateKnown = true;
-            remoteSessionActive = sessionProbe.RemoteSessionActive;
-            RefreshStatus();
             if (remoteSessionActive)
             {
                 MessageBox.Show(
