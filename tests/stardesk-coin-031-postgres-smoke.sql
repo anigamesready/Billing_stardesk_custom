@@ -287,4 +287,121 @@ BEGIN
 END;
 $$;
 
+
+DO $$
+DECLARE
+  org_id uuid:=gen_random_uuid();
+  account_a uuid:=gen_random_uuid();
+  account_b uuid:=gen_random_uuid();
+  pc_id uuid:=gen_random_uuid();
+  agent_id uuid:=gen_random_uuid();
+  client_a uuid:=gen_random_uuid();
+  client_b uuid:=gen_random_uuid();
+  wallet_a uuid:=gen_random_uuid();
+  wallet_b uuid:=gen_random_uuid();
+  lot_a uuid:=gen_random_uuid();
+  lot_b uuid:=gen_random_uuid();
+  agent_token text:='test-agent-reservation-031';
+  request_a jsonb;
+  request_b jsonb;
+  old_status text;
+BEGIN
+  INSERT INTO public.organizations(id) VALUES(org_id);
+  INSERT INTO androiddb_v0.rental_accounts(id,org_id,code,status)
+    VALUES(account_a,org_id,'TEST-RES-A-031','active'),
+          (account_b,org_id,'TEST-RES-B-031','active');
+  INSERT INTO androiddb_v0.rental_pcs(id,org_id,display_name,hourly_coin_units)
+    VALUES(pc_id,org_id,'CI-PC-RESERVATION-TIMEOUT',6000);
+  INSERT INTO androiddb_v0.agent_devices(
+    id,org_id,rental_pc_id,agent_token_hash,status,last_heartbeat_at
+  ) VALUES(agent_id,org_id,pc_id,
+    encode(extensions.digest(agent_token,'sha256'),'hex'),'online',clock_timestamp());
+  INSERT INTO androiddb_v0.stardesk_pairings(
+    rental_pc_id,org_id,stardesk_device_id,verification_ciphertext,
+    verification_nonce,verification_tag,status,invite_url_ciphertext,
+    invite_url_nonce,invite_url_tag,capture_fingerprint
+  ) VALUES(pc_id,org_id,'861260102','encrypted-code','0123456789abcdef',
+    '0123456789abcdefghijklmn','captured','encrypted-invite','0123456789abcdef',
+    '0123456789abcdefghijklmn',repeat('b',64));
+  INSERT INTO androiddb_v0.client_sessions(id,rental_account_id,token_hash,expires_at)
+    VALUES(client_a,account_a,encode(extensions.digest('test-client-res-a','sha256'),'hex'),
+      clock_timestamp()+interval '1 day'),
+          (client_b,account_b,encode(extensions.digest('test-client-res-b','sha256'),'hex'),
+      clock_timestamp()+interval '1 day');
+  INSERT INTO androiddb_v0.coin_wallets(id,rental_account_id,balance)
+    VALUES(wallet_a,account_a,12000),(wallet_b,account_b,12000);
+  INSERT INTO androiddb_v0.coin_lots(id,wallet_id,remaining_coins,expires_at)
+    VALUES(lot_a,wallet_a,12000,clock_timestamp()+interval '7 days'),
+          (lot_b,wallet_b,12000,clock_timestamp()+interval '7 days');
+
+  PERFORM api.androiddb_v0_agent_ui_monitor_heartbeat(agent_token);
+  request_a:=api.androiddb_v0_remote_request_session('test-client-res-a',pc_id,'ci-reservation-a-031');
+  UPDATE androiddb_v0.coin_rental_sessions SET request_expires_at=clock_timestamp()-interval '1 second'
+    WHERE id=(request_a->>'session_id')::uuid;
+  request_b:=api.androiddb_v0_remote_request_session('test-client-res-b',pc_id,'ci-reservation-b-031');
+
+  SELECT status INTO old_status FROM androiddb_v0.coin_rental_sessions
+    WHERE id=(request_a->>'session_id')::uuid;
+  IF old_status<>'failed' OR request_b->>'status'<>'requested' THEN
+    RAISE EXCEPTION 'Expired request must release PC for a different renter; old %, new %',
+      old_status,request_b->>'status';
+  END IF;
+END;
+$$;
+
+DO $$
+DECLARE
+  org_id uuid:=gen_random_uuid();
+  account_id uuid:=gen_random_uuid();
+  pc_id uuid:=gen_random_uuid();
+  agent_id uuid:=gen_random_uuid();
+  client_id uuid:=gen_random_uuid();
+  wallet_id uuid:=gen_random_uuid();
+  lot_id uuid:=gen_random_uuid();
+  agent_token text:='test-agent-external-active-031';
+  event_result jsonb;
+  request_result jsonb;
+BEGIN
+  INSERT INTO public.organizations(id) VALUES(org_id);
+  INSERT INTO androiddb_v0.rental_accounts(id,org_id,code,status)
+    VALUES(account_id,org_id,'TEST-EXTERNAL-ACTIVE-031','active');
+  INSERT INTO androiddb_v0.rental_pcs(id,org_id,display_name,hourly_coin_units)
+    VALUES(pc_id,org_id,'CI-PC-EXTERNAL-ACTIVE',6000);
+  INSERT INTO androiddb_v0.agent_devices(
+    id,org_id,rental_pc_id,agent_token_hash,status,last_heartbeat_at
+  ) VALUES(agent_id,org_id,pc_id,
+    encode(extensions.digest(agent_token,'sha256'),'hex'),'online',clock_timestamp());
+  INSERT INTO androiddb_v0.stardesk_pairings(
+    rental_pc_id,org_id,stardesk_device_id,verification_ciphertext,
+    verification_nonce,verification_tag,status,invite_url_ciphertext,
+    invite_url_nonce,invite_url_tag,capture_fingerprint
+  ) VALUES(pc_id,org_id,'861260103','encrypted-code','0123456789abcdef',
+    '0123456789abcdefghijklmn','captured','encrypted-invite','0123456789abcdef',
+    '0123456789abcdefghijklmn',repeat('c',64));
+  INSERT INTO androiddb_v0.client_sessions(id,rental_account_id,token_hash,expires_at)
+    VALUES(client_id,account_id,encode(extensions.digest('test-client-external-active','sha256'),'hex'),
+      clock_timestamp()+interval '1 day');
+  INSERT INTO androiddb_v0.coin_wallets(id,rental_account_id,balance)
+    VALUES(wallet_id,account_id,12000);
+  INSERT INTO androiddb_v0.coin_lots(id,wallet_id,remaining_coins,expires_at)
+    VALUES(lot_id,wallet_id,12000,clock_timestamp()+interval '7 days');
+
+  PERFORM api.androiddb_v0_agent_ui_monitor_heartbeat(agent_token);
+  event_result:=api.androiddb_v0_agent_stardesk_session_event(agent_token,'connected',gen_random_uuid());
+  IF event_result->>'reason'<>'NO_PENDING_REQUEST' THEN
+    RAISE EXCEPTION 'Unreserved external session should be recorded without Coin billing: %',event_result;
+  END IF;
+
+  request_result:=NULL;
+  BEGIN
+    request_result:=api.androiddb_v0_remote_request_session('test-client-external-active',pc_id,'ci-external-active-031');
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM<>'ANDROIDDB_V0_STARDESK_ALREADY_ACTIVE' THEN RAISE; END IF;
+  END;
+  IF request_result IS NOT NULL THEN
+    RAISE EXCEPTION 'PC with an already active StarDesk stream must not accept a rental reservation.';
+  END IF;
+END;
+$$;
+
 \echo 'PASS: reservation has no upfront debit; connected starts billing; 60 Coin/hour = 6000 x100 units/hour; duplicate tick is idempotent; end stops billing; stale monitor caps charge at 45 seconds.'
