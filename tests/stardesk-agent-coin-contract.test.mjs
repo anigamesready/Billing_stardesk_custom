@@ -114,6 +114,12 @@ test("Only one rental session may reserve each account and PC at a time", () => 
 test("Agent monitor lease is required before a rental PC is advertised available", () => {
   assert.match(migration, /api\.androiddb_v0_agent_ui_monitor_heartbeat/);
   assert.match(migration, /last_ui_monitor_at>clock_timestamp\(\)-interval '45 seconds'/);
+  assert.match(migration, /stardesk_session_active boolean NOT NULL DEFAULT false/);
+  assert.match(migration, /IF d\.stardesk_session_active THEN[\s\S]*ANDROIDDB_V0_STARDESK_ALREADY_ACTIVE/);
+  assert.match(migration, /stardesk_session_active=true,last_stardesk_session_state_at/);
+  assert.match(migration, /stardesk_session_active=false,last_stardesk_session_state_at/);
+  assert.match(migration, /WHERE org_id=r\.org_id AND status='requested'[\s\S]*request_expires_at<=clock_timestamp\(\)/);
+  assert.match(migration, /ANDROIDDB_V0_COIN_SESSION_NO_LONGER_REQUESTABLE/);
   assert.match(migration, /api\.androiddb_v0_agent_stardesk_session_tick/);
   assert.match(migration, /end_reason=coalesce\(end_reason,'agent_heartbeat_timeout'\)/);
   assert.match(migration, /v_billing_until:=least\(clock_timestamp\(\),s\.last_billed_at\+interval '45 seconds'\)/);
