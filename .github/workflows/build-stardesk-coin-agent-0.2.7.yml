@@ -1,18 +1,7 @@
 name: StarDesk Coin 031 — Windows Agent 0.2.7 + EXE Installer
 
 on:
-  push:
-    branches:
-      - feature/stardesk-coin-remote-task1-3-20261128
-    paths:
-      - "win-agent/**"
-      - "backend/android-db/migrations/031_stardesk_invite_coin_sessions.sql"
-      - "backend/android-db/server/server.mjs"
-      - "backend/android-db/termux/install-stardesk-custom-v0.sh"
-      - "backend/android-db/termux/upgrade-stardesk-coin-031.sh"
-      - "tests/stardesk-agent-coin-contract.test.mjs"
-      - "tests/stardesk-coin-031-postgres-smoke.sql"
-      - ".github/workflows/build-stardesk-coin-agent-0.2.7.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
