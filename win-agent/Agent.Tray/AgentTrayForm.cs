@@ -455,16 +455,14 @@ public sealed class AgentTrayForm : Form
         syncButton.Text = "Memeriksa sesi...";
         try
         {
-            // First inspect without restoring, navigating, reading clipboard, or clicking
-            // Copy & Share. Manual sync is permitted only after an explicit idle signal.
+            // Inspect without restoring, navigating, reading clipboard, or clicking Copy & Share.
+            // Manual sync is allowed only after StarDesk explicitly reports an idle session.
             var sessionProbe = await Task.Run(
                 () => StarDeskUiCapture.ReadPartial(allowCopy: false));
             if (!sessionProbe.RemoteSessionStateKnown)
             {
                 MessageBox.Show(
-                    "Status StarDesk belum bisa dipastikan.
-
-Buka/tampilkan StarDesk dan tunggu sampai status Remote Assistance terbaca. Agent tidak akan membuka jendela yang diminimalkan. Sinkronisasi ditahan demi keamanan sesi rental.",
+                    "Status StarDesk belum bisa dipastikan.\n\nBuka/tampilkan StarDesk dan tunggu sampai status Remote Assistance terbaca. Agent tidak akan membuka jendela yang diminimalkan. Sinkronisasi ditahan demi keamanan sesi rental.",
                     "Ani Games Ready Agent", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
@@ -475,9 +473,7 @@ Buka/tampilkan StarDesk dan tunggu sampai status Remote Assistance terbaca. Agen
             if (remoteSessionActive)
             {
                 MessageBox.Show(
-                    "Ada pengguna yang sedang menjalankan sesi remote StarDesk.
-
-Agent sekarang standby. Tidak ada Copy & Share atau sinkronisasi kredensial sampai sesi selesai.",
+                    "Ada pengguna yang sedang menjalankan sesi remote StarDesk.\n\nAgent sekarang standby. Tidak ada Copy & Share atau sinkronisasi kredensial sampai sesi selesai.",
                     "Ani Games Ready Agent", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
@@ -501,9 +497,7 @@ Agent sekarang standby. Tidak ada Copy & Share atau sinkronisasi kredensial samp
                 string.IsNullOrWhiteSpace(capture.InviteUrl))
             {
                 MessageBox.Show(
-                    "Agent belum menerima tiga data lengkap dari StarDesk.
-
-Pastikan halaman Remote Assistance tampil, lalu coba lagi setelah sesi remote berakhir.",
+                    "Agent belum menerima tiga data lengkap dari StarDesk.\n\nPastikan halaman Remote Assistance tampil, lalu coba lagi setelah sesi remote berakhir.",
                     "Ani Games Ready Agent", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
@@ -515,11 +509,8 @@ Pastikan halaman Remote Assistance tampil, lalu coba lagi setelah sesi remote be
             remoteSessionActive = false;
             autoSyncLabel.Text = "Manual sync berhasil • Agent kembali memantau event, bukan polling kredensial.";
             MessageBox.Show(
-                "Tiga data StarDesk berhasil disinkronkan ke Android DB.
-
-Device ID: " + capture.DeviceId +
-                "
-Verification Code dan Invite URL tidak ditampilkan dan disimpan terenkripsi.",
+                "Tiga data StarDesk berhasil disinkronkan ke Android DB.\n\nDevice ID: " + capture.DeviceId +
+                "\nVerification Code dan Invite URL tidak ditampilkan dan disimpan terenkripsi.",
                 "Ani Games Ready Agent", MessageBoxButtons.OK, MessageBoxIcon.Information);
             RefreshStatus();
         }
@@ -528,12 +519,8 @@ Verification Code dan Invite URL tidak ditampilkan dan disimpan terenkripsi.",
             // The pipe client exposes only an allowlisted backend error code/category.
             // Clipboard credentials and invitation tokens are never included here.
             MessageBox.Show(
-                "Sinkronisasi StarDesk belum berhasil.
-
-Kode penyebab: " + ex.Message +
-                "
-
-Periksa kode tersebut; Agent tidak akan mengulang Copy & Share secara berkala.",
+                "Sinkronisasi StarDesk belum berhasil.\n\nKode penyebab: " + ex.Message +
+                "\n\nPeriksa kode tersebut; Agent tidak akan mengulang Copy & Share secara berkala.",
                 "Ani Games Ready Agent", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
         finally
