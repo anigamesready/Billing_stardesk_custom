@@ -125,7 +125,7 @@ test("Agent monitor lease is required before a rental PC is advertised available
   assert.match(migration, /v_billing_until:=least\(clock_timestamp\(\),s\.last_billed_at\+interval '45 seconds'\)/);
   assert.match(migration, /event_name NOT IN \('connected','ended','monitor_lost'\)/);
   assert.match(migration, /IF event_name='ended' THEN[\s\S]*stardesk_session_active=false/);
-  assert.match(worker, /p_event_type = 'monitor_lost'/);
+  assert.match(worker, /p_event_type = "monitor_lost"/);
 });
 
 test("Legacy two-field StarDesk pairing RPC is revoked after migration 031", () => {
