@@ -388,6 +388,8 @@ DECLARE
   d androiddb_v0.agent_devices%ROWTYPE;
   s androiddb_v0.coin_rental_sessions%ROWTYPE;
   charge jsonb;
+  v_billing_until timestamptz;
+  v_end_reason text;
   event_name text:=lower(btrim(coalesce(p_event_type,'')));
 BEGIN
   IF event_name NOT IN ('connected','ended') OR p_event_id IS NULL THEN
@@ -425,11 +427,20 @@ BEGIN
     RETURN jsonb_build_object('ok',true,'idempotent',true,'status','no_active_session');
   END IF;
 
-  charge:=private.androiddb_v0_coin_rental_charge(s.id,p_event_id,clock_timestamp());
+  IF d.last_ui_monitor_at IS NULL OR
+      d.last_ui_monitor_at<=clock_timestamp()-interval '45 seconds' THEN
+    v_billing_until:=least(clock_timestamp(),s.last_billed_at+interval '45 seconds');
+    v_end_reason:='agent_heartbeat_timeout';
+  ELSE
+    v_billing_until:=clock_timestamp();
+    v_end_reason:='stardesk_session_ended';
+  END IF;
+
+  charge:=private.androiddb_v0_coin_rental_charge(s.id,p_event_id,v_billing_until);
   UPDATE androiddb_v0.coin_rental_sessions SET
     status=CASE WHEN status='connected' THEN 'ended' ELSE status END,
-    ended_at=coalesce(ended_at,clock_timestamp()),
-    end_reason=coalesce(end_reason,'stardesk_session_ended'),
+    ended_at=coalesce(ended_at,v_billing_until),
+    end_reason=coalesce(end_reason,v_end_reason),
     updated_at=clock_timestamp()
   WHERE id=s.id RETURNING * INTO s;
   RETURN jsonb_build_object('ok',true,'session_id',s.id,'status',s.status,
