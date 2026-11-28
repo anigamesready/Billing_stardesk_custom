@@ -1,5 +1,5 @@
 ANI GAMES READY — STAR DESK WINDOWS AGENT
-Preview version 0.2.7 — Windows x64
+Preview version 0.2.8 — Windows x64
 
 ISI PAKET
 - Agent.Service/AniGamesReady.Agent.Service.exe : Windows Service (host/API/coin meter).
@@ -15,7 +15,7 @@ PERSYARATAN
 - StarDesk Desktop terpasang oleh pemilik PC dari sumber resmi dan sudah login sesuai akun StarDesk milik pengguna PC.
 
 INSTALL / UPGRADE
-1. Ekstrak seluruh ZIP ini ke folder biasa, misalnya Downloads\StarDesk-Agent-0.2.7.
+1. Ekstrak seluruh ZIP ini ke folder biasa, misalnya Downloads\StarDesk-Agent-0.2.8.
 2. Buka PowerShell sebagai Administrator.
 3. Jalankan:
    powershell -ExecutionPolicy Bypass -File .\install.ps1
@@ -24,7 +24,7 @@ INSTALL / UPGRADE
 6. Untuk PC yang sudah paired, upgrade mempertahankan credential DPAPI di ProgramData. Tidak perlu pairing ulang selama file credential tidak dihapus.
 
 CARA KERJA EVENT-DRIVEN
-- Agent 0.2.7 tidak lagi menjalankan auto-sync Copy & Share setiap 4 detik.
+- Agent 0.2.8 tidak lagi menjalankan auto-sync Copy & Share setiap 4 detik.
 - Tray memakai Windows WinEvent untuk memantau perubahan jendela StarDesk. Event yang beruntun digabung dengan debounce singkat.
 - Pemeriksaan status sesi membaca UI tanpa menekan Copy & Share.
 - Copy & Share dilakukan satu kali ketika StarDesk baru dibuka/halaman Remote Assistance kembali tersedia setelah sesi selesai/perubahan pairing terdeteksi.
@@ -44,7 +44,7 @@ COIN SESSION
 
 STATUS DAN BATASAN
 - Agent Online hanya menunjukkan Service/API heartbeat; kesiapan host juga mensyaratkan Tray monitor dan pairing tersedia.
-- Build 0.2.7 berhasil dipublish di CI Windows x64 dan lolos tes kontrak statis. Ini belum membuktikan UI StarDesk dapat dideteksi konsisten pada semua tampilan/versi/overlay Windows.
+- Build 0.2.8 berhasil dipublish di CI Windows x64 dan lolos tes kontrak statis. Ini belum membuktikan UI StarDesk dapat dideteksi konsisten pada semua tampilan/versi/overlay Windows.
 - Uji perangkat nyata tetap wajib untuk sesi mulai, sesi berakhir, aplikasi ditutup, minimize, remote reconnect, dan API/network loss.
 - Remote APK belum dihubungkan pada tahap build ini ke API request-session/status; tombol Play/countdown belum dirilis.
 - Saat saldo habis, DB menghentikan billing dan menutup lifecycle Coin. Agent belum mempunyai kontrol resmi untuk memutus streaming StarDesk; jangan menganggap stream sudah pasti terputus.
