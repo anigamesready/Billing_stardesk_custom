@@ -162,7 +162,7 @@ test("New install and upgrade scripts only target the StarDesk Custom database a
   assert.doesNotMatch(upgrader, /sv (restart|down|up) (ani-games-ready-api|postgres)/);
 });
 
-test("Agent is built consistently as version 0.2.7", () => {
+test("Agent is built consistently as version 0.2.8", () => {
   assert.match(worker, /Version = "0\.2\.8"/);
   assert.match(contracts, /AgentVersion .*"0\.2\.8"/);
   assert.match(trayProject, /<Version>0\.2\.8<\/Version>/);
