@@ -384,7 +384,7 @@ async function rpcRequest(req, res, name, body) {
     if (!token) return send(res,401,{message:"AUTH_REQUIRED"});
     const eventType = str(val(body,"p_event_type"),16).toLowerCase();
     const eventId = str(val(body,"p_event_id"),36);
-    if (!["connected","ended"].includes(eventType) ||
+    if (!["connected","ended","monitor_lost"].includes(eventType) ||
         !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(eventId)) {
       return send(res,400,{ok:false,error:"STARDESK_SESSION_EVENT_INVALID"});
     }
