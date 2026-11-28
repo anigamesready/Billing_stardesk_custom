@@ -39,7 +39,7 @@ COIN SESSION
 - Tarif disalin dari rental_pcs.hourly_coin_units saat reservasi. Perubahan tarif berikutnya tidak mengubah tarif sesi berjalan.
 - Debit server dihitung prorata per detik dengan unit internal 1 Coin = 100 unit.
 - Contoh: 60 Coin/jam = 1 Coin/menit. Timer UI HP bukan sumber tagihan.
-- Event sesi berakhir menutup tagihan. Jika Agent/monitor hilang, meter membatasi waktu tak terkonfirmasi maksimal 45 detik lalu menutup sesi.
+- Event sesi berakhir yang terkonfirmasi menutup tagihan dan melepas lock PC. Jika Agent/monitor hilang, meter membatasi waktu tak terkonfirmasi maksimal 45 detik lalu menutup billing, tetapi PC tetap terkunci sampai Agent kembali dan memastikan StarDesk idle/tertutup.
 - Heartbeat monitor lokal/DB dan meter Coin berkala adalah jalur status/billing terpisah; keduanya TIDAK menekan Copy & Share dan tidak mengirim ulang kredensial.
 
 STATUS DAN BATASAN
