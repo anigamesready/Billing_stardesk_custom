@@ -48,8 +48,8 @@ test("Three-field clipboard contract is strict and only accepts the official inv
   assert.match(capture, /parsedUri\.Host[\s\S]*app\.stardesk\.net/);
   assert.match(capture, /parsedUri\.AbsolutePath/);
   assert.match(capture, /ReadPartial\(bool forceCopy = false, bool allowCopy = true\)/);
-  assert.match(capture, /if \(allowCopy && \(forceCopy/);
-  assert.match(capture, /recoveredWindow \|\| \(forceCopy && allowCopy\)/);
+  assert.match(capture, /if \(allowCopy && session\.Known && !session\.Active/);
+  assert.match(capture, /if \(explicitIdleCapture && session\.Known && !session\.Active/);
   assert.match(capture, /TryNavigateRemoteSupport\(root\)/);
 });
 
