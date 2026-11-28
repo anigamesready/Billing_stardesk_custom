@@ -171,7 +171,7 @@ function showSessionPopup(data,pcName){
  const invite=validateInviteUrl(data.invite_url);
  const device=String(data.stardesk_device_id||"").trim();
  const code=String(data.verification_code||"").trim().toUpperCase();
- if(!device||device.length>180||! /^[A-Z0-9]{8}$/.test(code)||!invite)
+ if(!device||device.length>180||!/^[A-Z0-9]{8}$/.test(code)||!invite)
   throw new Error("DATA_KONEKSI_STARDESK_TIDAK_VALID");
  state.activeSessionId=String(data.session_id||"");
  state.activeSessionPcId=String(data.rental_pc_id||"");
@@ -342,7 +342,7 @@ async function confirmTopup(){
   const order=await nativeRpc("androiddb_v0_remote_coin_create_topup",{p_amount_rupiah:amount,p_idempotency_key:pendingOrderKey},state.accessToken);
   if(!order?.order_id)throw new Error("ORDER_ID_NOT_RETURNED");
   pendingOrderKey="";
-  const message="KONFIRMASI TOP-UP ANI GAMES READY\n\nUser ID: "+state.rentalCode+"\nID Order: "+order.order_id+"\nNominal transfer: "+rupiah(order.amount_rupiah)+"\nKoin: "+dec(order.coin_amount)+"\nMasa berlaku lot baru: "+order.expiry_days+" hari\nStatus: "+String(order.status||"pending").toUpperCase()+"\nMetode: QRIS statis\n\nMohon verifikasi pembayaran dan persetujuan Owner.";
+  const message="KONFIRMASI TOP-UP ANI GAMES READY\n\nUser ID: "+state.rentalCode+"\nID Order: "+order.order_id+"\nNominal transfer: "+rupiah(order.amount_rupiah)+"\nKoin: "+coinText(order.coin_amount)+"\nMasa berlaku lot baru: "+order.expiry_days+" hari\nStatus: "+String(order.status||"pending").toUpperCase()+"\nMetode: QRIS statis\n\nMohon verifikasi pembayaran dan persetujuan Owner.";
   toast("Order dibuat. Menunggu persetujuan Owner.");
   if(native?.openWhatsApp)native.openWhatsApp(message);
   await refreshData();
