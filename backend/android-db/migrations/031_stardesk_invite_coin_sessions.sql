@@ -3,7 +3,9 @@
 BEGIN;
 
 ALTER TABLE androiddb_v0.agent_devices
-  ADD COLUMN IF NOT EXISTS last_ui_monitor_at timestamptz;
+  ADD COLUMN IF NOT EXISTS last_ui_monitor_at timestamptz,
+  ADD COLUMN IF NOT EXISTS stardesk_session_active boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS last_stardesk_session_state_at timestamptz;
 
 ALTER TABLE androiddb_v0.stardesk_pairings
   ADD COLUMN IF NOT EXISTS invite_url_ciphertext text,
@@ -306,6 +308,9 @@ BEGIN
     WHERE client_session_id=c.id AND idempotency_key=p_idempotency_key;
   IF FOUND THEN
     IF s.rental_pc_id<>p_rental_pc_id THEN RAISE EXCEPTION 'ANDROIDDB_V0_IDEMPOTENCY_CONFLICT'; END IF;
+    IF s.status<>'requested' OR s.request_expires_at<=clock_timestamp() THEN
+      RAISE EXCEPTION 'ANDROIDDB_V0_COIN_SESSION_NO_LONGER_REQUESTABLE';
+    END IF;
     SELECT * INTO sp FROM androiddb_v0.stardesk_pairings WHERE rental_pc_id=s.rental_pc_id;
     RETURN jsonb_build_object('ok',true,'idempotent',true,'session_id',s.id,
       'status',s.status,'rental_pc_id',s.rental_pc_id,'hourly_coin_units',s.hourly_coin_units,
@@ -328,6 +333,9 @@ BEGIN
       AND last_ui_monitor_at>clock_timestamp()-interval '45 seconds'
     FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'ANDROIDDB_V0_COIN_AGENT_OFFLINE'; END IF;
+  IF d.stardesk_session_active THEN
+    RAISE EXCEPTION 'ANDROIDDB_V0_STARDESK_ALREADY_ACTIVE';
+  END IF;
 
   SELECT * INTO sp FROM androiddb_v0.stardesk_pairings
     WHERE rental_pc_id=pc.id AND org_id=pc.org_id AND status='captured'
@@ -401,6 +409,14 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'ANDROIDDB_V0_AGENT_REVOKED_OR_UNPAIRED'; END IF;
 
   IF event_name='connected' THEN
+    IF d.last_ui_monitor_at IS NULL OR
+        d.last_ui_monitor_at<=clock_timestamp()-interval '45 seconds' THEN
+      RAISE EXCEPTION 'ANDROIDDB_V0_AGENT_MONITOR_OFFLINE';
+    END IF;
+    UPDATE androiddb_v0.agent_devices SET
+      stardesk_session_active=true,last_stardesk_session_state_at=clock_timestamp()
+    WHERE id=d.id;
+
     SELECT * INTO s FROM androiddb_v0.coin_rental_sessions
     WHERE rental_pc_id=d.rental_pc_id AND agent_device_id=d.id
       AND status='requested' AND request_expires_at>clock_timestamp()
@@ -418,6 +434,10 @@ BEGIN
     RETURN jsonb_build_object('ok',true,'session_id',s.id,'status','connected',
       'hourly_coin_units',s.hourly_coin_units,'started_at',s.connected_at);
   END IF;
+
+  UPDATE androiddb_v0.agent_devices SET
+    stardesk_session_active=false,last_stardesk_session_state_at=clock_timestamp()
+  WHERE id=d.id;
 
   SELECT * INTO s FROM androiddb_v0.coin_rental_sessions
   WHERE rental_pc_id=d.rental_pc_id AND agent_device_id=d.id
@@ -560,7 +580,8 @@ BEGIN
       AND d.last_ui_monitor_at>clock_timestamp()-interval '45 seconds',false)
       AND coalesce(sp.status='captured' AND sp.invite_url_ciphertext IS NOT NULL,false),
     'available',r.status='active' AND bal>0 AND active_row.id IS NULL AND pc.enabled
-      AND d.revoked_at IS NULL AND d.last_heartbeat_at>clock_timestamp()-interval '60 seconds'
+      AND d.revoked_at IS NULL AND NOT coalesce(d.stardesk_session_active,false)
+      AND d.last_heartbeat_at>clock_timestamp()-interval '60 seconds'
       AND d.last_ui_monitor_at>clock_timestamp()-interval '45 seconds'
       AND sp.status='captured' AND sp.invite_url_ciphertext IS NOT NULL
       AND NOT EXISTS(SELECT 1 FROM androiddb_v0.coin_rental_sessions rs
@@ -572,7 +593,7 @@ BEGIN
     'rate_configured',pc.hourly_coin_units>0,
     'stardesk_device_id',sp.stardesk_device_id,
     'stardesk_linked',coalesce(sp.status='captured' AND sp.invite_url_ciphertext IS NOT NULL,false),
-    'active_session',EXISTS(SELECT 1 FROM androiddb_v0.coin_rental_sessions rs
+    'active_session',coalesce(d.stardesk_session_active,false) OR EXISTS(SELECT 1 FROM androiddb_v0.coin_rental_sessions rs
       WHERE rs.rental_pc_id=pc.id AND rs.status='connected')
   ) ORDER BY pc.display_name),'[]'::jsonb) INTO hosts
   FROM androiddb_v0.rental_pcs pc
