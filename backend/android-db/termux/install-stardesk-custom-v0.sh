@@ -126,6 +126,7 @@ MIGRATION_FILES=(
   028_manual_pc_tariffs.sql
   029_androiddb_v0_remote_userid_agent_inventory.sql
   030_agent_remote_pc_sync.sql
+  031_stardesk_invite_coin_sessions.sql
 )
 for file in "${MIGRATION_FILES[@]}"; do
   [ -s "$SOURCE_ROOT/backend/android-db/migrations/$file" ] || die "Migrasi source hilang: $file"
@@ -134,6 +135,8 @@ grep -q "androiddb_v0_remote_login" "$SOURCE_ROOT/backend/android-db/server/serv
 grep -q "androiddb_v0_admin_dashboard" "$SOURCE_ROOT/backend/android-db/server/server.mjs" || die "RPC Admin Coin v0 tidak ditemukan."
 grep -q "androiddb_v0_agent_heartbeat" "$SOURCE_ROOT/backend/android-db/server/server.mjs" || die "RPC Windows Agent StarDesk tidak ditemukan."
 grep -q "androiddb_v0_agent_sync_stardesk_pairing" "$SOURCE_ROOT/backend/android-db/server/server.mjs" || die "RPC sinkronisasi Device ID StarDesk tidak ditemukan."
+grep -q "androiddb_v0_agent_ui_monitor_heartbeat" "$SOURCE_ROOT/backend/android-db/server/server.mjs" || die "RPC monitor Agent tidak ditemukan."
+grep -q "androiddb_v0_remote_request_session" "$SOURCE_ROOT/backend/android-db/server/server.mjs" || die "RPC Coin session request tidak ditemukan."
 
 mkdir -p "$SERVER_DIR" "$MIGRATIONS_DIR"
 cp -R "$SOURCE_ROOT/backend/android-db/server/." "$SERVER_DIR/"
@@ -226,7 +229,7 @@ CREATE TABLE private.stardesk_custom_install_meta (
   installed_at timestamptz NOT NULL DEFAULT now()
 );
 INSERT INTO private.stardesk_custom_install_meta(singleton,schema_version,runtime_role,api_login_role,source_ref)
-VALUES(true,'androiddb_v0_030_agent_remote_sync','$RUNTIME_ROLE','$API_DB_USER','$SOURCE_REF');
+VALUES(true,'androiddb_v0_031_stardesk_coin_sessions','$RUNTIME_ROLE','$API_DB_USER','$SOURCE_REF');
 REVOKE ALL ON private.stardesk_custom_install_meta FROM PUBLIC;
 SQL
 
