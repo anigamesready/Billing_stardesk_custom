@@ -1,4 +1,4 @@
-name: StarDesk Coin 031 — Windows Agent 0.2.7 Candidate
+name: StarDesk Coin 031 — Windows Agent 0.2.7 + EXE Installer
 
 on:
   push:
@@ -67,7 +67,7 @@ jobs:
           psql -h 127.0.0.1 -p 5432 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/stardesk-coin-031-postgres-smoke.sql
 
   windows-agent:
-    name: Build Windows x64 Agent 0.2.7
+    name: Build Windows x64 Agent 0.2.7 and one-file installer
     runs-on: windows-2022
     needs: [contract-tests, postgres-smoke]
     timeout-minutes: 35
@@ -96,12 +96,31 @@ jobs:
           Compress-Archive -Path out/WindowsAgent/* -DestinationPath "out/$zip" -CompressionLevel Optimal
           Get-FileHash "out/$zip" -Algorithm SHA256 | Format-List | Out-File "out/SHA256-WINDOWS-AGENT.txt"
           Get-Item "out/$zip" | Format-Table Name,Length
-      - name: Upload Windows Agent candidate
+      - name: Install Inno Setup compiler
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+      - name: Compile one-file Windows installer EXE
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $iscc = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"
+          if (!(Test-Path -LiteralPath $iscc -PathType Leaf)) { throw "Inno Setup compiler not found: $iscc" }
+          & $iscc /Qp win-agent/installer/AniGamesReady-StarDesk-Agent.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed: $LASTEXITCODE" }
+          $setup = "out/WindowsAgent/Ani-Games-Ready-StarDesk-Agent-Setup-0.2.7-win-x64.exe"
+          if (!(Test-Path -LiteralPath $setup -PathType Leaf)) { throw "Installer EXE missing" }
+          $item = Get-Item $setup
+          if ($item.Length -lt 50000000) { throw "Installer EXE unexpectedly small ($($item.Length) bytes)" }
+          Get-FileHash $setup -Algorithm SHA256 | Format-List | Out-File "out/SHA256-AGENT-INSTALLER.txt"
+          Write-Host "Installer EXE created: $($item.Length) bytes"
+      - name: Upload Windows Agent ZIP and one-file EXE installer
         uses: actions/upload-artifact@v4
         with:
-          name: Ani-Games-Ready-StarDesk-Coin-Agent-0.2.7-win-x64
+          name: Ani-Games-Ready-StarDesk-Coin-Agent-0.2.7-Windows-Installer
           path: |
             out/Ani-Games-Ready-StarDesk-Coin-Agent-0.2.7-win-x64.zip
+            out/WindowsAgent/Ani-Games-Ready-StarDesk-Agent-Setup-0.2.7-win-x64.exe
             out/SHA256-WINDOWS-AGENT.txt
+            out/SHA256-AGENT-INSTALLER.txt
           if-no-files-found: error
           retention-days: 30
