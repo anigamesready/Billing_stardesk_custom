@@ -260,7 +260,7 @@ function renderRates(){
  $("rateList").innerHTML=configured.map(r=>'<div class="rate"><div><b>'+escapeHtml(r.device_name||r.client_id||"PC")+'</b><span>'+escapeHtml(r.gpu_class||"GPU")+' • '+rupiah(r.hourly_rupiah)+' / jam</span></div><div style="text-align:right"><b>'+dec(r.hourly_coins)+' koin/jam</b><span>'+dec(Number(r.hourly_coins)/60)+' koin/menit</span></div></div>').join("");
 }
 function renderHistory(){
- $("lotList").innerHTML='<div class="title"><h2>Lot Koin Aktif</h2></div>'+(state.lots.length?state.lots.map(l=>'<div class="history"><b>'+dec(l.remaining_coins)+' koin tersisa</b><small>Expired: '+formatDate(l.expires_at)+'</small></div>').join(""):'<div class="history"><b>Tidak ada lot aktif</b><small>Top-up yang disetujui Owner akan muncul di sini.</small></div>');
+ $("lotList").innerHTML='<div class="title"><h2>Lot Koin Aktif</h2></div>'+(state.lots.length?state.lots.map(l=>'<div class="history"><b>'+coinText(l.remaining_coins)+' koin tersisa</b><small>Expired: '+formatDate(l.expires_at)+'</small></div>').join(""):'<div class="history"><b>Tidak ada lot aktif</b><small>Top-up yang disetujui Owner akan muncul di sini.</small></div>');
  const entries=[];
  (state.orders||[]).forEach(o=>entries.push({date:o.created_at,title:"Top-up "+rupiah(o.amount_rupiah)+" • "+coinText(o.coin_amount)+" koin",detail:"Status "+String(o.status||"").toUpperCase()+" • Expired "+o.expiry_days+" hari"}));
  (state.ledger||[]).forEach(l=>entries.push({date:l.created_at,title:String(l.event_type||"").replaceAll("_"," ").toUpperCase()+" • "+coinText(l.amount_coins)+" koin",detail:"Saldo setelah transaksi "+coinText(l.balance_after)+" koin"}));
