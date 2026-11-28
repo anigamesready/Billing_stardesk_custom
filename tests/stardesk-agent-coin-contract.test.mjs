@@ -170,3 +170,42 @@ test("Agent is built consistently as version 0.2.7", () => {
   assert.match(installerIss, /AppVersion "0\.2\.7"/);
   assert.match(installerIss, /OutputBaseFilename=.*0\.2\.7-win-x64/);
 });
+
+test("Passive StarDesk monitoring never restores a minimized or hidden window", () => {
+  assert.match(capture, /if \(wasHiddenOrMinimized && !explicitIdleCapture\)[\s\S]*?continue;/);
+  assert.match(capture, /if \(wasHiddenOrMinimized && explicitIdleCapture\)[\s\S]*?RestoreWindowToBackground/);
+  assert.match(capture, /if \(allowCopy && session\.Known && !session\.Active/);
+});
+
+test("Agent stays standby during an active or unverified remote session", () => {
+  assert.match(tray, /remoteSessionActive/);
+  assert.match(tray, /syncButton\.Enabled = currentStatus\.IsPaired && !remoteSessionActive && !manualSyncBusy/);
+
+  const activeStart = tray.indexOf("if (observed.RemoteSessionStateKnown && observed.RemoteSessionActive)");
+  const activeEnd = tray.indexOf("if (!observed.RemoteSessionStateKnown)", activeStart);
+  assert.ok(activeStart >= 0 && activeEnd > activeStart, "remote active branch not found");
+  const activeBranch = tray.slice(activeStart, activeEnd);
+  assert.doesNotMatch(activeBranch, /ReadPartial\(forceCopy|AgentCapturePipeClient\.SyncAsync/);
+
+  const manualStart = tray.indexOf("private async Task SyncStarDeskAsync()");
+  const manualEnd = tray.indexOf("private void OnFormClosing", manualStart);
+  assert.ok(manualStart >= 0 && manualEnd > manualStart, "manual sync method not found");
+  const manual = tray.slice(manualStart, manualEnd);
+  assert.match(manual, /ReadPartial\(allowCopy:\s*false\)/);
+  assert.match(manual, /if \(!sessionProbe\.RemoteSessionStateKnown\)/);
+  assert.match(manual, /if \(remoteSessionActive\)/);
+  assert.match(manual, /if \(!capture\.RemoteSessionStateKnown \|\| capture\.RemoteSessionActive\)/);
+
+  // This is the credential sync cadence. The separate monitor/coin meter must remain live.
+  assert.match(tray, /monitorHeartbeatTimer\.Interval = 15000/);
+  assert.match(worker, /androiddb_v0_agent_stardesk_session_tick/);
+});
+
+test("Agent sync retry reports only a safe underlying reason code", () => {
+  assert.match(pipeClient, /catch \(OperationCanceledException\) when \(!cancellationToken\.IsCancellationRequested\)/);
+  assert.match(pipeClient, /STAR_DESK_EVENT_SYNC_RETRY_EXHAUSTED:" \+ reason/);
+  assert.match(pipeClient, /SafeFailureReason\(Exception\? error\)/);
+  assert.match(pipeClient, /PIPE_TIMEOUT/);
+  assert.match(pipeClient, /PIPE_UNAVAILABLE/);
+});
+
