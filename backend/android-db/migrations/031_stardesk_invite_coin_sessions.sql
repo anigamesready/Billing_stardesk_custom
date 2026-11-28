@@ -2,6 +2,9 @@
 -- Additive only. Keeps legacy androiddb_v0.sessions (public.devices.id) untouched.
 BEGIN;
 
+ALTER TABLE androiddb_v0.agent_devices
+  ADD COLUMN IF NOT EXISTS last_ui_monitor_at timestamptz;
+
 ALTER TABLE androiddb_v0.stardesk_pairings
   ADD COLUMN IF NOT EXISTS invite_url_ciphertext text,
   ADD COLUMN IF NOT EXISTS invite_url_nonce text,
@@ -14,7 +17,8 @@ ALTER TABLE androiddb_v0.stardesk_pairings
   ADD CONSTRAINT stardesk_pairings_invite_cipher_tuple_check CHECK (
     (invite_url_ciphertext IS NULL AND invite_url_nonce IS NULL AND invite_url_tag IS NULL)
     OR
-    (length(invite_url_ciphertext) BETWEEN 1 AND 4096
+    (invite_url_ciphertext IS NOT NULL AND invite_url_nonce IS NOT NULL AND invite_url_tag IS NOT NULL
+      AND length(invite_url_ciphertext) BETWEEN 1 AND 4096
       AND length(invite_url_nonce)=16 AND length(invite_url_tag)=24)
   );
 ALTER TABLE androiddb_v0.stardesk_pairings
@@ -321,6 +325,7 @@ BEGIN
   SELECT * INTO d FROM androiddb_v0.agent_devices
     WHERE rental_pc_id=pc.id AND org_id=pc.org_id AND revoked_at IS NULL
       AND last_heartbeat_at>clock_timestamp()-interval '60 seconds'
+      AND last_ui_monitor_at>clock_timestamp()-interval '45 seconds'
     FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'ANDROIDDB_V0_COIN_AGENT_OFFLINE'; END IF;
 
@@ -349,6 +354,25 @@ BEGIN
     'hourly_coin_units',pc.hourly_coin_units,'hourly_coins',pc.hourly_coin_units::numeric/100,
     'invite_url_ciphertext',sp.invite_url_ciphertext,'invite_url_nonce',sp.invite_url_nonce,
     'invite_url_tag',sp.invite_url_tag,'coin_unit_scale',100,'server_time',clock_timestamp());
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION api.androiddb_v0_agent_ui_monitor_heartbeat(
+  p_agent_token text
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO 'androiddb_v0','extensions','pg_catalog'
+AS $function$
+DECLARE d androiddb_v0.agent_devices%ROWTYPE;
+BEGIN
+  UPDATE androiddb_v0.agent_devices SET
+    last_ui_monitor_at=clock_timestamp(),updated_at=clock_timestamp()
+  WHERE agent_token_hash=encode(extensions.digest(p_agent_token,'sha256'),'hex')
+    AND revoked_at IS NULL
+  RETURNING * INTO d;
+  IF NOT FOUND THEN RAISE EXCEPTION 'ANDROIDDB_V0_AGENT_REVOKED_OR_UNPAIRED'; END IF;
+  RETURN jsonb_build_object('ok',true,'agent_device_id',d.id,
+    'rental_pc_id',d.rental_pc_id,'monitor_at',d.last_ui_monitor_at);
 END;
 $function$;
 
@@ -521,10 +545,12 @@ BEGIN
     'device_id',pc.id,'client_id',d.id,'device_name',pc.display_name,
     'online',coalesce(d.status='online' AND d.last_heartbeat_at>clock_timestamp()-interval '60 seconds',false),
     'host_agent_online',coalesce(d.status='online' AND d.last_heartbeat_at>clock_timestamp()-interval '60 seconds',false),
-    'host_agent_ready',coalesce(d.status='online' AND d.last_heartbeat_at>clock_timestamp()-interval '60 seconds',false)
+    'host_agent_ready',coalesce(d.status='online' AND d.last_heartbeat_at>clock_timestamp()-interval '60 seconds'
+      AND d.last_ui_monitor_at>clock_timestamp()-interval '45 seconds',false)
       AND coalesce(sp.status='captured' AND sp.invite_url_ciphertext IS NOT NULL,false),
     'available',r.status='active' AND bal>0 AND active_row.id IS NULL AND pc.enabled
       AND d.revoked_at IS NULL AND d.last_heartbeat_at>clock_timestamp()-interval '60 seconds'
+      AND d.last_ui_monitor_at>clock_timestamp()-interval '45 seconds'
       AND sp.status='captured' AND sp.invite_url_ciphertext IS NOT NULL
       AND NOT EXISTS(SELECT 1 FROM androiddb_v0.coin_rental_sessions rs
         WHERE rs.rental_pc_id=pc.id AND rs.status IN ('requested','connected')),
@@ -561,6 +587,7 @@ $function$;
 REVOKE ALL ON FUNCTION private.androiddb_v0_coin_rental_charge(uuid,uuid,timestamptz) FROM PUBLIC,stardesk_v0_runtime;
 REVOKE ALL ON FUNCTION api.androiddb_v0_agent_sync_stardesk_pairing(text,text,text,text,text,text,text,text,text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION api.androiddb_v0_remote_request_session(text,uuid,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION api.androiddb_v0_agent_ui_monitor_heartbeat(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION api.androiddb_v0_agent_stardesk_session_event(text,text,uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION api.androiddb_v0_agent_stardesk_session_tick(text,uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION api.androiddb_v0_remote_session_status(text) FROM PUBLIC;
@@ -568,6 +595,7 @@ REVOKE ALL ON FUNCTION api.androiddb_v0_remote_dashboard(text) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION api.androiddb_v0_agent_sync_stardesk_pairing(text,text,text,text,text,text,text,text,text) TO stardesk_v0_runtime;
 GRANT EXECUTE ON FUNCTION api.androiddb_v0_remote_request_session(text,uuid,text) TO stardesk_v0_runtime;
+GRANT EXECUTE ON FUNCTION api.androiddb_v0_agent_ui_monitor_heartbeat(text) TO stardesk_v0_runtime;
 GRANT EXECUTE ON FUNCTION api.androiddb_v0_agent_stardesk_session_event(text,text,uuid) TO stardesk_v0_runtime;
 GRANT EXECUTE ON FUNCTION api.androiddb_v0_agent_stardesk_session_tick(text,uuid) TO stardesk_v0_runtime;
 GRANT EXECUTE ON FUNCTION api.androiddb_v0_remote_session_status(text) TO stardesk_v0_runtime;
