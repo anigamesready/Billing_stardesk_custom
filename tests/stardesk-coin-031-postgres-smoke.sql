@@ -212,7 +212,7 @@ BEGIN
   SELECT debited_coin_units INTO debited FROM androiddb_v0.coin_rental_sessions WHERE id=session_id;
   IF abs(actual_balance-11950)>0.001 OR abs(debited-50)>0.001 THEN
     RAISE EXCEPTION '30 seconds at 60 Coin/hour should debit about 0.5 Coin; balance %, debited %',actual_balance,debited;
-      actual_balance,debited;
+
   END IF;
 
   PERFORM api.androiddb_v0_agent_stardesk_session_tick(agent_token,tick_id);
