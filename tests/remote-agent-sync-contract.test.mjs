@@ -348,3 +348,12 @@ test("Stable changed StarDesk credentials continue to auto-sync after background
   assert.match(tray, /candidateStableReads >= 4/);
   assert.match(tray, /AgentCapturePipeClient\.SyncAsync\(capture\)/);
 });
+
+
+test("Minimized StarDesk main window uses GetWindowPlacement normal bounds before the size filter", () => {
+  const capture = read("win-agent/Agent.Tray/StarDeskUiCapture.cs");
+  assert.match(capture, /GetWindowPlacement/);
+  assert.match(capture, /Marshal\.SizeOf<NativeWindowPlacement>\(\)/);
+  assert.match(capture, /placement\.NormalPosition/);
+  assert.match(capture, /!IsWindowVisible\(hwnd\) \|\| IsIconic\(hwnd\)/);
+});
