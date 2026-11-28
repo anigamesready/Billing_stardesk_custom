@@ -71,8 +71,8 @@ CREATE INDEX IF NOT EXISTS androiddb_v0_coin_session_billing_events_recent_idx
 
 ALTER TABLE androiddb_v0.coin_rental_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE androiddb_v0.coin_session_billing_events ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON TABLE androiddb_v0.coin_rental_sessions FROM PUBLIC,anon,authenticated,ani_api_runtime,stardesk_v0_runtime;
-REVOKE ALL ON TABLE androiddb_v0.coin_session_billing_events FROM PUBLIC,anon,authenticated,ani_api_runtime,stardesk_v0_runtime;
+REVOKE ALL ON TABLE androiddb_v0.coin_rental_sessions FROM PUBLIC,stardesk_v0_runtime;
+REVOKE ALL ON TABLE androiddb_v0.coin_session_billing_events FROM PUBLIC,stardesk_v0_runtime;
 
 -- The 1 unit in rental_pcs.hourly_coin_units and wallet/lot amounts is 0.01 displayed Coin.
 -- Example: 6000 units/hour = 60.00 Coin/hour; server time is authoritative.
@@ -215,6 +215,7 @@ DECLARE
   pc androiddb_v0.rental_pcs%ROWTYPE;
   device_id text:=btrim(coalesce(p_stardesk_device_id,''));
   changed boolean:=false;
+  affected_rows integer:=0;
 BEGIN
   IF length(device_id) NOT BETWEEN 1 AND 180
      OR length(coalesce(p_verification_ciphertext,'')) NOT BETWEEN 1 AND 1024
@@ -263,8 +264,8 @@ BEGIN
       THEN clock_timestamp() ELSE current_pairing.updated_at END
   WHERE current_pairing.capture_fingerprint IS DISTINCT FROM EXCLUDED.capture_fingerprint;
 
-  SELECT (capture_fingerprint=p_capture_fingerprint) INTO changed
-  FROM androiddb_v0.stardesk_pairings WHERE rental_pc_id=pc.id;
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  changed:=affected_rows>0;
   RETURN jsonb_build_object('ok',true,'changed',coalesce(changed,false),
     'agent_device_id',d.id,'rental_pc_id',pc.id,'stardesk_device_id',device_id,
     'has_invite_url',true,'status','captured',
@@ -533,7 +534,7 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION private.androiddb_v0_coin_rental_charge(uuid,uuid,timestamptz) FROM PUBLIC,anon,authenticated,ani_api_runtime,stardesk_v0_runtime;
+REVOKE ALL ON FUNCTION private.androiddb_v0_coin_rental_charge(uuid,uuid,timestamptz) FROM PUBLIC,stardesk_v0_runtime;
 REVOKE ALL ON FUNCTION api.androiddb_v0_agent_sync_stardesk_pairing(text,text,text,text,text,text,text,text,text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION api.androiddb_v0_remote_request_session(text,uuid,text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION api.androiddb_v0_agent_stardesk_session_event(text,text,uuid) FROM PUBLIC;
@@ -541,11 +542,11 @@ REVOKE ALL ON FUNCTION api.androiddb_v0_agent_stardesk_session_tick(text,uuid) F
 REVOKE ALL ON FUNCTION api.androiddb_v0_remote_session_status(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION api.androiddb_v0_remote_dashboard(text) FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION api.androiddb_v0_agent_sync_stardesk_pairing(text,text,text,text,text,text,text,text,text) TO ani_api_runtime,stardesk_v0_runtime;
-GRANT EXECUTE ON FUNCTION api.androiddb_v0_remote_request_session(text,uuid,text) TO ani_api_runtime,stardesk_v0_runtime;
-GRANT EXECUTE ON FUNCTION api.androiddb_v0_agent_stardesk_session_event(text,text,uuid) TO ani_api_runtime,stardesk_v0_runtime;
-GRANT EXECUTE ON FUNCTION api.androiddb_v0_agent_stardesk_session_tick(text,uuid) TO ani_api_runtime,stardesk_v0_runtime;
-GRANT EXECUTE ON FUNCTION api.androiddb_v0_remote_session_status(text) TO ani_api_runtime,stardesk_v0_runtime;
-GRANT EXECUTE ON FUNCTION api.androiddb_v0_remote_dashboard(text) TO ani_api_runtime,stardesk_v0_runtime;
+GRANT EXECUTE ON FUNCTION api.androiddb_v0_agent_sync_stardesk_pairing(text,text,text,text,text,text,text,text,text) TO stardesk_v0_runtime;
+GRANT EXECUTE ON FUNCTION api.androiddb_v0_remote_request_session(text,uuid,text) TO stardesk_v0_runtime;
+GRANT EXECUTE ON FUNCTION api.androiddb_v0_agent_stardesk_session_event(text,text,uuid) TO stardesk_v0_runtime;
+GRANT EXECUTE ON FUNCTION api.androiddb_v0_agent_stardesk_session_tick(text,uuid) TO stardesk_v0_runtime;
+GRANT EXECUTE ON FUNCTION api.androiddb_v0_remote_session_status(text) TO stardesk_v0_runtime;
+GRANT EXECUTE ON FUNCTION api.androiddb_v0_remote_dashboard(text) TO stardesk_v0_runtime;
 
 COMMIT;
