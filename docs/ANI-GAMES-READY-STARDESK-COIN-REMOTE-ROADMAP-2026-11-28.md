@@ -113,8 +113,7 @@ Acceptance: tiga data yang benar-benar tersedia tersinkron sebagai satu snapshot
 - [x] Inventarisasi tabel PC Agent dan pairing StarDesk.
 - [x] Identifikasi duplikasi jalur tarif lama vs inventaris Agent.
 - [x] Identifikasi perbedaan FK `public.devices.id` vs `androiddb_v0.rental_pcs.id`.
-- [x] Tetapkan satu identitas kanonis baru untuk jalur Agent/Remote: `rental_pc_id`.
-- [ ]
+- [x] Tetapkan keputusan desain identitas kanonis jalur Agent/Remote: `rental_pc_id`.
 - [ ] Rancang jembatan additive untuk data lama `public.devices`; jangan menganggap UUID keduanya sama.
 - [ ] Tentukan satu sumber tarif otoritatif untuk PC yang memakai Agent; hindari update dua tarif yang berbeda.
 - [ ] Buat migration additive dan rollback notes setelah semua read/write call sites diperiksa.
@@ -124,15 +123,19 @@ Acceptance: tiga data yang benar-benar tersedia tersinkron sebagai satu snapshot
 
 Acceptance: satu PC Agent memiliki satu `rental_pc_id`, tarif yang dibaca Remote sama dengan tarif yang diubah Admin, dan sistem lama tetap berfungsi tanpa perubahan destruktif.
 
-### TASK 4 — Coin Session Engine (sesudah Task 1–3)
-- [ ] Request/reserve session idempotent.
-- [ ] Konfirmasi streaming aktif sebelum billing mulai.
-- [ ] Snapshot tarif saat start.
-- [ ] Debit/settlement menggunakan server time dan FIFO expiry lots.
-- [ ] Single-active-session per account dan per PC.
-- [ ] Heartbeat/session lease dan recovery ketika network/Agent offline.
-- [ ] Audit ledger dan end_reason lengkap.
-- [ ] Race/concurrency tests.
+### TASK 4 — Coin Session Engine (provider-neutral; aktivasi setelah adapter remote disetujui)
+- [ ] Request/reserve session idempotent dan kunci `rental_account_id` + `rental_pc_id` + `session_id`.
+- [ ] Sesi `requested/connecting` tidak memotong Coin; debit baru dimulai setelah host memberi bukti `connected` yang sah.
+- [ ] Snapshot `hourly_coin_units` dari `rental_pcs` saat sesi aktif; perubahan harga Admin tidak mengubah tarif sesi yang sedang berjalan.
+- [ ] Debit/settlement dihitung server-side dari waktu aktif sampai event end; gunakan presisi integer/fixed-point sesuai unit tarif yang sudah dipakai migrasi lama.
+- [ ] Single-active-session per akun dan per PC dengan transaksi/constraint database, bukan hanya tombol UI.
+- [ ] Kunci sesi melekat pada satu akun penyewa dan satu PC; hanya pemilik sesi aktif yang dapat meminta credential/handoff sesi tersebut.
+- [ ] Stop/settlement idempotent: event berulang tidak boleh memotong saldo dua kali.
+- [ ] Agent heartbeat/session lease dan reconciliation ketika jaringan/Agent offline; jika bukti host hilang, sistem tidak boleh terus menagih tanpa batas.
+- [ ] Audit ledger lengkap: reserve, start, debit, end, refund/release, actor, timestamp server, rate snapshot, dan end_reason.
+- [ ] Race/concurrency tests untuk dua pengguna memilih satu PC, satu user meminta dua PC, retry RPC, dan event start/end duplikat.
+
+**Invariant billing:** waktu `requested` dan `connecting` tidak ditagih; timer mulai hanya pada bukti sesi host benar-benar `connected`; timer berhenti pada bukti sesi selesai atau batas lease yang aman; countdown HP hanya cerminan deadline server, bukan sumber perhitungan uang.
 
 ### TASK 5 — Agent session control dan auto-disconnect
 - [ ] Command khusus per session ID, bukan taskkill aplikasi global.
@@ -168,9 +171,14 @@ Acceptance: satu PC Agent memiliki satu `rental_pc_id`, tarif yang dibaca Remote
 
 ## G. Batas pelaksanaan tahap saat ini
 
-Cakupan pekerjaan awal hanya Task 1–3. Task 4–9 tidak boleh mulai sebelum Task 1–3 memiliki acceptance evidence. Jika lisensi/API StarDesk tidak dikonfirmasi, tahan integrasi komersial StarDesk dan siapkan opsi engine komersial yang didukung.
+Cakupan audit awal Task 1–3 sudah diperbarui dengan contoh clipboard. Implementasi integrasi StarDesk berbayar tetap **NO-GO** sampai ada izin tertulis/perjanjian bisnis yang sesuai; jangan mengotomasi pemakaian membership atau menjual sesi dari akun personal. Pekerjaan aman yang dapat dipersiapkan tanpa mengaktifkan StarDesk adalah menyelesaikan pemetaan PC/tarif kanonis dan mendesain Coin Session Engine yang provider-neutral. Remote tidak boleh menampilkan tombol Play aktif dan tidak boleh memotong Coin sebelum adapter remote yang sah menyediakan bukti sesi `connected`/`ended`.
 
 ## H. Catatan perubahan/hasil
 
-- 2026-11-28: audit source dan APK statis dilakukan. Tidak ada source code, schema, database produksi, APK, atau Windows service yang diubah pada tahap audit ini.
-- 2026-11-28: temuan penting: dokumentasi resmi hanya mendeskripsikan Device ID + Verification Code; APK string memuat custom deep-link template tetapi parameter belum diverifikasi; lisensi personal non-transferable/non-sublicensable perlu konfirmasi tertulis untuk model rental; DB punya mismatch identitas `rental_pc_id` vs `public.devices.id`.
+- 2026-11-28: audit source dan APK statis dilakukan. Tidak ada source code, schema, database produksi, APK, atau Windows service yang diubah pada tahap audit awal.
+- 2026-11-28: pemilik memberikan contoh clipboard Copy & Share yang membuktikan tiga field: Device ID, Verification Code, dan URL undangan `app.stardesk.net/invite/<token>?lang=en-US`. Token asli sengaja tidak disalin ke repo/dokumen.
+- 2026-11-28: source Agent versi branch kerja diperiksa. `AgentTrayForm` menjalankan auto-sync timer 4 detik; fingerprint hanya Device ID + Verification Code; `StarDeskCaptureSnapshot`, named-pipe payload, dan RPC backend belum membawa URL undangan. Capture otomatis saat ini berupa pembacaan ulang UI, bukan observer event-driven murni.
+- 2026-11-28: Terms of Use yang ditampilkan saat ini (updated 2026-11-11) secara eksplisit membatasi membership ke penggunaan pribadi non-komersial; remote support/access berbayar kepada orang lain dan resale bukan penggunaan pribadi (Addendum B 10.1). Pasal 11.1 melarang resale untuk keuntungan komersial, menyediakan membership kepada pihak ketiga, dan automation untuk memperoleh/menggunakan membership; pasal 11.2 memungkinkan suspend/terminate. Integrasi Coin komersial StarDesk ditahan sampai ada izin tertulis/perjanjian khusus.
+- 2026-11-28: pemeriksa web tidak dapat mengambil URL invite contoh (cache miss/internal route). Token expiry, single-use, redirect, dan launcher behavior belum diverifikasi.
+- 2026-11-28: keputusan desain untuk jalur Agent/Remote baru adalah memakai `rental_pc_id` sebagai identitas PC kanonis dan `rental_pcs.hourly_coin_units` sebagai sumber tarif Agent; jalur lama `public.devices` tetap dipertahankan tanpa asumsi UUID sama.
+- 2026-11-28: pembaruan dokumen/checklist saja. Tidak ada kode Agent, Remote APK, migrasi, database produksi, atau service produksi yang diubah.
