@@ -51,7 +51,7 @@ Pemeriksa web tidak dapat mengambil halaman invite contoh (cache miss/internal r
 
 ## D. Gate lisensi dan integrasi pihak ketiga
 
-Terms of Use StarDesk versi yang ditemukan dan diperbarui 11 November 2026 kini secara eksplisit menyebut pada Addendum B pasal 10.1 bahwa membership hanya untuk penggunaan pribadi non-komersial; menyediakan remote access/remote support kepada orang lain dengan pembayaran atau menjual kembali akses StarDesk bukan penggunaan pribadi. Pasal 11.1(a)-(c) juga melarang membership untuk resale/keuntungan komersial, menyediakan akun membership kepada pihak ketiga, dan penggunaan cara otomatis (termasuk bot/script) untuk memperoleh atau menggunakan membership; pasal 11.2 memungkinkan penangguhan atau penghentian membership jika dilanggar. Ini bukan lagi sekadar ketidakjelasan umum: model rental Coin yang menjual sesi remote melalui StarDesk bertentangan dengan ketentuan yang dipublikasikan, kecuali StarDesk/GearUP memberi pengecualian/kontrak tertulis. Sebelum implementasi komersial apa pun, minta konfirmasi tertulis atau perjanjian bisnis khusus yang mengizinkan:
+Terms of Use StarDesk yang ditemukan diperbarui 11 November 2026 memuat batas penggunaan membership pribadi/non-komersial pada Addendum B pasal 10.1, serta pembatasan pada resale, penyediaan membership kepada pihak ketiga, dan otomasi pada pasal 11.1. Owner menjelaskan model bisnis yang dimaksud: penyewa mengunduh/menggunakan StarDesk dengan akun miliknya sendiri, sedangkan Coin Ani Games Ready dibayar untuk sewa PC/waktu host, bukan penjualan membership StarDesk. Catatan ini merekam kedua fakta tersebut tanpa membuat kesimpulan hukum final. Untuk kepastian operasional, ketentuan tertulis provider atau nasihat hukum tetap diperlukan; kode proyek tidak mengubah APK/desktop StarDesk. Sebelum implementasi komersial apa pun, minta konfirmasi tertulis atau perjanjian bisnis khusus yang mengizinkan:
 - penggunaan host/client untuk layanan rental remote PC berbayar;
 - penyimpanan dan distribusi Device ID/Verification Code;
 - deep link atau API resmi untuk meluncurkan koneksi;
@@ -94,34 +94,34 @@ Acceptance: format clipboard, jenis link, otorisasi, dan batas lisensi terdokume
 
 ### TASK 2 — Windows Agent: capture dan sinkronisasi data
 - [x] Tetapkan bentuk payload dari contoh clipboard: Device ID + Verification Code + `invite_url`.
-- [ ] Implementasikan snapshot konsisten dari satu aksi Copy: Device ID + Verification Code + invite URL.
+- [x] Implementasikan snapshot konsisten dari satu aksi Copy: Device ID + Verification Code + invite URL.
 - [x] Pisahkan `invite_url` dari `device_deep_link`; jangan membuat URL palsu.
-- [ ] Validasi relasi ID/kode/link, panjang, scheme, host allowlist, dan expiry.
-- [ ] Hindari plaintext credential/invite token dalam log, status file, clipboard history, dan diagnostic.
-- [ ] Ganti timer `AutoSyncStarDeskAsync` 4 detik dengan event-driven observer (Windows UI Automation + WinEvent/process/window events); event hanya memicu pemeriksaan dan satu capture setelah transisi stabil.
-- [ ] Ketika event menunjukkan sesi berakhir dan StarDesk kembali ke halaman Remote Assist, jalankan Copy & Share satu kali, parse ketiga field, fingerprint ketiga field, lalu sync hanya jika fingerprint berbeda.
-- [ ] Jangan menggunakan polling beberapa detik untuk mengirim sync. Retry network hanya untuk snapshot event yang sama dengan idempotency key/backoff; jangan menghasilkan snapshot baru kecuali ada event baru.
-- [ ] Kirim snapshot atomik ke Service melalui named pipe; batasi ACL.
-- [ ] Enkripsi Verification Code dan setiap link yang mengandung token/credential sebelum disimpan.
-- [ ] Tambahkan idempotency/fingerprint dan retry dengan backoff.
-- [ ] Tambahkan regression test parser untuk format clipboard aktual, nilai tidak lengkap, URL umum, link kadaluarsa, teks palsu, dan clipboard lama.
-- [ ] Build dan smoke test Agent; real-StarDesk runtime test tetap wajib.
+- [~] Validasi relasi ID/kode/link, panjang, scheme, dan host allowlist. Expiry token belum dapat diverifikasi dari format clipboard.
+- [x] Hindari plaintext credential/invite token dalam log, status file, dan diagnostic; kode/link dienkripsi AES-256-GCM sebelum disimpan DB.
+- [x] Ganti timer `AutoSyncStarDeskAsync` 4 detik dengan observer WinEvent; event hanya memicu pemeriksaan/debounce.
+- [x] Ketika sesi berakhir dan StarDesk kembali idle, Agent melakukan Copy & Share satu kali, parse ketiga field, fingerprint, dan sync hanya bila berubah.
+- [x] Sinkronisasi Copy & Share tidak memakai polling beberapa detik. Heartbeat pemantau lokal dan Coin meter terpisah dari copy/sync.
+- [x] Kirim snapshot atomik ke Service melalui named pipe terpisah dengan ACL.
+- [x] Enkripsi Verification Code dan Invite URL sebelum disimpan; plaintext hanya melewati memori/pipe lokal untuk pemrosesan.
+- [~] Fingerprint DB dan event ID idempotent tersedia; retry network/backoff untuk capture snapshot masih perlu ditambahkan.
+- [~] Tes kontrak statis untuk tiga field, event watcher, encryption, session lifecycle, dan Coin berhasil; uji kasus parser pada runtime dan Windows UI nyata masih menunggu.
+- [~] Build Windows Agent 0.2.7 sedang diperiksa oleh GitHub Actions; belum ada hasil final saat catatan ini dibuat.
+- [ ] Uji runtime pada perangkat Windows dengan StarDesk 1.6.x; khusus transisi connected, idle, close app, minimize, dan dialog overlay.
 
-Acceptance: tiga data yang benar-benar tersedia tersinkron sebagai satu snapshot yang valid, atau Agent menolak dan memberi diagnosis aman.
+Acceptance: source kontrak tiga data dan event-driven sync tersedia; real-StarDesk runtime test tetap wajib.
 
 ### TASK 3 — Identitas PC dan tarif Coin
 - [x] Inventarisasi tabel PC Agent dan pairing StarDesk.
 - [x] Identifikasi duplikasi jalur tarif lama vs inventaris Agent.
 - [x] Identifikasi perbedaan FK `public.devices.id` vs `androiddb_v0.rental_pcs.id`.
 - [x] Tetapkan keputusan desain identitas kanonis jalur Agent/Remote: `rental_pc_id`.
-- [ ] Rancang jembatan additive untuk data lama `public.devices`; jangan menganggap UUID keduanya sama.
-- [ ] Tentukan satu sumber tarif otoritatif untuk PC yang memakai Agent; hindari update dua tarif yang berbeda.
-- [ ] Buat migration additive dan rollback notes setelah semua read/write call sites diperiksa.
-- [ ] Perbarui RPC Admin/Remote hanya pada jalur Agent/Remote baru; pertahankan fungsi lama.
-- [ ] Tambahkan tes FK, org isolation, duplicate link prevention, rate precision/unit x100, dan audit event.
-- [ ] Jalankan migrasi pada fixture CI, lalu smoke test DB isolated; jangan langsung ubah live DB.
+- [x] Pastikan tarif Agent memakai satu sumber otoritatif: `androiddb_v0.rental_pcs.hourly_coin_units`; nilai dikunci ke sesi saat request.
+- [x] Buat migration additive 031 untuk kolom Invite URL terenkripsi dan tabel Coin session baru; jalur `androiddb_v0.sessions` lama tidak diubah.
+- [x] RPC Agent/Remote baru menggunakan `rental_pc_id`; tidak mengasumsikan UUID sama dengan `public.devices.id`.
+- [~] Contract test memeriksa FK, org scoping, unique active PC/account, tarif x100 dan session event. Fixture PostgreSQL dan concurrency test belum dijalankan.
+- [ ] Jalankan migrasi pada fixture CI lalu smoke test DB isolated; jangan langsung ubah live DB.
 
-Acceptance: satu PC Agent memiliki satu `rental_pc_id`, tarif yang dibaca Remote sama dengan tarif yang diubah Admin, dan sistem lama tetap berfungsi tanpa perubahan destruktif.
+Acceptance: source memakai satu `rental_pc_id` dan satu sumber tarif untuk jalur Agent/Remote; verifikasi DB nyata/fixture masih menjadi gerbang.
 
 ### TASK 4 — Coin Session Engine (provider-neutral; aktivasi setelah adapter remote disetujui)
 - [ ] Request/reserve session idempotent dan kunci `rental_account_id` + `rental_pc_id` + `session_id`.
@@ -182,3 +182,11 @@ Cakupan audit awal Task 1–3 sudah diperbarui dengan contoh clipboard. Implemen
 - 2026-11-28: pemeriksa web tidak dapat mengambil URL invite contoh (cache miss/internal route). Token expiry, single-use, redirect, dan launcher behavior belum diverifikasi.
 - 2026-11-28: keputusan desain untuk jalur Agent/Remote baru adalah memakai `rental_pc_id` sebagai identitas PC kanonis dan `rental_pcs.hourly_coin_units` sebagai sumber tarif Agent; jalur lama `public.devices` tetap dipertahankan tanpa asumsi UUID sama.
 - 2026-11-28: pembaruan dokumen/checklist saja. Tidak ada kode Agent, Remote APK, migrasi, database produksi, atau service produksi yang diubah.
+
+- 2026-11-28 (implementasi branch): migration additive 031 ditambahkan untuk `invite_url` terenkripsi, Agent monitor lease, Coin rental sessions yang FK-nya ke `rental_pc_id`, idempotent billing events, server-side prorated debit, dan API request/session status. Database produksi belum disentuh.
+- 2026-11-28 (implementasi branch): Windows Agent source dinaikkan ke 0.2.7. Capture tiga data memakai parser clipboard ketat; timer polling 4 detik diganti WinEvent watcher + debounce. Copy & Share dijalankan hanya saat StarDesk baru dibuka/idle setelah sesi berakhir/perubahan pairing terdeteksi. Monitor lease lokal/DB dan Coin meter 15 detik adalah heartbeat terpisah, bukan copy/sync kredensial.
+- 2026-11-28 (CI): workflow `StarDesk Coin 031 — Windows Agent 0.2.7 Candidate` berjalan pada commit `dc95d4580c1cc06a2b15ea56a67a274380265a9c`. Job kontrak lulus: `node --check`, `bash -n` untuk skrip Termux, dan `node --test tests/stardesk-agent-coin-contract.test.mjs`. Job Windows x64 publish masih berjalan saat catatan ini dibuat.
+- 2026-11-28: skrip upgrade existing `upgrade-stardesk-coin-031.sh` dan urutan migrasi fresh install 031 ditambahkan. Tidak ada migrasi yang dijalankan ke Android/DB owner; perlu jalur apply dan smoke test terpisah setelah artifact dan DB fixture lolos.
+- 2026-11-28: Remote APK belum dihubungkan ke `androiddb_v0_remote_request_session` / `androiddb_v0_remote_session_status`; UI Play, countdown, dan tampilan saldo aktif masih tahap berikutnya. Backend source belum berarti APK telah menjalankan sesi.
+- 2026-11-28: koneksi StarDesk tidak dapat diputus paksa oleh DB saat saldo habis hanya dengan menandai sesi ended. Pemutusan stream yang benar membutuhkan kontrol host/API resmi atau tindakan yang didukung StarDesk; implementasi saat ini menghentikan billing server dan menutup lifecycle Coin.
+- 2026-11-28: penguncian akun/PC ada di DB (satu sesi requested/connected per akun dan PC, hanya token sesi renter mendapat invite URL), tetapi invite URL StarDesk sendiri belum terbukti single-use atau tak bisa diteruskan. Jangan mengklaim undangan provider terkunci secara kriptografis pada satu user sebelum ada dukungan provider.
