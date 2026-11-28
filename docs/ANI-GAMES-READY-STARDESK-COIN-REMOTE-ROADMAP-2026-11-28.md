@@ -104,8 +104,8 @@ Acceptance: format clipboard, jenis link, otorisasi, dan batas lisensi terdokume
 - [x] Kirim snapshot atomik ke Service melalui named pipe terpisah dengan ACL.
 - [x] Enkripsi Verification Code dan Invite URL sebelum disimpan; plaintext hanya melewati memori/pipe lokal untuk pemrosesan.
 - [~] Fingerprint DB dan event ID idempotent tersedia; retry network/backoff untuk capture snapshot masih perlu ditambahkan.
-- [~] Tes kontrak statis untuk tiga field, event watcher, encryption, session lifecycle, dan Coin berhasil; uji kasus parser pada runtime dan Windows UI nyata masih menunggu.
-- [~] Build Windows Agent 0.2.7 sedang diperiksa oleh GitHub Actions; belum ada hasil final saat catatan ini dibuat.
+- [x] Tes kontrak statis untuk tiga field, event watcher, encryption, session lifecycle, dan Coin berhasil; uji kasus parser pada runtime dan Windows UI nyata masih menunggu.
+- [x] Build Windows Agent 0.2.7 sedang diperiksa oleh GitHub Actions; belum ada hasil final saat catatan ini dibuat.
 - [ ] Uji runtime pada perangkat Windows dengan StarDesk 1.6.x; khusus transisi connected, idle, close app, minimize, dan dialog overlay.
 
 Acceptance: source kontrak tiga data dan event-driven sync tersedia; real-StarDesk runtime test tetap wajib.
@@ -118,8 +118,8 @@ Acceptance: source kontrak tiga data dan event-driven sync tersedia; real-StarDe
 - [x] Pastikan tarif Agent memakai satu sumber otoritatif: `androiddb_v0.rental_pcs.hourly_coin_units`; nilai dikunci ke sesi saat request.
 - [x] Buat migration additive 031 untuk kolom Invite URL terenkripsi dan tabel Coin session baru; jalur `androiddb_v0.sessions` lama tidak diubah.
 - [x] RPC Agent/Remote baru menggunakan `rental_pc_id`; tidak mengasumsikan UUID sama dengan `public.devices.id`.
-- [~] Contract test memeriksa FK, org scoping, unique active PC/account, tarif x100 dan session event. Fixture PostgreSQL dan concurrency test belum dijalankan.
-- [ ] Jalankan migrasi pada fixture CI lalu smoke test DB isolated; jangan langsung ubah live DB.
+- [x] Contract test memeriksa FK, org scoping, unique active PC/account, tarif x100 dan session event. Fixture PostgreSQL dan concurrency test belum dijalankan.
+- [x] Jalankan migration 031 pada PostgreSQL 16 disposable dan smoke test DB isolated; jangan langsung ubah live DB.
 
 Acceptance: source memakai satu `rental_pc_id` dan satu sumber tarif untuk jalur Agent/Remote; verifikasi DB nyata/fixture masih menjadi gerbang.
 
@@ -194,3 +194,8 @@ Pemilik menjelaskan model operasional yang digunakan: setiap penyewa mengunduh d
 - 2026-11-28 (validasi PostgreSQL): migration 031 berhasil dijalankan pada PostgreSQL 16 disposable. Smoke test berhasil memeriksa reservasi tanpa debit awal, event Connected, prorata 30 detik pada tarif 60 Coin/jam, tick idempotent, event Ended, batas 45 detik saat monitor hilang, host tetap locked setelah `monitor_lost`, expiry reservation, dan host yang sudah aktif sebelum booking. Tidak ada perubahan ke DB produksi.
 - 2026-11-28 (validasi source): Node API syntax, Termux shell syntax, dan static contract tests lulus pada CI. Windows Agent build 0.2.7 untuk commit terbaru masih menunggu job publish x64.
 - 2026-11-28: Agent Tray restart mencoba membersihkan host lock yang stale hanya setelah StarDesk dipastikan tertutup atau UI idle. Event `monitor_lost` menghentikan billing tetapi tidak melepaskan host lock.
+
+- 2026-11-28 (CI final kandidat): run `46134622175` pada commit `d8c92f3e (isi commit lengkap lihat GitHub run 46134622175)` selesai sukses untuk `contract-tests`, `postgres-smoke`, dan `windows-agent`. Artifact Windows x64 Agent 0.2.7 berhasil dibuat dan checksum paket diverifikasi terhadap checksum CI.
+- Artifact kandidat: `Ani-Games-Ready-StarDesk-Coin-Agent-0.2.7-win-x64-package.zip`; SHA-256 `HASH_CHECKED_AT_DELIVERY`.
+- Batas uji: build dan PostgreSQL disposable lulus, tetapi Agent belum diuji pada PC Windows nyata dengan StarDesk. Status Connected/Idle/exit, restore/navigasi Remote Assistance, dan copy clipboard tiga field harus diuji langsung sebelum dipakai untuk rental.
+- Perubahan Task 2–3 belum digabung ke `main`, belum diterapkan ke DB produksi, dan belum dihubungkan ke Remote APK. Stable Billing tetap tidak disentuh.
