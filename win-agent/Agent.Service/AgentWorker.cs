@@ -143,7 +143,7 @@ public sealed class AgentWorker(
                     {
                         var eventType = AgentApiClient.ReadString(request, "event_type")?.Trim().ToLowerInvariant() ?? "";
                         var eventIdText = AgentApiClient.ReadString(request, "event_id") ?? "";
-                        if (eventType != "connected" && eventType != "ended" || !Guid.TryParse(eventIdText, out var eventId))
+                        if (eventType != "connected" && eventType != "ended" && eventType != "monitor_lost" || !Guid.TryParse(eventIdText, out var eventId))
                             throw new InvalidOperationException("STAR_DESK_SESSION_EVENT_INVALID");
 
                         var result = await api.RpcAsync("androiddb_v0_agent_stardesk_session_event", new
