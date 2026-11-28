@@ -21,13 +21,13 @@ OS_DB_USER="$(id -un)"
 PG_ADMIN_USER=""
 SOURCE_REF="${ANI_STARDESK_SOURCE_REF:-}"
 
-log(){ printf '[STAR-DESK-COIN-031] %s\\n' "$*"; }
-die(){ printf '[STAR-DESK-COIN-031] STOP: %s\\n' "$*" >&2; exit 1; }
+log(){ printf '[STAR-DESK-COIN-031] %s\n' "$*"; }
+die(){ printf '[STAR-DESK-COIN-031] STOP: %s\n' "$*" >&2; exit 1; }
 psql_admin(){ psql -X -h "$PREFIX/tmp" -p "$DB_PORT" -U "$PG_ADMIN_USER" -v ON_ERROR_STOP=1 "$@"; }
 
 [ -n "${PREFIX:-}" ] && [ -x "$PREFIX/bin/pkg" ] || die "Khusus Termux Android."
 [ -r /dev/tty ] || die "Jalankan dari terminal interaktif Termux."
-for bin in psql pg_isready node curl tar readlink date sed sv grep chmod find seq sleep; do
+for bin in psql pg_dump pg_restore pg_isready node curl tar readlink date sed sv grep chmod find seq sleep cp mv rm mktemp tail; do
   command -v "$bin" >/dev/null 2>&1 || die "$bin belum tersedia."
 done
 [[ "$SOURCE_REF" =~ ^[0-9a-fA-F]{40}$ ]] || die "ANI_STARDESK_SOURCE_REF wajib SHA commit 40 karakter."
@@ -84,18 +84,31 @@ SOURCE_ROOT="$(find "$TMP_DIR" -mindepth 1 -maxdepth 1 -type d -print -quit)"
 MIGRATION="$SOURCE_ROOT/backend/android-db/migrations/031_stardesk_invite_coin_sessions.sql"
 NEW_SERVER="$SOURCE_ROOT/backend/android-db/server/server.mjs"
 [ -s "$MIGRATION" ] && [ -s "$NEW_SERVER" ] || die "Migration 031/API source tidak lengkap."
-for rpc in androiddb_v0_agent_sync_stardesk_pairing androiddb_v0_agent_ui_monitor_heartbeat androiddb_v0_agent_stardesk_session_event androiddb_v0_agent_stardesk_session_tick androiddb_v0_remote_request_session androiddb_v0_remote_session_status androiddb_v0_remote_dashboard; do
+  for rpc in androiddb_v0_agent_sync_stardesk_pairing androiddb_v0_agent_ui_monitor_heartbeat androiddb_v0_agent_stardesk_session_event androiddb_v0_agent_stardesk_session_tick androiddb_v0_remote_request_session androiddb_v0_remote_session_status androiddb_v0_remote_dashboard; do
   grep -q "$rpc" "$NEW_SERVER" || die "RPC baru tidak ditemukan: $rpc"
 done
 node --check "$NEW_SERVER" || die "Syntax API gagal sebelum database diubah."
 
+BACKUP_DIR="$APP_DIR/backups"
+DB_BACKUP_DIR="$BACKUP_DIR/database"
+mkdir -p "$DB_BACKUP_DIR"
+STAMP="$(date +%Y%m%d-%H%M%S)"
+DB_BACKUP_FILE="$DB_BACKUP_DIR/stardesk_custom_v0.before-coin-031.$STAMP.dump"
+
+log "Membuat backup database $DB_NAME sebelum migrasi..."
+pg_dump -h "$PREFIX/tmp" -p "$DB_PORT" -U "$PG_ADMIN_USER" -d "$DB_NAME" \
+  --format=custom --no-owner --no-acl --file="$DB_BACKUP_FILE"
+[ -s "$DB_BACKUP_FILE" ] || die "Backup database kosong atau gagal dibuat."
+pg_restore --list "$DB_BACKUP_FILE" >/dev/null || die "Backup database tidak lolos pemeriksaan arsip."
+chmod 600 "$DB_BACKUP_FILE"
+
+cp "$SERVER_DIR/server.mjs" "$BACKUP_DIR/server.mjs.before-coin-031.$STAMP"
+[ -s "$BACKUP_DIR/server.mjs.before-coin-031.$STAMP" ] || die "Backup API lama gagal dibuat."
+log "Backup DB dan API tersimpan sebelum perubahan: $DB_BACKUP_FILE"
+
 log "Menerapkan migrasi additive 031 pada $DB_NAME..."
 { printf 'SET ROLE %s;\n' "$DB_OWNER_ROLE"; cat "$MIGRATION"; } | psql_admin -d "$DB_NAME" >/dev/null
 
-BACKUP_DIR="$APP_DIR/backups"
-mkdir -p "$BACKUP_DIR"
-STAMP="$(date +%Y%m%d-%H%M%S)"
-cp "$SERVER_DIR/server.mjs" "$BACKUP_DIR/server.mjs.before-coin-031.$STAMP"
 cp "$NEW_SERVER" "$SERVER_DIR/server.mjs.new"
 sed -i \
   -e 's/Ani Games Ready Local Server/StarDesk Custom Local API/g' \
@@ -152,5 +165,6 @@ SQL
 
 chmod 600 "$ENV_FILE"
 log "Migration 031 + API berhasil diperbarui. Health check dan seluruh RPC protected lolos preflight."
+log "Backup database sebelum perubahan: $DB_BACKUP_FILE"
 log "Tiga data disimpan terenkripsi; tidak ada perubahan ke Billing legacy, relay, atau database lain."
 log "Coin meter memakai tarif PC dan server clock. Agent disconnected lebih dari 45 detik akan mengakhiri sesi setelah grace period dan mencegah tagihan tanpa batas."
