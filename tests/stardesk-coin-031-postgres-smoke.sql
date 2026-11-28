@@ -255,7 +255,7 @@ DECLARE
   session_id uuid:=gen_random_uuid();
   result jsonb;
   debited numeric;
-  end_reason text;
+  v_reason text;
 BEGIN
   INSERT INTO public.organizations(id) VALUES(org_id);
   INSERT INTO androiddb_v0.rental_accounts(id,org_id,code,status)
@@ -284,11 +284,11 @@ BEGIN
     clock_timestamp()-interval '20 minutes',clock_timestamp()-interval '20 minutes');
 
   result:=api.androiddb_v0_agent_stardesk_session_event(agent_token,'monitor_lost',gen_random_uuid());
-  SELECT debited_coin_units,end_reason INTO debited,end_reason
+  SELECT debited_coin_units,end_reason INTO debited,v_reason
     FROM androiddb_v0.coin_rental_sessions WHERE id=session_id;
-  IF debited>75.000001 OR debited<74.999999 OR end_reason<>'agent_heartbeat_timeout' THEN
+  IF debited>75.000001 OR debited<74.999999 OR v_reason<>'agent_heartbeat_timeout' THEN
     RAISE EXCEPTION 'Stale monitor should cap the charge at 45 seconds (75 x100 units); debited %, reason %',
-      debited,end_reason;
+      debited,v_reason;
   END IF;
 END;
 $$;
