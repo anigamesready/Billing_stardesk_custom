@@ -84,7 +84,7 @@ SOURCE_ROOT="$(find "$TMP_DIR" -mindepth 1 -maxdepth 1 -type d -print -quit)"
 MIGRATION="$SOURCE_ROOT/backend/android-db/migrations/031_stardesk_invite_coin_sessions.sql"
 NEW_SERVER="$SOURCE_ROOT/backend/android-db/server/server.mjs"
 [ -s "$MIGRATION" ] && [ -s "$NEW_SERVER" ] || die "Migration 031/API source tidak lengkap."
-for rpc in androiddb_v0_agent_sync_stardesk_pairing androiddb_v0_agent_ui_monitor_heartbeat androiddb_v0_agent_stardesk_session_event androiddb_v0_agent_stardesk_session_tick androiddb_v0_remote_request_session androiddb_v0_remote_dashboard; do
+for rpc in androiddb_v0_agent_sync_stardesk_pairing androiddb_v0_agent_ui_monitor_heartbeat androiddb_v0_agent_stardesk_session_event androiddb_v0_agent_stardesk_session_tick androiddb_v0_remote_request_session androiddb_v0_remote_session_status androiddb_v0_remote_dashboard; do
   grep -q "$rpc" "$NEW_SERVER" || die "RPC baru tidak ditemukan: $rpc"
 done
 node --check "$NEW_SERVER" || die "Syntax API gagal sebelum database diubah."
