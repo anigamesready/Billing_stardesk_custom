@@ -439,7 +439,7 @@ BEGIN
     charge:=private.androiddb_v0_coin_rental_charge(
       s.id,p_event_id,s.last_billed_at+interval '45 seconds');
     UPDATE androiddb_v0.coin_rental_sessions SET status='ended',
-      ended_at=coalesce(ended_at,last_billed_at),end_reason='agent_heartbeat_timeout',
+      ended_at=coalesce(ended_at,last_billed_at),end_reason=coalesce(end_reason,'agent_heartbeat_timeout'),
       updated_at=clock_timestamp()
     WHERE id=s.id AND status='connected' RETURNING * INTO s;
     RETURN jsonb_build_object('ok',true,'active',false,'session_id',s.id,
@@ -484,8 +484,10 @@ BEGIN
       'hourly_coins',s.hourly_coin_units::numeric/100,'debited_coin_units',s.debited_coin_units,
       'estimated_debited_coin_units',projected,'estimated_debited_coins',projected/100,
       'end_reason',s.end_reason) END,
-    'wallet_balance',bal/100,
-    'estimated_wallet_balance',greatest(0,bal-(projected-coalesce(s.debited_coin_units,0)))/100,
+    'wallet_balance',bal,
+    'estimated_wallet_balance',greatest(0,bal-(projected-coalesce(s.debited_coin_units,0))),
+    'wallet_balance_coins',bal/100,
+    'estimated_wallet_balance_coins',greatest(0,bal-(projected-coalesce(s.debited_coin_units,0)))/100,
     'coin_unit_scale',100,'server_time',clock_timestamp());
 END;
 $function$;
@@ -517,9 +519,9 @@ BEGIN
 
   SELECT coalesce(jsonb_agg(jsonb_build_object(
     'device_id',pc.id,'client_id',d.id,'device_name',pc.display_name,
-    'online',coalesce(d.last_heartbeat_at>clock_timestamp()-interval '60 seconds',false),
-    'host_agent_online',coalesce(d.last_heartbeat_at>clock_timestamp()-interval '60 seconds',false),
-    'host_agent_ready',coalesce(d.last_heartbeat_at>clock_timestamp()-interval '60 seconds',false)
+    'online',coalesce(d.status='online' AND d.last_heartbeat_at>clock_timestamp()-interval '60 seconds',false),
+    'host_agent_online',coalesce(d.status='online' AND d.last_heartbeat_at>clock_timestamp()-interval '60 seconds',false),
+    'host_agent_ready',coalesce(d.status='online' AND d.last_heartbeat_at>clock_timestamp()-interval '60 seconds',false)
       AND coalesce(sp.status='captured' AND sp.invite_url_ciphertext IS NOT NULL,false),
     'available',r.status='active' AND bal>0 AND active_row.id IS NULL AND pc.enabled
       AND d.revoked_at IS NULL AND d.last_heartbeat_at>clock_timestamp()-interval '60 seconds'
@@ -544,7 +546,7 @@ BEGIN
   RETURN jsonb_build_object(
     'ok',true,'rental_account',jsonb_build_object('id',r.id,'code',r.code,
       'client_label',r.client_label,'status',r.status),
-    'wallet',jsonb_build_object('balance',bal/100),
+    'wallet',jsonb_build_object('balance',bal),
     'can_start',r.status='active' AND bal>0 AND active_row.id IS NULL,
     'active_session',CASE WHEN active_row.id IS NULL THEN NULL ELSE
       jsonb_build_object('id',active_row.id,'rental_pc_id',active_row.rental_pc_id,
