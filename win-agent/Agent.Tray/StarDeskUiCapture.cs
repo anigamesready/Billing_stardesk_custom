@@ -21,11 +21,6 @@ public sealed record StarDeskCaptureSnapshot(
 
 public static class StarDeskUiCapture
 {
-    private const int SwHide = 0, SwShowNoActivate = 4, SwMinimize = 6;
-    private static readonly IntPtr HwndBottom = new(1);
-    private const uint SwpNoSize = 0x0001, SwpNoMove = 0x0002,
-        SwpNoActivate = 0x0010, SwpShowWindow = 0x0040;
-
     private static readonly Regex DeviceValueRegex = new(
         @"(?<!\d)(\d{3}(?:[\s-]+\d{3}){2,3}|\d{9})(?!\d)",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -63,9 +58,6 @@ public static class StarDeskUiCapture
     private static readonly object OcrAttemptLock = new();
     private static DateTime lastOcrAttemptUtc = DateTime.MinValue;
     private static readonly TimeSpan AutoOcrCooldown = TimeSpan.FromSeconds(6);
-    private static readonly object WindowRecoveryLock = new();
-    private static DateTime lastWindowRecoveryUtc = DateTime.MinValue;
-    private static readonly TimeSpan WindowRecoveryCooldown = TimeSpan.FromSeconds(12);
 
     private static readonly HashSet<string> NonCodes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -113,11 +105,6 @@ public static class StarDeskUiCapture
     private static extern bool IsWindowVisible(IntPtr hwnd);
     [DllImport("user32.dll")]
     private static extern bool IsIconic(IntPtr hwnd);
-    [DllImport("user32.dll")]
-    private static extern bool ShowWindowAsync(IntPtr hwnd, int command);
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool SetWindowPos(
-        IntPtr hwnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
     [DllImport("user32.dll")]
     private static extern bool GetWindowRect(IntPtr hwnd, out NativeRect rect);
     [DllImport("user32.dll", SetLastError = true)]
