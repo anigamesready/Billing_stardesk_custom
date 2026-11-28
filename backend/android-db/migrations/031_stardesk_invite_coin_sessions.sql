@@ -584,6 +584,10 @@ BEGIN
 END;
 $function$;
 
+-- Disable the legacy two-field overload from migration 030. All new captures go through
+-- the nine-argument API handler that validates and encrypts the Invite URL as well.
+REVOKE ALL ON FUNCTION api.androiddb_v0_agent_sync_stardesk_pairing(text,text,text,text,text) FROM PUBLIC,stardesk_v0_runtime;
+
 REVOKE ALL ON FUNCTION private.androiddb_v0_coin_rental_charge(uuid,uuid,timestamptz) FROM PUBLIC,stardesk_v0_runtime;
 REVOKE ALL ON FUNCTION api.androiddb_v0_agent_sync_stardesk_pairing(text,text,text,text,text,text,text,text,text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION api.androiddb_v0_remote_request_session(text,uuid,text) FROM PUBLIC;
