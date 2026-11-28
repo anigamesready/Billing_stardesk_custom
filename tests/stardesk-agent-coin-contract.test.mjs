@@ -115,6 +115,7 @@ test("Agent monitor lease is required before a rental PC is advertised available
   assert.match(migration, /last_ui_monitor_at>clock_timestamp\(\)-interval '45 seconds'/);
   assert.match(migration, /api\.androiddb_v0_agent_stardesk_session_tick/);
   assert.match(migration, /end_reason=coalesce\(end_reason,'agent_heartbeat_timeout'\)/);
+  assert.match(migration, /v_billing_until:=least\(clock_timestamp\(\),s\.last_billed_at\+interval '45 seconds'\)/);
 });
 
 test("Legacy two-field StarDesk pairing RPC is revoked after migration 031", () => {
