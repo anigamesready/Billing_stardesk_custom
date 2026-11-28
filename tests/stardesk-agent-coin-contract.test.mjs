@@ -74,6 +74,10 @@ test("Clipboard sync only sends all three fields, and local monitor heartbeat is
   assert.match(pipeClient, /SendSessionEventAsync/);
   assert.match(pipeClient, /MonitorPipeName/);
   assert.match(pipeClient, /SendMonitorHeartbeatAsync/);
+  assert.match(pipeClient, /SendWithRetryAsync/);
+  assert.match(pipeClient, /Retry the exact same request; never press Copy & Share again/);
+  assert.match(pipeClient, /TimeSpan.FromSeconds\(2\)/);
+  assert.match(pipeClient, /TimeSpan.FromSeconds\(5\)/);
   assert.match(pipeClient, /PipeName = "AniGamesReady\.StarDeskAgent\.Capture\.v1"/);
   assert.match(pipeClient, /MonitorPipeName = "AniGamesReady\.StarDeskAgent\.Monitor\.v1"/);
 });
