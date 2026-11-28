@@ -169,11 +169,11 @@ test("Automatic temporal sync reuses isolated encrypted pairing RPC without a ne
 });
 
 test("Windows Agent version metadata is bumped together for the auto-sync build", () => {
-  assert.match(read("win-agent/Agent.Service/AgentWorker.cs"), /Version = "0\.2\.5"/);
-  assert.match(read("win-agent/Agent.Shared/AgentContracts.cs"), /AgentVersion .*"0\.2\.5"/);
-  assert.match(read("win-agent/Agent.Tray/Agent.Tray.csproj"), /<Version>0\.2\.5<\/Version>/);
-  assert.match(read("win-agent/Agent.Service/Agent.Service.csproj"), /<Version>0\.2\.5<\/Version>/);
-  assert.match(read("win-agent/installer/AniGamesReady-StarDesk-Agent.iss"), /AppVersion "0\.2\.5"/);
+  assert.match(read("win-agent/Agent.Service/AgentWorker.cs"), /Version = "0\.2\.6"/);
+  assert.match(read("win-agent/Agent.Shared/AgentContracts.cs"), /AgentVersion .*"0\.2\.6"/);
+  assert.match(read("win-agent/Agent.Tray/Agent.Tray.csproj"), /<Version>0\.2\.6<\/Version>/);
+  assert.match(read("win-agent/Agent.Service/Agent.Service.csproj"), /<Version>0\.2\.6<\/Version>/);
+  assert.match(read("win-agent/installer/AniGamesReady-StarDesk-Agent.iss"), /AppVersion "0\.2\.6"/);
 });
 
 
@@ -250,11 +250,11 @@ test("Manual sync dialog reports safe diagnostics and does not prefill unvalidat
 });
 
 test("Agent build version is bumped consistently to 0.2.4", () => {
-  assert.match(read("win-agent/Agent.Service/AgentWorker.cs"), /Version = "0\.2\.5"/);
-  assert.match(read("win-agent/Agent.Shared/AgentContracts.cs"), /AgentVersion .*"0\.2\.5"/);
-  assert.match(read("win-agent/Agent.Tray/Agent.Tray.csproj"), /<Version>0\.2\.5<\/Version>/);
-  assert.match(read("win-agent/Agent.Service/Agent.Service.csproj"), /<Version>0\.2\.5<\/Version>/);
-  assert.match(read("win-agent/installer/AniGamesReady-StarDesk-Agent.iss"), /AppVersion "0\.2\.5"/);
+  assert.match(read("win-agent/Agent.Service/AgentWorker.cs"), /Version = "0\.2\.6"/);
+  assert.match(read("win-agent/Agent.Shared/AgentContracts.cs"), /AgentVersion .*"0\.2\.6"/);
+  assert.match(read("win-agent/Agent.Tray/Agent.Tray.csproj"), /<Version>0\.2\.6<\/Version>/);
+  assert.match(read("win-agent/Agent.Service/Agent.Service.csproj"), /<Version>0\.2\.6<\/Version>/);
+  assert.match(read("win-agent/installer/AniGamesReady-StarDesk-Agent.iss"), /AppVersion "0\.2\.6"/);
 });
 
 
@@ -302,4 +302,52 @@ test("One-click installer validates and installs official Microsoft VC++ x64 run
   assert.match(prepare, /Get-AuthenticodeSignature/);
   assert.match(prepare, /Microsoft Corporation/);
   assert.match(prepare, /\/install \/quiet \/norestart/);
+});
+
+
+test("StarDesk 0.2.6 selects only the actual desktop UI process, never StarDeskServer or HiddenWindow", () => {
+  const capture = read("win-agent/Agent.Tray/StarDeskUiCapture.cs");
+  assert.match(capture, /string\.Equals\([\s\S]*?"StarDesk"/);
+  assert.match(capture, /IsStarDeskUiWindowTitle/);
+  assert.match(capture, /HiddenWindow/);
+  assert.match(capture, /StarDeskServer/);
+  assert.match(capture, /StarDeskService/);
+  assert.doesNotMatch(capture, /name\.StartsWith\("StarDesk"[\s\S]{0,120}!IsStarDeskHelperProcess/);
+});
+
+test("Hidden/minimized StarDesk is restored behind other windows without activation and navigated by UI Automation", () => {
+  const capture = read("win-agent/Agent.Tray/StarDeskUiCapture.cs");
+  assert.match(capture, /ShowWindowAsync\(hwnd, SwShowNoActivate\)/);
+  assert.match(capture, /SetWindowPos\([\s\S]*?HwndBottom/);
+  assert.match(capture, /SwpNoActivate \| SwpShowWindow/);
+  assert.match(capture, /TryNavigateRemoteSupport/);
+  assert.match(capture, /SelectionItemPattern/);
+  assert.match(capture, /InvokePattern/);
+  assert.match(capture, /IsRemoteSupportPage/);
+  assert.doesNotMatch(capture, /SetForegroundWindow|SendInput|mouse_event/);
+});
+
+test("Agent does not navigate away from a visible StarDesk window the user is actively using", () => {
+  const capture = read("win-agent/Agent.Tray/StarDeskUiCapture.cs");
+  assert.match(capture, /var wasHiddenOrMinimized = !window\.WasVisible \|\| window\.WasMinimized/);
+  assert.match(capture, /if \(recoveredWindow && !IsRemoteSupportPage\(nodes\)\)/);
+});
+
+test("OCR keeps remote session state unknown unless explicit active or inactive text is present", () => {
+  const capture = read("win-agent/Agent.Tray/StarDeskUiCapture.cs");
+  const ocr = read("win-agent/Agent.Tray/StarDeskScreenOcr.cs");
+  assert.match(ocr, /bool RemoteSessionStateKnown/);
+  assert.match(ocr, /return \(false, false\)/);
+  assert.match(capture, /ocr\.RemoteSessionStateKnown/);
+  assert.doesNotMatch(capture, /!session\.Known && ocr\.PageRecognized/);
+  assert.doesNotMatch(ocr, /graphics\.CopyFromScreen/);
+});
+
+test("Stable changed StarDesk credentials continue to auto-sync after background window recovery", () => {
+  const tray = read("win-agent/Agent.Tray/AgentTrayForm.cs");
+  assert.match(tray, /StarDeskUiCapture\.ReadPartial\(\)/);
+  assert.match(tray, /capture\.RemoteSessionActive/);
+  assert.match(tray, /candidateStableReads >= 2/);
+  assert.match(tray, /candidateStableReads >= 4/);
+  assert.match(tray, /AgentCapturePipeClient\.SyncAsync\(capture\)/);
 });

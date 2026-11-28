@@ -11,7 +11,9 @@ namespace AniGamesReady.Agent.Tray;
 
 internal sealed record StarDeskOcrResult(
     string DeviceId, string VerificationCode,
-    bool PageRecognized, bool RemoteSessionActive, string Detail);
+    bool PageRecognized,
+    bool RemoteSessionStateKnown,
+    bool RemoteSessionActive, string Detail);
 
 internal static class StarDeskScreenOcr
 {
@@ -43,16 +45,11 @@ internal static class StarDeskScreenOcr
     private static extern bool GetWindowRect(IntPtr hwnd, out NativeRect rect);
     [DllImport("user32.dll")]
     private static extern bool PrintWindow(IntPtr hwnd, IntPtr hdcBlt, uint flags);
-    [DllImport("user32.dll")]
-    private static extern bool IsWindowVisible(IntPtr hwnd);
-    [DllImport("user32.dll")]
-    private static extern bool IsIconic(IntPtr hwnd);
-
-    internal static StarDeskOcrResult Read(IntPtr hwnd, bool wasVisible, bool wasMinimized)
+    internal static StarDeskOcrResult Read(IntPtr hwnd)
     {
         try
         {
-            var bytes = CaptureWindow(hwnd, wasVisible, wasMinimized);
+            var bytes = CaptureWindow(hwnd);
             if (bytes.Length == 0)
                 return Empty("gambar jendela utama tidak bisa ditangkap di background");
 
@@ -91,7 +88,7 @@ internal static class StarDeskScreenOcr
         return new Engine(dataPath, Language.English, EngineMode.Default);
     }
 
-    private static byte[] CaptureWindow(IntPtr hwnd, bool wasVisible, bool wasMinimized)
+    private static byte[] CaptureWindow(IntPtr hwnd)
     {
         if (!GetWindowRect(hwnd, out var rect))
             return [];
@@ -115,20 +112,8 @@ internal static class StarDeskScreenOcr
             finally { graphics.ReleaseHdc(hdc); }
         }
 
-        // For a normal visible window, screen copy is a fallback for GPU surfaces
-        // that do not implement PrintWindow. Hidden/minimized windows are never raised.
-        if ((!rendered || IsMostlyBlank(bitmap)) &&
-            wasVisible && !wasMinimized && IsWindowVisible(hwnd) && !IsIconic(hwnd))
-        {
-            try
-            {
-                using var graphics = Graphics.FromImage(bitmap);
-                graphics.CopyFromScreen(rect.Left, rect.Top, 0, 0,
-                    new Size(width, height), CopyPixelOperation.SourceCopy);
-                rendered = true;
-            }
-            catch { rendered = false; }
-        }
+        // Do not capture the desktop: StarDesk is kept behind the foreground app,
+        // so a screen image could contain the game window instead.
 
         if (!rendered || IsMostlyBlank(bitmap))
             return [];
@@ -168,6 +153,7 @@ internal static class StarDeskScreenOcr
         if (!pageRecognized)
             return Empty("jendela utama terbaca, tetapi halaman Remote Support tidak terverifikasi");
 
+        var session = DetectRemoteSession(normalized);
         var pairs = new List<(string DeviceId, string Code)>();
         var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal)
             .Replace('\r', '\n').Split('\n');
@@ -198,31 +184,39 @@ internal static class StarDeskScreenOcr
         var unique = pairs.Distinct().ToArray();
         if (unique.Length != 1)
             return new StarDeskOcrResult(
-                "", "", true, DetectRemoteSession(normalized),
+                "", "", true, session.Known, session.Active,
                 unique.Length == 0
                     ? "halaman Remote Support terbaca, tetapi pasangan ID+kode satu baris tidak ditemukan"
                     : "pasangan ID+kode lebih dari satu; hasil ditolak");
 
         return new StarDeskOcrResult(
             unique[0].DeviceId, unique[0].Code,
-            true, DetectRemoteSession(normalized),
+            true, session.Known, session.Active,
             "pasangan ID+kode terbaca melalui OCR lokal");
     }
 
-    private static bool DetectRemoteSession(string normalized)
+    private static (bool Known, bool Active) DetectRemoteSession(string normalized)
     {
         if (normalized.Contains("deviceisbeingcontrolled", StringComparison.Ordinal) ||
             normalized.Contains("thisdeviceisbeingcontrolled", StringComparison.Ordinal) ||
             normalized.Contains("beingcontrolledby", StringComparison.Ordinal))
-            return true;
+            return (true, true);
 
         var match = Regex.Match(normalized, @"(\d+)devices?controllingthispc");
-        return match.Success && int.TryParse(match.Groups[1].Value, out var count) && count > 0;
+        if (match.Success && int.TryParse(match.Groups[1].Value, out var count))
+            return (true, count > 0);
+
+        if (normalized.Contains("nodevicescontrollingthispc", StringComparison.Ordinal) ||
+            normalized.Contains("notbeingcontrolled", StringComparison.Ordinal) ||
+            normalized.Contains("0devicescontrollingthispc", StringComparison.Ordinal))
+            return (true, false);
+
+        return (false, false);
     }
 
     private static string Normalize(string value) =>
         Regex.Replace(value ?? "", "[^A-Za-z0-9]", "").ToLowerInvariant();
 
     private static StarDeskOcrResult Empty(string detail) =>
-        new("", "", false, false, detail);
+        new("", "", false, false, false, detail);
 }

@@ -1,5 +1,5 @@
 ANI GAMES READY — STAR DESK WINDOWS AGENT
-Preview version 0.2.5
+Preview version 0.2.6
 
 PERSYARATAN
 - Windows 10 / Windows 11 x64.
@@ -32,7 +32,7 @@ FITUR
 BATASAN PREVIEW
 - Agent Online hanya berarti heartbeat Windows aktif.
 - Agent memantau StarDesk otomatis setiap 4 detik. Bila teks UI Automation tidak lengkap, Agent menekan tombol Copy milik StarDesk untuk menyalin Device ID dan Verification Code langsung dari aplikasi.
-- Jika StarDesk diminimalkan atau disembunyikan ke tray tetapi prosesnya masih berjalan, Agent membangunkan jendela tanpa mengambil fokus, melakukan Copy, lalu mengembalikan keadaan jendela semula. Kode baru harus stabil sebelum dikirim. Tombol manual tetap tersedia sebagai fallback.
+- Jika StarDesk Desktop diminimalkan atau disembunyikan ke tray tetapi proses UI utamanya masih berjalan, Agent 0.2.6 memulihkan jendela tanpa mengambil fokus, menaruhnya di belakang jendela lain, lalu membuka halaman Remote Support melalui Windows UI Automation. Jendela dibiarkan siap di background agar perubahan kode dapat dipantau.
 - Device ID bernomor yang tampil berkelompok (contoh 259 397 349) dinormalisasi menjadi 259397349 saat disimpan. Kode temporer hanya berada di memori selama proses capture dan tidak dicatat ke log atau file status.
 - Agent mengirim kode baru melalui local named pipe ber-ACL ke Windows Service. API Android DB mengenkripsi verification code dengan AES-256-GCM sebelum disimpan; plaintext tidak disimpan di file status Agent dan tidak dikirim ke Remote APK. Watcher tidak melakukan request jaringan selama kode tidak berubah.
 - Device ID disimpan untuk pemetaan PC. Verification code bersifat sensitif dan bisa berubah/berakhir; ciphertext-nya tidak dipakai sebagai kode Remote Assist permanen.
@@ -92,3 +92,13 @@ STAR DESK WATCHER + OCR LOKAL 0.2.5
 - Jika jendela tersembunyi/minimized tidak bisa dirender oleh Windows PrintWindow, Agent melaporkan alasan dan tidak mengirim data tebakan.
 - Model English berada dalam folder tessdata yang ikut paket Tray. Engine TesseractOCR membutuhkan Microsoft Visual C++ 2015-2022 x64; Setup memeriksa runtime dan memasangnya dari Microsoft bila belum tersedia.
 - Auto OCR dibatasi satu kali setiap 6 detik. Timer status tetap berjalan setiap 4 detik; tombol manual memaksa capture baru.
+
+
+PEMULIHAN STAR DESK OTOMATIS 0.2.6
+- Kandidat proses UI dibatasi ke nama proses yang tepat "StarDesk". Proses "StarDeskServer", "StarDeskService", "StarDesk Health Monitor", dan helper lain diabaikan. HWND "HiddenWindow" dari proses server tidak boleh dipakai sebagai halaman Remote Support.
+- Saat jendela utama diminimalkan/disembunyikan dan tidak dapat dibaca, Agent mencoba menampilkannya tanpa aktivasi/fokus (SW_SHOWNOACTIVATE), menaruhnya pada urutan belakang (HWND_BOTTOM), lalu memilih menu "Remote Support" dengan SelectionItemPattern atau InvokePattern.
+- Navigasi dinyatakan berhasil hanya jika elemen halaman Remote Support, This Device, dan Verification Method benar-benar terbaca kembali. Tidak ada klik koordinat, SendInput, atau tebakan nama kontrol.
+- Setelah halaman tersedia, Agent memantau pasangan kode. Kode yang berubah harus stabil sebelum dikirim: dua pembacaan jika status sesi diketahui, atau empat pembacaan setidaknya 15 detik jika status sesi belum diketahui.
+- Agent tidak memiliki callback resmi sesi berakhir dari StarDesk. Karena itu pemicu sinkronisasi yang dipakai adalah pasangan kode yang benar-benar berubah dan stabil pada halaman Remote Support. Jika sesi masih terdeteksi aktif, sinkronisasi ditahan.
+- Agent tidak meluncurkan proses StarDesk baru jika aplikasi benar-benar ditutup. Agent juga tidak memaksa navigasi ketika jendela StarDesk sedang terlihat dan sedang digunakan pada halaman lain. Dalam kondisi itu, diagnostik akan meminta halaman Remote Support dibuka.
+- Jika Windows berada di secure desktop/layar login, proses UI tidak ada, HWND utama tidak ditemukan, atau kontrol navigasi tidak tersedia pada UI Automation, pemulihan gagal secara aman dan tidak mengirim data tebakan.

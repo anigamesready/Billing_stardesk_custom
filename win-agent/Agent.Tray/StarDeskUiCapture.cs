@@ -55,6 +55,9 @@ public static class StarDeskUiCapture
     private static readonly object OcrAttemptLock = new();
     private static DateTime lastOcrAttemptUtc = DateTime.MinValue;
     private static readonly TimeSpan AutoOcrCooldown = TimeSpan.FromSeconds(6);
+    private static readonly object WindowRecoveryLock = new();
+    private static DateTime lastWindowRecoveryUtc = DateTime.MinValue;
+    private static readonly TimeSpan WindowRecoveryCooldown = TimeSpan.FromSeconds(12);
 
     private static readonly HashSet<string> NonCodes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -85,6 +88,11 @@ public static class StarDeskUiCapture
     [DllImport("user32.dll")]
     private static extern bool IsIconic(IntPtr hwnd);
     [DllImport("user32.dll")]
+    private static extern bool ShowWindowAsync(IntPtr hwnd, int command);
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetWindowPos(
+        IntPtr hwnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
+    [DllImport("user32.dll")]
     private static extern bool GetWindowRect(IntPtr hwnd, out NativeRect rect);
     [DllImport("user32.dll")]
     private static extern uint GetClipboardSequenceNumber();
@@ -110,10 +118,33 @@ public static class StarDeskUiCapture
         {
             try
             {
-                // Never select title-matching helper processes or raise a hidden
-                // StarDesk window. Capture the exact main-process HWND in place.
+                // Restore only the exact StarDesk desktop UI in the background.
+                // Never foreground it or interact with the separate Server/Service process.
+                var recovery = "not-needed";
+                var wasHiddenOrMinimized = !window.WasVisible || window.WasMinimized;
+                var recoveredWindow = false;
+                if (wasHiddenOrMinimized)
+                {
+                    if (ShouldAttemptWindowRecovery(forceCopy))
+                    {
+                        recovery = RestoreWindowToBackground(window.Handle);
+                        recoveredWindow = recovery.StartsWith("restored", StringComparison.Ordinal);
+                    }
+                    else
+                    {
+                        recovery = "restore-throttled";
+                    }
+                }
+
                 var root = AutomationElement.FromHandle(window.Handle);
                 var nodes = CollectAccessibleText(root);
+                if (recoveredWindow && !IsRemoteSupportPage(nodes))
+                {
+                    var navigation = TryNavigateRemoteSupport(root);
+                    recovery += ";" + navigation;
+                    if (navigation is "remote-support-invoked" or "remote-support-selected")
+                        nodes = WaitForRemoteSupportPage(root);
+                }
                 var deviceId = FindDeviceId(nodes);
                 var verificationCode = FindVerificationCode(nodes);
                 var session = DetectRemoteSession(nodes);
@@ -146,8 +177,7 @@ public static class StarDeskUiCapture
                 {
                     if (ShouldAttemptOcr(forceCopy))
                     {
-                        ocr = StarDeskScreenOcr.Read(
-                            window.Handle, window.WasVisible, window.WasMinimized);
+                        ocr = StarDeskScreenOcr.Read(window.Handle);
 
                         if ((string.IsNullOrWhiteSpace(deviceId) ||
                              string.IsNullOrWhiteSpace(verificationCode)) &&
@@ -158,7 +188,9 @@ public static class StarDeskUiCapture
                             verificationCode = ocr.VerificationCode;
                         }
 
-                        if (!session.Known && ocr.PageRecognized)
+                        // A recognized page is not proof that the session is idle.
+                        // Only explicit OCR status text may resolve an unknown state.
+                        if (!session.Known && ocr.RemoteSessionStateKnown)
                             session = (true, ocr.RemoteSessionActive);
                     }
                     else
@@ -168,7 +200,7 @@ public static class StarDeskUiCapture
                 }
 
                 var diagnostics = BuildDiagnostics(
-                    windows.Count, window, nodes.Count, deviceId, verificationCode, copy, ocr);
+                    windows.Count, window, nodes.Count, deviceId, verificationCode, copy, ocr, recovery);
                 var candidate = new StarDeskCaptureSnapshot(
                     deviceId, verificationCode, window.Title,
                     session.Known, session.Active, diagnostics);
@@ -220,8 +252,10 @@ public static class StarDeskUiCapture
             try
             {
                 var name = process.ProcessName;
-                if (IsStarDeskHelperProcess(name))
+                if (name.StartsWith("StarDesk", StringComparison.OrdinalIgnoreCase) &&
+                    !IsStarDeskMainProcess(name))
                 {
+                    // Explicitly ignore StarDeskServer, StarDeskService and StarDesk Health Monitor.
                     helperProcessesIgnored++;
                     continue;
                 }
@@ -262,25 +296,21 @@ public static class StarDeskUiCapture
 
         return windows.Values
             .OrderByDescending(x => x.IsMainWindow)
+            .ThenByDescending(x => x.Title.Equals("StarDesk", StringComparison.OrdinalIgnoreCase))
+            .ThenByDescending(x => x.WasVisible)
             .ThenByDescending(x => x.Area)
             .ToList();
     }
 
-    private static bool IsStarDeskMainProcess(string processName)
-    {
-        var name = (processName ?? "").Trim();
-        return name.StartsWith("StarDesk", StringComparison.OrdinalIgnoreCase) &&
-               !IsStarDeskHelperProcess(name);
-    }
+    private static bool IsStarDeskMainProcess(string processName) =>
+        string.Equals((processName ?? "").Trim(), "StarDesk",
+            StringComparison.OrdinalIgnoreCase);
 
-    private static bool IsStarDeskHelperProcess(string processName)
+    private static bool IsStarDeskUiWindowTitle(string title)
     {
-        var name = (processName ?? "").ToLowerInvariant();
-        return name.Contains("usbip", StringComparison.Ordinal) ||
-               name.Contains("monitor", StringComparison.Ordinal) ||
-               name.Contains("helper", StringComparison.Ordinal) ||
-               name.Contains("updater", StringComparison.Ordinal) ||
-               name.Contains("crash", StringComparison.Ordinal);
+        var normalized = Normalize(title ?? "");
+        return normalized.Contains("stardesk", StringComparison.Ordinal) &&
+               !normalized.Equals("hiddenwindow", StringComparison.Ordinal);
     }
 
     private static void AddMainWindowCandidate(
@@ -291,7 +321,12 @@ public static class StarDeskUiCapture
             return;
 
         var title = GetWindowTitle(hwnd);
-        if (IsStarDeskHelperProcess(title))
+        if (Normalize(title).Equals("hiddenwindow", StringComparison.Ordinal))
+            return;
+
+        // When the app is tray-hidden and MainWindowHandle is unavailable,
+        // accept only a StarDesk-titled window from the exact StarDesk process.
+        if (!isMainWindow && !IsStarDeskUiWindowTitle(title))
             return;
 
         if (!GetWindowRect(hwnd, out var rect))
@@ -313,6 +348,99 @@ public static class StarDeskUiCapture
         var builder = new StringBuilder(512);
         var length = GetWindowText(hwnd, builder, builder.Capacity);
         return length > 0 ? builder.ToString(0, length) : "";
+    }
+
+    private static bool ShouldAttemptWindowRecovery(bool force)
+    {
+        lock (WindowRecoveryLock)
+        {
+            var now = DateTime.UtcNow;
+            if (!force && now - lastWindowRecoveryUtc < WindowRecoveryCooldown)
+                return false;
+
+            lastWindowRecoveryUtc = now;
+            return true;
+        }
+    }
+
+    private static string RestoreWindowToBackground(IntPtr hwnd)
+    {
+        // SW_SHOWNOACTIVATE restores/shows without stealing keyboard focus.
+        ShowWindowAsync(hwnd, SwShowNoActivate);
+        SetWindowPos(hwnd, HwndBottom, 0, 0, 0, 0,
+            SwpNoSize | SwpNoMove | SwpNoActivate | SwpShowWindow);
+
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            if (IsWindowVisible(hwnd) && !IsIconic(hwnd))
+                return "restored-no-activate-background";
+            Thread.Sleep(100);
+        }
+
+        return "restore-failed-window-still-hidden-or-minimized";
+    }
+
+    private static bool IsRemoteSupportPage(IReadOnlyList<AccessibleText> nodes)
+    {
+        var normalized = Normalize(string.Join("\n", nodes.Select(x => x.Text)));
+        return normalized.Contains("remotesupport", StringComparison.Ordinal) &&
+               normalized.Contains("thisdevice", StringComparison.Ordinal) &&
+               normalized.Contains("verificationmethod", StringComparison.Ordinal);
+    }
+
+    private static string TryNavigateRemoteSupport(AutomationElement root)
+    {
+        AutomationElementCollection descendants;
+        try { descendants = root.FindAll(TreeScope.Descendants, Condition.TrueCondition); }
+        catch { return "remote-support-navigation-uia-failed"; }
+
+        for (var i = 0; i < Math.Min(descendants.Count, 6000); i++)
+        {
+            try
+            {
+                var element = descendants[i];
+                if (!string.Equals((element.Current.Name ?? "").Trim(),
+                    "Remote Support", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (element.TryGetCurrentPattern(
+                    SelectionItemPattern.Pattern, out var selectionPattern) &&
+                    selectionPattern is SelectionItemPattern selection)
+                {
+                    selection.Select();
+                    return "remote-support-selected";
+                }
+
+                if (element.TryGetCurrentPattern(
+                    InvokePattern.Pattern, out var invokePattern) &&
+                    invokePattern is InvokePattern invoke)
+                {
+                    invoke.Invoke();
+                    return "remote-support-invoked";
+                }
+            }
+            catch
+            {
+                // Continue searching for the actionable navigation element.
+            }
+        }
+
+        return "remote-support-navigation-control-not-actionable";
+    }
+
+    private static List<AccessibleText> WaitForRemoteSupportPage(AutomationElement root)
+    {
+        var nodes = CollectAccessibleText(root);
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            if (IsRemoteSupportPage(nodes))
+                return nodes;
+
+            Thread.Sleep(200);
+            nodes = CollectAccessibleText(root);
+        }
+
+        return nodes;
     }
 
     private static List<AccessibleText> CollectAccessibleText(AutomationElement root)
@@ -704,7 +832,8 @@ public static class StarDeskUiCapture
         string deviceId,
         string verificationCode,
         CopyCaptureResult copy,
-        StarDeskOcrResult ocr)
+        StarDeskOcrResult ocr,
+        string recovery)
     {
         var idState = string.IsNullOrWhiteSpace(deviceId) ? "tidak" : "terbaca";
         var codeState = string.IsNullOrWhiteSpace(verificationCode) ? "tidak" : "terbaca";
@@ -714,7 +843,7 @@ public static class StarDeskUiCapture
 
         return $"proses={window.ProcessName}; jendela={window.Title}; HWND utama={window.IsMainWindow}; " +
                $"terlihat={window.WasVisible}; minimized={window.WasMinimized}; luas={window.Area}; " +
-               $"kandidat={windowCount}; UIA={nodeCount}; ID={idState}; kode={codeState}; " +
+               $"kandidat={windowCount}; UIA={nodeCount}; pemulihan={recovery}; ID={idState}; kode={codeState}; " +
                $"Copy={buttonState}; aksi={copy.Action}; clipboard berubah={copy.ClipboardChanged}; " +
                $"pasangan Copy={copy.PairParsed}; OCR={ocr.Detail}.";
     }

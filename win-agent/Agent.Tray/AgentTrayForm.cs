@@ -220,6 +220,8 @@ public sealed class AgentTrayForm : Form
         autoSyncBusy = true;
         try
         {
+            // ReadPartial restores a minimized/tray-hidden StarDesk UI in the
+            // background and navigates it to Remote Support without stealing focus.
             var capture = await Task.Run(() => StarDeskUiCapture.ReadPartial());
             if (string.IsNullOrWhiteSpace(capture.DeviceId) ||
                 string.IsNullOrWhiteSpace(capture.VerificationCode))
@@ -290,7 +292,7 @@ public sealed class AgentTrayForm : Form
             syncFailureCount = 0;
             nextSyncAttemptUtc = DateTime.MinValue;
             autoSyncLabel.Text = sessionJustEnded
-                ? "KODE BARU TERSINKRON • sesi StarDesk baru saja selesai."
+                ? "KODE BARU TERSINKRON • sesi StarDesk selesai."
                 : "Auto-sync aktif • kode terbaru sudah tersinkron.";
             RefreshStatus();
         }
