@@ -44,6 +44,14 @@ public static class AgentCapturePipeClient
         }, cancellationToken);
     }
 
+    public static Task SendMonitorHeartbeatAsync(
+        CancellationToken cancellationToken = default) =>
+        SendAsync(new
+        {
+            action = "monitor_heartbeat",
+            event_id = Guid.NewGuid()
+        }, cancellationToken);
+
     private static async Task SendAsync(object request, CancellationToken cancellationToken)
     {
         using var pipe = new NamedPipeClientStream(
