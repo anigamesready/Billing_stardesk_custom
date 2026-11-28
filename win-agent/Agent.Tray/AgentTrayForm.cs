@@ -26,7 +26,7 @@ public sealed class AgentTrayForm : Form
     private bool starDeskWindowWasOpen;
     private CancellationTokenSource? starDeskEventDebounce;
     private StarDeskWindowEventWatcher? starDeskWatcher;
-    private int sessionEventBusy;
+    private readonly SemaphoreSlim sessionEventGate = new(1, 1);
 
     public AgentTrayForm()
     {
@@ -226,7 +226,7 @@ public sealed class AgentTrayForm : Form
         if (IsDisposed || Disposing) return;
         if (InvokeRequired)
         {
-            try { BeginInvoke(() => QueueStarDeskProbe(e)); } catch { }
+            try { BeginInvoke(new Action(() => QueueStarDeskProbe(e))); } catch { }
             return;
         }
         QueueStarDeskProbe(e);
@@ -355,15 +355,14 @@ public sealed class AgentTrayForm : Form
 
     private async Task SendSessionEventOnceAsync(string eventType, CancellationToken cancellationToken)
     {
-        if (Interlocked.Exchange(ref sessionEventBusy, 1) != 0)
-            return;
+        await sessionEventGate.WaitAsync(cancellationToken);
         try
         {
             await AgentCapturePipeClient.SendSessionEventAsync(eventType, cancellationToken);
         }
         finally
         {
-            Interlocked.Exchange(ref sessionEventBusy, 0);
+            sessionEventGate.Release();
         }
     }
 
@@ -470,6 +469,7 @@ public sealed class AgentTrayForm : Form
         }
         trayIcon.Visible = false;
         trayIcon.Dispose();
+        sessionEventGate.Dispose();
         base.OnFormClosed(e);
     }
 }
