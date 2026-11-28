@@ -298,13 +298,6 @@ BEGIN
   SELECT * INTO r FROM androiddb_v0.rental_accounts WHERE id=c.rental_account_id FOR UPDATE;
   IF NOT FOUND OR r.status<>'active' THEN RAISE EXCEPTION 'ANDROIDDB_V0_RENTAL_NOT_ACTIVE'; END IF;
 
-  INSERT INTO androiddb_v0.coin_wallets(rental_account_id) VALUES(r.id)
-    ON CONFLICT(rental_account_id) DO NOTHING;
-  SELECT * INTO w FROM androiddb_v0.coin_wallets
-    WHERE rental_account_id=r.id FOR UPDATE;
-  bal:=private.androiddb_v0_expire_wallet(w.id);
-  IF bal<=0 THEN RAISE EXCEPTION 'ANDROIDDB_V0_COIN_BALANCE_EMPTY'; END IF;
-
   SELECT * INTO s FROM androiddb_v0.coin_rental_sessions
     WHERE client_session_id=c.id AND idempotency_key=p_idempotency_key;
   IF FOUND THEN
@@ -318,7 +311,8 @@ BEGIN
 
   UPDATE androiddb_v0.coin_rental_sessions SET status='failed',ended_at=clock_timestamp(),
     end_reason='request_timeout',updated_at=clock_timestamp()
-  WHERE status='requested' AND request_expires_at<=clock_timestamp();
+  WHERE rental_account_id=r.id AND status='requested'
+    AND request_expires_at<=clock_timestamp();
 
   SELECT * INTO pc FROM androiddb_v0.rental_pcs
     WHERE id=p_rental_pc_id AND org_id=r.org_id AND enabled FOR UPDATE;
@@ -335,6 +329,13 @@ BEGIN
       AND invite_url_ciphertext IS NOT NULL;
   IF NOT FOUND THEN RAISE EXCEPTION 'ANDROIDDB_V0_STARDESK_INVITE_NOT_READY'; END IF;
   IF pc.hourly_coin_units<=0 THEN RAISE EXCEPTION 'ANDROIDDB_V0_PC_COIN_RATE_INVALID'; END IF;
+
+  INSERT INTO androiddb_v0.coin_wallets(rental_account_id) VALUES(r.id)
+    ON CONFLICT(rental_account_id) DO NOTHING;
+  SELECT * INTO w FROM androiddb_v0.coin_wallets
+    WHERE rental_account_id=r.id FOR UPDATE;
+  bal:=private.androiddb_v0_expire_wallet(w.id);
+  IF bal<=0 THEN RAISE EXCEPTION 'ANDROIDDB_V0_COIN_BALANCE_EMPTY'; END IF;
 
   INSERT INTO androiddb_v0.coin_rental_sessions(
     org_id,rental_account_id,rental_pc_id,agent_device_id,client_session_id,
@@ -429,8 +430,24 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'ANDROIDDB_V0_AGENT_REVOKED_OR_UNPAIRED'; END IF;
   SELECT * INTO s FROM androiddb_v0.coin_rental_sessions
     WHERE rental_pc_id=d.rental_pc_id AND agent_device_id=d.id AND status='connected'
-    ORDER BY connected_at DESC LIMIT 1;
+    ORDER BY connected_at DESC LIMIT 1 FOR UPDATE;
   IF NOT FOUND THEN RETURN jsonb_build_object('ok',true,'active',false,'status','no_active_session'); END IF;
+
+  -- Fail closed on a lost Agent heartbeat: at most 45 seconds of unconfirmed time
+  -- can be charged after the last successful meter tick.
+  IF clock_timestamp()-s.last_billed_at>interval '45 seconds' THEN
+    charge:=private.androiddb_v0_coin_rental_charge(
+      s.id,p_event_id,s.last_billed_at+interval '45 seconds');
+    UPDATE androiddb_v0.coin_rental_sessions SET status='ended',
+      ended_at=coalesce(ended_at,last_billed_at),end_reason='agent_heartbeat_timeout',
+      updated_at=clock_timestamp()
+    WHERE id=s.id AND status='connected' RETURNING * INTO s;
+    RETURN jsonb_build_object('ok',true,'active',false,'session_id',s.id,
+      'status','ended','end_reason','agent_heartbeat_timeout',
+      'charged_coin_units',charge->'charged_coin_units',
+      'balance',charge->'balance','billed_until',charge->'billed_until');
+  END IF;
+
   charge:=private.androiddb_v0_coin_rental_charge(s.id,p_event_id,clock_timestamp());
   RETURN jsonb_build_object('ok',true,'active',charge->>'status'='connected',
     'session_id',s.id,'status',charge->>'status',
@@ -489,6 +506,11 @@ BEGIN
     ON CONFLICT(rental_account_id) DO NOTHING;
   SELECT * INTO w FROM androiddb_v0.coin_wallets WHERE rental_account_id=r.id FOR UPDATE;
   bal:=private.androiddb_v0_expire_wallet(w.id);
+  UPDATE androiddb_v0.coin_rental_sessions SET status='failed',
+    ended_at=request_expires_at,end_reason='request_timeout',updated_at=clock_timestamp()
+  WHERE rental_account_id=r.id AND status='requested'
+    AND request_expires_at<=clock_timestamp();
+
   SELECT * INTO active_row FROM androiddb_v0.coin_rental_sessions
     WHERE rental_account_id=r.id AND status IN ('requested','connected')
     ORDER BY requested_at DESC LIMIT 1;
