@@ -79,7 +79,7 @@ test("Database returns encrypted pairing only from the reserved PC and snapshots
   const body = migration.slice(start, end);
   assert.ok(start >= 0 && end > start);
   assert.match(body, /private\.androiddb_v0_get_client\(p_session_token\)/);
-  assert.match(body, /rental_pc_id=p_rental_pc_id AND org_id=r\.org_id AND enabled/);
+  assert.match(body, /WHERE id=p_rental_pc_id AND org_id=r\.org_id AND enabled/);
   assert.match(body, /stardesk_device_id/);
   assert.match(body, /verification_ciphertext/);
   assert.match(body, /invite_url_ciphertext/);
