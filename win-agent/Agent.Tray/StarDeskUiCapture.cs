@@ -15,7 +15,8 @@ public sealed record StarDeskCaptureSnapshot(
     string WindowTitle,
     bool RemoteSessionStateKnown = false,
     bool RemoteSessionActive = false,
-    string Diagnostics = "");
+    string Diagnostics = "",
+    string InviteUrl = "");
 
 public static class StarDeskUiCapture
 {
@@ -26,6 +27,12 @@ public static class StarDeskUiCapture
 
     private static readonly Regex DeviceValueRegex = new(
         @"(?<!\d)(\d{3}(?:[\s-]+\d{3}){2,3}|\d{9})(?!\d)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly Regex DeviceLabelRegex = new(
+        @"(?im)^\\s*Device\\s*ID\\s*:\\s*([0-9][0-9\\s-]{7,19})\\s*$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly Regex InviteUrlLabelRegex = new(
+        @"(?im)^\\s*Click the link to initiate directly\\s*:\\s*(https://app\\.stardesk\\.net/invite/[A-Za-z0-9_-]{20,256}(?:\\?lang=[A-Za-z]{2}(?:-[A-Za-z]{2})?)?)\\s*$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly Regex CodeValueRegex = new(
         @"(?<![A-Z0-9])[A-Z0-9]{8}(?![A-Z0-9])",
@@ -170,19 +177,21 @@ public static class StarDeskUiCapture
                 var verificationCode = FindVerificationCode(nodes);
                 var session = DetectRemoteSession(nodes);
 
+                var inviteUrl = "";
                 CopyCaptureResult copy = new("", false, false, false, false, "not-needed");
-                if (string.IsNullOrWhiteSpace(deviceId) ||
+                if (forceCopy || string.IsNullOrWhiteSpace(deviceId) ||
                     string.IsNullOrWhiteSpace(verificationCode))
                 {
                     if (ShouldAttemptCopy(forceCopy))
                     {
                         copy = TryInvokeCopyAndReadClipboard(root);
                         if (copy.PairParsed &&
-                            TryParseCopiedCredentials(copy.Text, out var copiedId, out var copiedCode))
+                            TryParseCopiedCredentials(copy.Text, out var copiedId, out var copiedCode, out var copiedInviteUrl))
                         {
                             // The StarDesk Copy & Share result is an authoritative pair.
                             deviceId = copiedId;
                             verificationCode = copiedCode;
+                            inviteUrl = copiedInviteUrl;
                         }
                     }
                     else
@@ -224,7 +233,7 @@ public static class StarDeskUiCapture
                     windows.Count, window, nodes.Count, deviceId, verificationCode, copy, ocr, recovery);
                 var candidate = new StarDeskCaptureSnapshot(
                     deviceId, verificationCode, window.Title,
-                    session.Known, session.Active, diagnostics);
+                    session.Known, session.Active, diagnostics, inviteUrl);
 
                 if (!string.IsNullOrWhiteSpace(deviceId) &&
                     !string.IsNullOrWhiteSpace(verificationCode))
@@ -709,7 +718,7 @@ public static class StarDeskUiCapture
                                     ? Clipboard.GetText()
                                     : "";
 
-                            if (TryParseCopiedCredentials(copied, out _, out _))
+                            if (TryParseCopiedCredentials(copied, out _, out _, out _))
                             {
                                 pairParsed = true;
                                 return new CopyCaptureResult(
@@ -805,47 +814,48 @@ public static class StarDeskUiCapture
     }
 
     internal static bool TryParseCopiedCredentials(
-        string text, out string deviceId, out string verificationCode)
+        string text, out string deviceId, out string verificationCode) =>
+        TryParseCopiedCredentials(text, out deviceId, out verificationCode, out _);
+
+    internal static bool TryParseCopiedCredentials(
+        string text, out string deviceId, out string verificationCode, out string inviteUrl)
     {
         deviceId = "";
         verificationCode = "";
+        inviteUrl = "";
         if (string.IsNullOrWhiteSpace(text) || text.Length > 4096)
             return false;
 
-        var deviceMatch = DeviceValueRegex.Match(text);
-        if (!deviceMatch.Success)
-            return false;
-
-        var parsedDeviceId = NormalizeDeviceId(deviceMatch.Groups[1].Value);
-
+        var deviceMatch = DeviceLabelRegex.Match(text);
         var labelled = LabelledCodeRegex.Match(text);
         if (!labelled.Success)
             labelled = LocalizedLabelledCodeRegex.Match(text);
+        var inviteMatch = InviteUrlLabelRegex.Match(text);
+        if (!deviceMatch.Success || !labelled.Success || !inviteMatch.Success ||
+            !IsCode(labelled.Groups[1].Value))
+            return false;
 
-        if (labelled.Success && IsCode(labelled.Groups[1].Value))
-        {
-            deviceId = parsedDeviceId;
-            verificationCode = labelled.Groups[1].Value.ToUpperInvariant();
-            return true;
-        }
+        var parsedDeviceId = NormalizeDeviceId(deviceMatch.Groups[1].Value);
+        if (parsedDeviceId.Length is < 9 or > 16 ||
+            !Regex.IsMatch(parsedDeviceId, "^[0-9]{9,16}$", RegexOptions.CultureInvariant))
+            return false;
 
-        // Otherwise only accept a complete, isolated 8-character line.
-        // Never search all clipboard prose for a random 8-character word.
-        var candidates = text.Replace("\r\n", "\n", StringComparison.Ordinal)
-            .Replace('\r', '\n')
-            .Split('\n')
-            .Select(line => ExactCodeLineRegex.Match(line))
-            .Where(match => match.Success)
-            .Select(match => match.Groups[1].Value.ToUpperInvariant())
-            .Where(IsCode)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+        var parsedInviteUrl = inviteMatch.Groups[1].Value;
+        if (!Uri.TryCreate(parsedInviteUrl, UriKind.Absolute, out var parsedUri) ||
+            parsedUri.Scheme != Uri.UriSchemeHttps ||
+            !string.Equals(parsedUri.Host, "app.stardesk.net", StringComparison.OrdinalIgnoreCase) ||
+            !string.IsNullOrEmpty(parsedUri.UserInfo) || !string.IsNullOrEmpty(parsedUri.Fragment) ||
+            !Regex.IsMatch(parsedUri.AbsolutePath, "^/invite/[A-Za-z0-9_-]{20,256}$", RegexOptions.CultureInvariant))
+            return false;
 
-        if (candidates.Length != 1)
+        var query = parsedUri.Query;
+        if (!string.IsNullOrEmpty(query) &&
+            !Regex.IsMatch(query, "^\\?lang=[A-Za-z]{2}(?:-[A-Za-z]{2})?$", RegexOptions.CultureInvariant))
             return false;
 
         deviceId = parsedDeviceId;
-        verificationCode = candidates[0];
+        verificationCode = labelled.Groups[1].Value.ToUpperInvariant();
+        inviteUrl = parsedInviteUrl;
         return true;
     }
 
