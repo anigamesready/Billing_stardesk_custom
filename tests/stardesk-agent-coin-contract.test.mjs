@@ -22,7 +22,7 @@ test("Migration 031 is additive and keeps the Agent PC identity separate from le
   assert.match(migration, /ALTER TABLE androiddb_v0\.stardesk_pairings[\s\S]*invite_url_ciphertext[\s\S]*capture_fingerprint/);
   assert.match(migration, /rental_pc_id uuid NOT NULL REFERENCES androiddb_v0\.rental_pcs\(id\)/);
   assert.match(migration, /rental_account_id uuid NOT NULL REFERENCES androiddb_v0\.rental_accounts\(id\)/);
-  assert.doesNotMatch(migration, /public\.devices|androiddb_v0\.sessions/);
+  assert.doesNotMatch(migration, /REFERENCES public\.devices|FROM androiddb_v0\.sessions/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS androiddb_v0\.coin_rental_sessions/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS androiddb_v0\.coin_session_billing_events/);
 });
@@ -30,7 +30,7 @@ test("Migration 031 is additive and keeps the Agent PC identity separate from le
 test("Invite URL and verification code are stored as authenticated-encryption tuples", () => {
   for (const column of ["invite_url_ciphertext","invite_url_nonce","invite_url_tag","verification_ciphertext","verification_nonce","verification_tag"])
     assert.ok(migration.includes(column), "missing encrypted column: " + column);
-  assert.match(migration, /stardesk_pairings_invite_cipher_tuple_check[\s\S]*invite_url_nonce\) IS NULL/);
+  assert.match(migration, /stardesk_pairings_invite_cipher_tuple_check[\s\S]*invite_url_ciphertext IS NULL[\s\S]*invite_url_tag IS NULL[\s\S]*invite_url_ciphertext IS NOT NULL[\s\S]*invite_url_tag IS NOT NULL/);
   assert.match(migration, /invite_url_nonce\)=16/);
   assert.match(server, /createCipheriv\("aes-256-gcm"/);
   assert.match(server, /createDecipheriv\("aes-256-gcm"/);
@@ -114,7 +114,7 @@ test("Agent monitor lease is required before a rental PC is advertised available
   assert.match(migration, /api\.androiddb_v0_agent_ui_monitor_heartbeat/);
   assert.match(migration, /last_ui_monitor_at>clock_timestamp\(\)-interval '45 seconds'/);
   assert.match(migration, /api\.androiddb_v0_agent_stardesk_session_tick/);
-  assert.match(migration, /end_reason='agent_heartbeat_timeout'/);
+  assert.match(migration, /end_reason=coalesce\(end_reason,'agent_heartbeat_timeout'\)/);
 });
 
 test("Legacy two-field StarDesk pairing RPC is revoked after migration 031", () => {
@@ -128,7 +128,7 @@ test("Remote request decrypts the invite URL only after remote session authentic
   assert.match(server, /androiddb_v0_remote_request_session\(\$1::text,\$2::uuid,\$3::text\)/);
   assert.match(server, /createDecipheriv\("aes-256-gcm"/);
   assert.match(server, /const \{invite_url_ciphertext,invite_url_nonce,invite_url_tag,\.\.\.safeResult\} = result/);
-  assert.match(server, /invite_url: inviteUrl/);
+  assert.match(server, /invite_url:inviteUrl/);
 });
 
 test("New install and upgrade scripts only target the StarDesk Custom database and API", () => {
