@@ -93,69 +93,72 @@ Status: [x] = selesai dengan bukti; [~] = audit sebagian / sedang berjalan; [ ] 
 Acceptance: format clipboard, jenis link, otorisasi, dan batas lisensi terdokumentasi; tidak ada asumsi yang belum dibuktikan.
 
 ### TASK 2 — Windows Agent: capture dan sinkronisasi data
-- [x] Tetapkan bentuk payload dari contoh clipboard: Device ID + Verification Code + `invite_url`.
-- [x] Implementasikan snapshot konsisten dari satu aksi Copy: Device ID + Verification Code + invite URL.
-- [x] Pisahkan `invite_url` dari `device_deep_link`; jangan membuat URL palsu.
-- [~] Validasi relasi ID/kode/link, panjang, scheme, dan host allowlist. Expiry token belum dapat diverifikasi dari format clipboard.
-- [x] Hindari plaintext credential/invite token dalam log, status file, dan diagnostic; kode/link dienkripsi AES-256-GCM sebelum disimpan DB.
-- [x] Ganti timer `AutoSyncStarDeskAsync` 4 detik dengan observer WinEvent; event hanya memicu pemeriksaan/debounce.
-- [x] Ketika sesi berakhir dan StarDesk kembali idle, Agent melakukan Copy & Share satu kali, parse ketiga field, fingerprint, dan sync hanya bila berubah.
-- [x] Sinkronisasi Copy & Share tidak memakai polling beberapa detik. Heartbeat pemantau lokal dan Coin meter terpisah dari copy/sync.
-- [x] Kirim snapshot atomik ke Service melalui named pipe terpisah dengan ACL.
-- [x] Enkripsi Verification Code dan Invite URL sebelum disimpan; plaintext hanya melewati memori/pipe lokal untuk pemrosesan.
-- [~] Fingerprint DB dan event ID idempotent tersedia; retry network/backoff untuk capture snapshot masih perlu ditambahkan.
-- [x] Tes kontrak statis untuk tiga field, event watcher, encryption, session lifecycle, dan Coin berhasil; uji kasus parser pada runtime dan Windows UI nyata masih menunggu.
-- [x] Build Windows Agent 0.2.7 sedang diperiksa oleh GitHub Actions; belum ada hasil final saat catatan ini dibuat.
-- [ ] Uji runtime pada perangkat Windows dengan StarDesk 1.6.x; khusus transisi connected, idle, close app, minimize, dan dialog overlay.
+- [x] Tetapkan payload Copy & Share: Device ID + Verification Code + `invite_url`.
+- [x] Parse ketiga field dalam snapshot yang sama, dengan host/path allowlist untuk Invite URL.
+- [x] Pisahkan Invite URL dari deep link internal; tidak membuat URL yang tidak diberikan provider.
+- [x] Simpan Verification Code dan Invite URL terenkripsi AES-256-GCM di DB; plaintext tidak masuk log/status/diagnostic.
+- [x] Ganti polling Copy & Share 4 detik dengan Windows WinEvent watcher dan debounce.
+- [x] Copy & Share satu kali pada event app-open / idle setelah session end / pairing berubah; snapshot sama tidak ditulis ulang.
+- [x] Retry pengiriman maksimal 3 kali menggunakan payload/event yang sama, bukan menekan Copy ulang.
+- [x] Pisahkan named pipe pairing/session dari local monitor heartbeat; monitor lease tidak melakukan Copy & Share.
+- [x] Agent Service 0.2.7 dibuild Windows x64 pada CI; Service dan Tray publish serta paket lolos pemeriksaan.
+- [~] Tes kontrak statis dan CI lulus; pembacaan UI StarDesk 1.6.x belum diuji pada perangkat Windows nyata.
+- [ ] Uji connected/idle/minimize/close/overlay dan clipboard di satu PC uji.
 
-Acceptance: source kontrak tiga data dan event-driven sync tersedia; real-StarDesk runtime test tetap wajib.
+Acceptance: sumber Agent dan paket 0.2.7 tersedia; uji runtime StarDesk nyata masih wajib.
 
 ### TASK 3 — Identitas PC dan tarif Coin
-- [x] Inventarisasi tabel PC Agent dan pairing StarDesk.
-- [x] Identifikasi duplikasi jalur tarif lama vs inventaris Agent.
-- [x] Identifikasi perbedaan FK `public.devices.id` vs `androiddb_v0.rental_pcs.id`.
-- [x] Tetapkan keputusan desain identitas kanonis jalur Agent/Remote: `rental_pc_id`.
-- [x] Pastikan tarif Agent memakai satu sumber otoritatif: `androiddb_v0.rental_pcs.hourly_coin_units`; nilai dikunci ke sesi saat request.
-- [x] Buat migration additive 031 untuk kolom Invite URL terenkripsi dan tabel Coin session baru; jalur `androiddb_v0.sessions` lama tidak diubah.
-- [x] RPC Agent/Remote baru menggunakan `rental_pc_id`; tidak mengasumsikan UUID sama dengan `public.devices.id`.
-- [x] Contract test memeriksa FK, org scoping, unique active PC/account, tarif x100 dan session event. Fixture PostgreSQL dan concurrency test belum dijalankan.
-- [x] Jalankan migration 031 pada PostgreSQL 16 disposable dan smoke test DB isolated; jangan langsung ubah live DB.
+- [x] Identitas kanonis PC Agent/Remote adalah `androiddb_v0.rental_pcs.id` (`rental_pc_id`), bukan asumsi UUID `public.devices.id`.
+- [x] Tarif Agent diambil dari `rental_pcs.hourly_coin_units` dan disnapshot saat reservasi.
+- [x] Migration additive 031 membuat kolom encrypted Invite URL, monitor lease, Coin rental sessions, dan billing event ledger; tabel sesi legacy tidak diubah.
+- [x] RPC Remote/Agent 031 menggunakan `rental_pc_id` dengan org/account scoping.
+- [x] Migration 031 berhasil dijalankan pada PostgreSQL 16 disposable; smoke test reserve/no-upfront-debit, connected, prorata, idempotent tick, end, monitor timeout, reservation expiry, dan external active host lulus.
+- [ ] Terapkan migration 031 ke Termux DB produksi setelah backup; belum dijalankan oleh ChatGPT.
 
-Acceptance: source memakai satu `rental_pc_id` dan satu sumber tarif untuk jalur Agent/Remote; verifikasi DB nyata/fixture masih menjadi gerbang.
+Acceptance: source, migration, dan disposable DB smoke test lulus; rollout Termux masih menunggu tindakan owner.
 
-### TASK 4 — Coin Session Engine (provider-neutral; aktivasi setelah adapter remote disetujui)
-- [ ] Request/reserve session idempotent dan kunci `rental_account_id` + `rental_pc_id` + `session_id`.
-- [ ] Sesi `requested/connecting` tidak memotong Coin; debit baru dimulai setelah host memberi bukti `connected` yang sah.
-- [ ] Snapshot `hourly_coin_units` dari `rental_pcs` saat sesi aktif; perubahan harga Admin tidak mengubah tarif sesi yang sedang berjalan.
-- [ ] Debit/settlement dihitung server-side dari waktu aktif sampai event end; gunakan presisi integer/fixed-point sesuai unit tarif yang sudah dipakai migrasi lama.
-- [ ] Single-active-session per akun dan per PC dengan transaksi/constraint database, bukan hanya tombol UI.
-- [ ] Kunci sesi melekat pada satu akun penyewa dan satu PC; hanya pemilik sesi aktif yang dapat meminta credential/handoff sesi tersebut.
-- [ ] Stop/settlement idempotent: event berulang tidak boleh memotong saldo dua kali.
-- [ ] Agent heartbeat/session lease dan reconciliation ketika jaringan/Agent offline; jika bukti host hilang, sistem tidak boleh terus menagih tanpa batas.
-- [ ] Audit ledger lengkap: reserve, start, debit, end, refund/release, actor, timestamp server, rate snapshot, dan end_reason.
-- [ ] Race/concurrency tests untuk dua pengguna memilih satu PC, satu user meminta dua PC, retry RPC, dan event start/end duplikat.
 
-**Invariant billing:** waktu `requested` dan `connecting` tidak ditagih; timer mulai hanya pada bukti sesi host benar-benar `connected`; timer berhenti pada bukti sesi selesai atau batas lease yang aman; countdown HP hanya cerminan deadline server, bukan sumber perhitungan uang.
+### TASK 4 — Coin Session Engine
+- [x] Reserve session idempotent memakai `rental_account_id`, `rental_pc_id`, dan session ID.
+- [x] Status requested tidak memotong Coin; counter mulai hanya setelah event host `connected`.
+- [x] Snapshot `hourly_coin_units` dari PC saat reservasi; perubahan tarif tidak mengubah sesi yang sedang berjalan.
+- [x] Debit fixed-point server-side berdasarkan detik aktif; internal Coin memakai skala x100.
+- [x] Unique active session per rental account dan per PC menggunakan constraint/index DB.
+- [x] Credential/handoff hanya dikembalikan setelah token renter terautentikasi dan reservasi PC berhasil.
+- [x] Tick billing dan settlement event memakai idempotency key/event ID.
+- [x] Monitor lease dan heartbeat timeout membatasi waktu tak terkonfirmasi maksimal 45 detik; `monitor_lost` menutup billing tetapi mempertahankan host lock.
+- [~] Ledger mencatat debit sesi; catatan reserve/start/end/release yang terpisah dan concurrency race paralel masih perlu dilengkapi.
+- [x] Disposable PostgreSQL smoke test menguji alur reserve, connected, debit prorata, duplicate tick, end, monitor_lost, reservation expiry, dan host active.
+
+**Invariant billing:** requested tidak ditagih; server mulai pada connected; server berhenti pada ended atau batas lease; UI HP hanya menampilkan status server.
+
 
 ### TASK 5 — Agent session control dan auto-disconnect
-- [ ] Command khusus per session ID, bukan taskkill aplikasi global.
-- [ ] Verifikasi sesi/host yang dituju sebelum disconnect.
-- [ ] Ack delivered/started/completed/failed/expired.
-- [ ] Local lease cutoff jika heartbeat backend habis.
-- [ ] Reconciliation jika perintah stop sukses tetapi ACK hilang.
+- [x] Agent mengirim event connected/ended/monitor_lost untuk PC terikat.
+- [x] Local monitor lease berhenti bila Tray monitor hilang; counter server membatasi tagihan dan host tetap terkunci.
+- [~] Reconciliation lock setelah Agent/Tray restart tersedia saat StarDesk terbukti idle/tertutup; skenario ACK hilang masih perlu diuji.
+- [ ] Command resmi untuk memutus stream StarDesk per session ID; belum ada bukti API/provider resmi yang mendukung force-disconnect.
+- [ ] Verifikasi kontrol disconnect dan ACK delivered/started/completed/failed/expired.
+
 
 ### TASK 6 — Remote APK popup koneksi
-- [ ] PC selection hanya jika backend mengizinkan.
-- [ ] Popup Device ID, status, Verification Code tersembunyi, link yang tervalidasi.
-- [ ] Copy/open action memiliki callback nyata.
-- [ ] Secret hanya diberikan untuk sesi/account terotorisasi.
-- [ ] Empty balance, expired, offline, unavailable, stale credential diblokir di backend.
+- [x] PC selection hanya menampilkan tombol PLAY bila server menyatakan PC available.
+- [x] PLAY membuat reservasi memakai `rental_pc_id` dan idempotency key.
+- [x] Popup menampilkan Device ID, Verification Code, dan Invite URL langsung.
+- [x] Tombol salin per field dan buka Invite URL tervalidasi tersedia.
+- [x] Credential hanya dikirim untuk session renter yang terautentikasi; tidak disimpan di WebView localStorage.
+- [x] Empty balance, expired, Agent offline, PC unavailable, pairing not ready, dan external active session ditolak backend.
+- [x] Remote APK 0.6.8 SAFE-TEST dibuild; package ID `com.anigamesready.stardeskclient.coinx100preview`, versionCode 14.
+- [ ] Uji install, login, PLAY, popup, Copy, serta peluncuran StarDesk di HP Android nyata.
+
 
 ### TASK 7 — Countdown dan user experience
-- [ ] Countdown berdasarkan server deadline.
-- [ ] Refresh dan reconnect tanpa membuat sesi ganda.
-- [ ] Peringatan saldo rendah.
-- [ ] Tampilan session ended dan settlement.
+- [x] Popup refresh status sesi dari server setiap 6 detik saat terbuka.
+- [x] Status requested/connected/ended dan saldo server ditampilkan.
+- [ ] Countdown sampai deadline server belum dibuat.
+- [ ] Peringatan saldo rendah dan UX saldo habis belum dibuat.
+- [ ] Uji reconnect dan reopen popup tanpa session duplikat.
+
 
 ### TASK 8 — Integrasi menyeluruh
 - [ ] Admin, Agent, API, DB, Remote, StarDesk teruji end-to-end.
@@ -199,3 +202,13 @@ Pemilik menjelaskan model operasional yang digunakan: setiap penyewa mengunduh d
 - Artifact kandidat: `Ani-Games-Ready-StarDesk-Coin-Agent-0.2.7-win-x64-package.zip`; checksum disertakan pada file `SHA256-WINDOWS-AGENT-0.2.7.txt` dari artifact CI.
 - Batas uji: build dan PostgreSQL disposable lulus, tetapi Agent belum diuji pada PC Windows nyata dengan StarDesk. Status Connected/Idle/exit, restore/navigasi Remote Assistance, dan copy clipboard tiga field harus diuji langsung sebelum dipakai untuk rental.
 - Perubahan Task 2–3 belum digabung ke `main`, belum diterapkan ke DB produksi, dan belum dihubungkan ke Remote APK. Stable Billing tetap tidak disentuh.
+
+- 2026-11-28 (CI final source 031 + Remote 0.6.8): commit `2c888125835d138564cf7c460ee05a2c4f4946b4`; workflow Remote run `46136704396` dan Agent run `46136704448` selesai sukses.
+- Remote 0.6.8: contract tests, Node API syntax, WebView JS parse, Termux `bash -n`, PostgreSQL 16 disposable migration + Coin lifecycle smoke, Android `assembleDebug`, metadata package/version, APK signature verification, dan ZIP integrity lulus.
+- Agent 0.2.7: contract tests, Termux shell syntax, PostgreSQL disposable smoke, Windows Service/Tray publish x64, package assembly dan ZIP integrity lulus.
+- APK checksum SHA-256: `190d0cadd2b451077c823ce6fc1970b45925434210b1ebc45c2e0b113ad4e671`.
+- Agent package SHA-256: `921620f9d505e5756977a955b969ab0ab93b6a59508571ba23798d3d47dfcd7e`.
+- Updater Termux 031 sekarang membuat `pg_dump -Fc` database sebelum migrasi dan memeriksa backup dengan `pg_restore --list`; memvalidasi RPC `androiddb_v0_remote_session_status` juga. Baseline wajib `androiddb_v0_030_agent_remote_sync`.
+- Tidak ada migration yang dijalankan ke DB Termux/produksi oleh ChatGPT. Tidak ada Admin APK, Billing lama, atau database legacy yang diubah.
+- Real device acceptance tetap tertunda: Windows StarDesk UI status detection, Android invite deep-link launch, real Connected/Ended billing, provider stream disconnect, server countdown/low-balance UX, dan race/concurrency tests belum lulus.
+
