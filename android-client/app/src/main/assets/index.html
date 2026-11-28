@@ -152,7 +152,7 @@ function renderPCs(){
 function validateInviteUrl(value){
  try{
   const url=new URL(String(value||""));
-  const token=url.pathname.match(/^\\/invite\\/[A-Za-z0-9_-]{20,256}$/);
+  const token=/^\/invite\/[A-Za-z0-9_-]{20,256}$/.test(url.pathname);
   const keys=[...url.searchParams.keys()];
   return url.protocol==="https:"&&url.hostname==="app.stardesk.net"&&!url.port&&!url.username&&!url.password&&!url.hash&&
    !!token&&keys.every(x=>x==="lang")&&url.searchParams.size<=1&&
