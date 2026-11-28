@@ -23,6 +23,16 @@ h1{font-size:24px;line-height:1.15;margin:0;font-weight:950}h1 span{color:#83caf
 .qris{display:block;width:min(260px,80%);margin:10px auto;background:#fff;border-radius:12px;padding:10px;cursor:pointer}.qris img{width:100%;display:block}.caption{text-align:center;color:var(--muted);font-size:10px}.rate,.history{padding:11px;border:1px solid #38356f;background:#131633;border-radius:12px}.rate{display:flex;justify-content:space-between;gap:8px;align-items:center}.rate b,.history b{font-size:11px}.rate span,.history small{display:block;font-size:9px;color:var(--muted);margin-top:4px}
 .footer{text-align:center;color:#8382aa;font-size:9px;margin-top:auto;padding-top:20px;line-height:1.5}.toast{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:#211847;border:1px solid #7665cd;border-radius:12px;padding:11px 14px;font-size:11px;display:none;width:max-content;max-width:calc(100% - 24px);box-shadow:0 8px 25px #0008;z-index:20}
 .modal{position:fixed;inset:0;background:#050513ed;display:grid;place-items:center;padding:20px;z-index:30}.modal img{width:min(88vw,430px);background:#fff;border-radius:14px;padding:12px}.modal button{position:absolute;top:22px;right:22px}
+.session-modal{position:fixed;inset:0;background:#050513ef;z-index:45;padding:14px;display:flex;align-items:center;justify-content:center;overflow:auto}
+.session-dialog{width:min(100%,520px);max-height:92dvh;overflow:auto;background:linear-gradient(145deg,#1c1949,#101a38);border:1px solid #7566c7;border-radius:20px;padding:16px;box-shadow:0 18px 60px #000b}
+.session-dialog h2{margin:0;font-size:18px}.session-dialog .session-sub{font-size:10px;color:var(--muted);line-height:1.5;margin:6px 0 13px}
+.session-state{border:1px solid #7062b7;background:#211c50;border-radius:11px;padding:10px;font-size:11px;font-weight:900;margin-bottom:12px}
+.session-field{margin:10px 0}.session-field label{display:block;font-size:10px;font-weight:900;letter-spacing:.5px;color:#c8c4f0;margin-bottom:6px}
+.session-field .session-value{width:100%;min-height:43px;border:1px solid #6258a7;border-radius:10px;background:#090e28;color:#fff;padding:10px;font:12px system-ui;overflow-wrap:anywhere;word-break:break-all}
+.session-actions{display:flex;gap:7px;margin-top:7px}.session-actions button{flex:1;min-width:0;padding:9px 7px;font-size:10px}
+.session-direct{width:100%;height:46px;margin-top:12px}.session-close{width:100%;margin-top:8px;background:#171832;border-color:#555078}
+.session-warning{font-size:10px;color:#ddd8ff;line-height:1.5;background:#211847;border:1px solid #51438f;padding:10px;border-radius:11px;margin-top:12px}
+@media(max-width:360px){.session-dialog{padding:13px}.session-dialog h2{font-size:16px}.session-actions button{font-size:9px;padding:8px 4px}}
 @media(max-width:360px){.app{padding-left:11px;padding-right:11px}.balance{font-size:26px}.pc{grid-template-columns:38px minmax(0,1fr) auto;gap:7px}.monitor{width:38px;height:39px}.pc button{max-width:86px;padding:8px 6px}}
 </style></head><body><div class="app">
 <header class="top"><div class="brand">▣ ANI GAMES <span>READY</span><div class="sub">REMOTE PLAY • ANDROID DB</div></div><div id="connectionBadge" class="preview">GATEWAY ANDROID DB • OTOMATIS</div></header>
@@ -43,7 +53,7 @@ h1{font-size:24px;line-height:1.15;margin:0;font-weight:950}h1 span{color:#83caf
 <div id="walletLock" class="lock hidden"><b>Akses belum siap</b><small id="walletLockText"></small></div>
 <div class="nav"><button data-tab="home" class="active">PC</button><button data-tab="topup">TOP-UP</button><button data-tab="rates">TARIF</button><button data-tab="history">RIWAYAT</button></div>
 <section id="tab-home"><div class="title"><h2>Pilih PC Gaming</h2><button id="refresh">↻ Refresh</button></div><p class="muted" id="pcSummary">Status PC live dari Android DB.</p><div class="pc-list" id="pcList"></div>
-<div class="notice">Daftar PC berasal dari Windows Agent dan Device ID StarDesk tersimpan terenkripsi bersama kode verifikasi. Untuk Remote Access tanpa kode, gunakan akun StarDesk yang sama di PC dan aplikasi StarDesk Android. Penagihan Coin tetap dikunci sampai event mulai/berhenti sesi teruji end-to-end.</div></section>
+<div class="notice">Pilih PC berstatus READY lalu tekan PLAY. Device ID, Verification Code, dan link undangan hanya diberikan setelah reservasi berhasil. Counter Coin baru dimulai setelah Agent mengonfirmasi sesi Connected.</div></section>
 <section id="tab-topup" class="hidden"><div class="title"><h2>Top-up Koin</h2><span class="muted">QRIS statis</span></div>
 <div class="card"><label class="label">PILIH NOMINAL PEMBAYARAN</label><div class="grid2" id="packages">
 <button type="button" class="package" data-amount="5000"><b>Rp5.000</b><span>3.750 koin</span></button><button type="button" class="package selected" data-amount="10000"><b>Rp10.000</b><span>7.500 koin</span></button><button type="button" class="package" data-amount="15000"><b>Rp15.000</b><span>11.250 koin</span></button><button type="button" class="package" data-amount="20000"><b>Rp20.000</b><span>15.000 koin</span></button></div>
@@ -53,7 +63,21 @@ h1{font-size:24px;line-height:1.15;margin:0;font-weight:950}h1 span{color:#83caf
 <section id="tab-rates" class="hidden"><div class="title"><h2>Tarif Remote PC</h2><span class="muted">Server Android DB</span></div><div class="table" id="rateList"></div><div class="notice">Tarif per PC wajib ditetapkan Owner di Android DB. Satuan koin ditagihkan terpisah dari sisa waktu rental lama.</div></section>
 <section id="tab-history" class="hidden"><div class="title"><h2>Riwayat Dompet</h2><span class="muted">Android DB</span></div><div id="lotList" class="table"></div><div id="historyList" class="table" style="margin-top:9px"></div></section>
 <div class="footer">ANI GAMES READY • ANDROID DB v0<br>REMOTE WALLET • KOIN • KONEKSI PC MENUNGGU VALIDASI END-TO-END</div></section></div>
-<div id="toast" class="toast"></div><div id="modal" class="modal hidden"><button id="closeModal">Tutup ✕</button><img src="qris_ani_games.png" alt="QRIS Ani Games Ready"></div>
+<div id="toast" class="toast"></div>
+<div id="modal" class="modal hidden"><button id="closeModal">Tutup ✕</button><img src="qris_ani_games.png" alt="QRIS Ani Games Ready"></div>
+<div id="sessionModal" class="session-modal hidden" role="dialog" aria-modal="true" aria-labelledby="sessionTitle">
+ <div class="session-dialog">
+  <div class="between"><h2 id="sessionTitle">Detail koneksi StarDesk</h2><span class="muted" id="sessionPcName">PC</span></div>
+  <p class="session-sub">Reservasi PC berhasil. Gunakan tiga data di bawah untuk memulai bantuan remote melalui aplikasi StarDesk.</p>
+  <div id="sessionState" class="session-state">MENUNGGU HOST CONNECTED</div>
+  <div class="session-field"><label for="sessionDeviceId">DEVICE ID</label><input id="sessionDeviceId" class="session-value" readonly><div class="session-actions"><button data-session-copy="sessionDeviceId">SALIN DEVICE ID</button></div></div>
+  <div class="session-field"><label for="sessionCode">VERIFICATION CODE</label><input id="sessionCode" class="session-value" readonly><div class="session-actions"><button data-session-copy="sessionCode">SALIN VERIFICATION CODE</button></div></div>
+  <div class="session-field"><label for="sessionInviteUrl">LINK UNDANGAN LANGSUNG</label><textarea id="sessionInviteUrl" class="session-value" rows="3" readonly></textarea><div class="session-actions"><button data-session-copy="sessionInviteUrl">SALIN LINK</button><button id="sessionRefresh">PERBARUI STATUS</button></div></div>
+  <button id="sessionOpenInvite" class="primary session-direct">BUKA LINK LANGSUNG DI STAR DESK</button>
+  <div class="session-warning">Counter Coin dihitung oleh server berdasarkan tarif PC dan waktu Connected dari Agent. Menutup popup tidak menghentikan sesi. Bila status Agent belum Connected, penagihan belum dimulai.</div>
+  <button id="sessionClose" class="session-close">TUTUP POPUP</button>
+ </div>
+</div>
 <script>
 const $=id=>document.getElementById(id);
 const ONLINE_API_BASE="https://ani-games-db-android-stage-gateway.anigamesready.workers.dev/stardesk";
@@ -66,7 +90,8 @@ let requestSequence=0;const pendingApi=new Map();
 function toast(s){const e=$("toast");e.textContent=s;e.style.display="block";clearTimeout(window.__toast);window.__toast=setTimeout(()=>e.style.display="none",3200)}
 function rupiah(n){return "Rp"+Math.round(Number(n)||0).toLocaleString("id-ID")}
 function dec(n){return Number(n||0).toLocaleString("id-ID",{maximumFractionDigits:8})}
-function coinFor(n){return Math.round(((Number(n)||0)*6000/8000)*100000000)/100000000}
+function coinFor(n){return Math.round(((Number(n)||0)*6000/8000)*COIN_UNIT_SCALE*100000000)/100000000}
+function coinText(units){return dec((Number(units)||0)/COIN_UNIT_SCALE)}
 function expiryDays(n){if(n<30000)return 3;if(n<60000)return 7;if(n<90000)return 10;if(n<120000)return 14;if(n<150000)return 17;if(n<180000)return 21;if(n<210000)return 24;if(n<240000)return 28;return 30}
 function randomKey(){if(window.crypto?.getRandomValues){const a=new Uint8Array(16);crypto.getRandomValues(a);return [...a].map(x=>x.toString(16).padStart(2,"0")).join("")}return "id-"+Date.now()+"-"+Math.random().toString(16).slice(2)}
 function nativeRpc(name,payload={},token=""){
@@ -91,15 +116,15 @@ function secretSet(k,v){if(!native?.saveSecureValue(k,v))throw new Error("ANDROI
 function secretClear(k){try{native?.clearSecureValue(k)}catch(_){}}
 function setConnectionBadge(text,online=false){$("connectionBadge").textContent=text;$("connectionBadge").style.background=online?"#123b32":"#322515";$("connectionBadge").style.borderColor=online?"#2e9b75":"#84643c";$("connectionBadge").style.color=online?"#b2ffe0":"#ffe2a4"}
 function currentAmount(){const v=$("manualAmount").value.trim();return v?Math.max(0,Math.floor(Number(v)||0)):selectedAmount}
-function updateCalc(){const n=currentAmount(),c=coinFor(n),t=state.balance+c;$("coinResult").textContent=dec(c)+" koin";$("expiryResult").textContent=expiryDays(t)+" hari";$("totalResult").textContent=dec(t)+" koin";$("payAmount").textContent=rupiah(n);$("confirmWa").disabled=n<1000||n>10000000||n%1000!==0;document.querySelectorAll(".package").forEach(b=>b.classList.toggle("selected",!$("manualAmount").value&&Number(b.dataset.amount)===selectedAmount))}
+function updateCalc(){const n=currentAmount(),c=coinFor(n),t=state.balance+c;$("coinResult").textContent=coinText(c)+" koin";$("expiryResult").textContent=expiryDays(t)+" hari";$("totalResult").textContent=coinText(t)+" koin";$("payAmount").textContent=rupiah(n);$("confirmWa").disabled=n<1000||n>10000000||n%1000!==0;document.querySelectorAll(".package").forEach(b=>b.classList.toggle("selected",!$("manualAmount").value&&Number(b.dataset.amount)===selectedAmount))}
 function tab(name){["home","topup","rates","history"].forEach(x=>$("tab-"+x).classList.toggle("hidden",x!==name));document.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===name))}
 function formatDate(v){if(!v)return"-";const d=new Date(v);return Number.isNaN(d.getTime())?String(v):d.toLocaleString("id-ID",{dateStyle:"medium",timeStyle:"short"})}
 function renderProfile(){
  const status=String(state.account?.status||"unknown").toUpperCase();
  $("rentalStatus").textContent=status;
  $("rentalStatus").className="val "+(status==="ACTIVE"?"green":status==="EXPIRED"?"yellow":"red");
- const access=state.canStart?"DOMPET AKTIF":"BELUM SIAP";
- $("remoteAccess").textContent=access;$("remoteAccess").className="val "+(state.canStart?"green":"yellow");
+ const access=state.activeSessionStatus==="connected"?"SESI AKTIF":state.canStart?"DOMPET AKTIF":"BELUM SIAP";
+ $("remoteAccess").textContent=access;$("remoteAccess").className="val "+(state.canStart||state.activeSessionStatus==="connected"?"green":"yellow");
  const reasons=[];
  if(!state.account)reasons.push("Data akun belum tersedia.");
  if(["DISABLED","DELETED","INACTIVE"].includes(status))reasons.push("Akun dinonaktifkan oleh Admin.");
@@ -110,22 +135,124 @@ function renderProfile(){
  else $("walletLock").classList.add("hidden");
 }
 function renderPCs(){
- const hosts=state.hosts||[];$("pcSummary").textContent=hosts.length+" PC terdaftar dari Windows Agent • status streaming StarDesk masih divalidasi terpisah.";
+ const hosts=state.hosts||[];
+ $("pcSummary").textContent=hosts.length+" PC terdaftar dari Windows Agent • hanya PC READY yang bisa direservasi.";
  if(!hosts.length){$("pcList").innerHTML='<div class="history"><b>Belum ada PC Agent terdaftar</b><small>Pasangkan Windows Agent melalui Admin Owner, lalu sinkronkan StarDesk dari PC tersebut.</small></div>';return}
  $("pcList").innerHTML=hosts.map(p=>{
-  const agentOnline=!!p.host_agent_online,rate=!!p.rate_configured,linked=!!p.stardesk_linked,deviceId=String(p.stardesk_device_id||"");
-  const stateText=!agentOnline?"WINDOWS AGENT OFFLINE":!rate?"TARIF PC BELUM AKTIF":!linked?"STAR DESK BELUM TERSINKRON":"DEVICE ID TERSINKRON • STREAM BELUM DIVALIDASI";
-  const cls=!agentOnline?"red":linked?"green":"yellow";
+  const agentOnline=!!p.host_agent_online,rate=!!p.rate_configured,linked=!!p.stardesk_linked;
+  const available=!!p.available&&!!state.canStart,active=!!p.active_session;
+  const stateText=!agentOnline?"WINDOWS AGENT OFFLINE":!rate?"TARIF PC BELUM AKTIF":!linked?"STAR DESK BELUM TERSINKRON":active?"SESI REMOTE AKTIF":available?"READY • BISA DISEWA":"TIDAK TERSEDIA";
+  const cls=available?"green":active?"yellow":!agentOnline?"red":"yellow";
   const price=rate?rupiah(p.hourly_rupiah)+"/jam • "+dec(p.hourly_coins)+" koin/jam":"Tarif belum diset Owner";
-  const action=linked&&deviceId?'<button data-open-stardesk="'+escapeHtml(deviceId)+'">BUKA STAR DESK</button>':'<button disabled>MENUNGGU ID</button>';
+  const pcId=String(p.device_id||"");
+  const action=available&&pcId?'<button class="primary" data-play-pc="'+escapeHtml(pcId)+'">PLAY</button>':'<button disabled>'+(active?"DIPAKAI":"TIDAK READY")+'</button>';
   return '<article class="pc"><div class="monitor">🎮</div><div><div class="name">'+escapeHtml(p.device_name||p.client_id||"PC")+'</div><div class="meta">'+escapeHtml(p.gpu_class||"GPU belum diatur")+" • "+price+'</div><div class="meta">Windows Agent '+(agentOnline?"ONLINE":"OFFLINE")+' • StarDesk ID '+(linked?"TERSIMPAN":"BELUM ADA")+'</div><div class="state '+cls+'">● '+stateText+'</div></div>'+action+'</article>';
  }).join("");
 }
-function openStarDeskDevice(deviceId){
- const id=String(deviceId||"").trim();
- if(!id||id.length>180){toast("StarDesk Device ID belum tersedia.");return}
- // Native StarDesk app must be signed in with the same account as the host PC.
- window.location.href="stardesk://external/device/control?id="+encodeURIComponent(id);
+function validateInviteUrl(value){
+ try{
+  const url=new URL(String(value||""));
+  const token=url.pathname.match(/^\\/invite\\/[A-Za-z0-9_-]{20,256}$/);
+  const keys=[...url.searchParams.keys()];
+  return url.protocol==="https:"&&url.hostname==="app.stardesk.net"&&!url.port&&!url.username&&!url.password&&!url.hash&&
+   !!token&&keys.every(x=>x==="lang")&&url.searchParams.size<=1&&
+   (!url.searchParams.has("lang")||/^[A-Za-z]{2}(?:-[A-Za-z]{2})?$/.test(url.searchParams.get("lang")||""))
+   ?url.toString():"";
+ }catch(_){return""}
+}
+const pendingSessionKeys={};
+let activeSessionStatusTimer=null;
+function updateSessionState(text,kind){
+ const el=$("sessionState");el.textContent=text;
+ el.style.borderColor=kind==="connected"?"#2e9b75":kind==="ended"?"#b84b70":"#7062b7";
+ el.style.background=kind==="connected"?"#123b32":kind==="ended"?"#3b1b2b":"#211c50";
+}
+function showSessionPopup(data,pcName){
+ const invite=validateInviteUrl(data.invite_url);
+ const device=String(data.stardesk_device_id||"").trim();
+ const code=String(data.verification_code||"").trim().toUpperCase();
+ if(!device||device.length>180||! /^[A-Z0-9]{8}$/.test(code)||!invite)
+  throw new Error("DATA_KONEKSI_STARDESK_TIDAK_VALID");
+ state.activeSessionId=String(data.session_id||"");
+ state.activeSessionPcId=String(data.rental_pc_id||"");
+ state.activeSessionStatus=String(data.status||"requested");
+ $("sessionPcName").textContent=pcName||"PC";
+ $("sessionDeviceId").value=device;$("sessionCode").value=code;$("sessionInviteUrl").value=invite;
+ updateSessionState(state.activeSessionStatus==="connected"?"CONNECTED • COUNTER COIN AKTIF":"MENUNGGU HOST CONNECTED • BELUM DITAGIH",
+  state.activeSessionStatus==="connected"?"connected":"requested");
+ $("sessionModal").classList.remove("hidden");
+ if(activeSessionStatusTimer)clearInterval(activeSessionStatusTimer);
+ activeSessionStatusTimer=setInterval(()=>refreshActiveSessionStatus(true),6000);
+ refreshActiveSessionStatus(true).catch(()=>{});
+}
+function closeSessionPopup(){
+ $("sessionModal").classList.add("hidden");
+ $("sessionDeviceId").value="";$("sessionCode").value="";$("sessionInviteUrl").value="";
+ if(activeSessionStatusTimer){clearInterval(activeSessionStatusTimer);activeSessionStatusTimer=null}
+}
+function copySessionField(id){
+ const value=$(id).value||"";if(!value){toast("Data belum tersedia.");return}
+ if(native?.copyText){native.copyText(value);return}
+ if(navigator.clipboard?.writeText){navigator.clipboard.writeText(value).then(()=>toast("Disalin."),()=>toast("Tidak dapat menyalin."));return}
+ $(id).focus();$(id).select();toast("Pilih lalu salin secara manual.");
+}
+function openSessionInvite(){
+ const invite=validateInviteUrl($("sessionInviteUrl").value);
+ if(!invite){toast("Link undangan tidak valid.");return}
+ window.location.href=invite;
+}
+async function refreshActiveSessionStatus(quiet=false){
+ if(!state.accessToken||!state.activeSessionId)return;
+ try{
+  const result=await nativeRpc("androiddb_v0_remote_session_status",{},state.accessToken);
+  if(Number.isFinite(Number(result.wallet_balance))){state.balance=Number(result.wallet_balance);$("balance").textContent=coinText(state.balance)}
+  const session=result.session;
+  if(session&&String(session.id)===state.activeSessionId){
+   state.activeSessionStatus=String(session.status||"requested");state.activeSession=session;
+   if(state.activeSessionStatus==="connected")updateSessionState("CONNECTED • COUNTER COIN AKTIF","connected");
+   else updateSessionState("RESERVASI DIBUAT • MENUNGGU HOST CONNECTED","requested");
+  }else{
+   state.activeSessionStatus="ended";state.activeSession=null;
+   updateSessionState("SESI TIDAK AKTIF • COUNTER COIN BERHENTI","ended");
+   if(activeSessionStatusTimer){clearInterval(activeSessionStatusTimer);activeSessionStatusTimer=null}
+   if(!quiet)toast("Sesi sudah tidak aktif.");
+  }
+ }catch(e){if(!quiet)toast("Status sesi belum dapat diperbarui: "+String(e?.message||e))}
+}
+async function startRemoteSession(rentalPcId){
+ const pc=state.hosts.find(x=>String(x.device_id)===String(rentalPcId));
+ if(!pc||!pc.available||!state.canStart){toast("PC tidak tersedia atau saldo Coin tidak cukup.");return}
+ const button=[...document.querySelectorAll("[data-play-pc]")].find(x=>x.dataset.playPc===String(rentalPcId));
+ if(button){button.disabled=true;button.textContent="MEMPROSES..."}
+ const key=pendingSessionKeys[rentalPcId]||(pendingSessionKeys[rentalPcId]=randomKey());
+ try{
+  const result=await nativeRpc("androiddb_v0_remote_request_session",{
+   p_rental_pc_id:String(rentalPcId),p_idempotency_key:key
+  },state.accessToken);
+  if(!result?.session_id)throw new Error("RESERVASI_SESSION_ID_TIDAK_DITERIMA");
+  delete pendingSessionKeys[rentalPcId];
+  state.activeSession={id:result.session_id,status:result.status,rental_pc_id:result.rental_pc_id};
+  state.activeSessionId=String(result.session_id);state.activeSessionPcId=String(result.rental_pc_id||rentalPcId);
+  state.activeSessionStatus=String(result.status||"requested");
+  showSessionPopup(result,pc.device_name||"PC");
+  toast("Reservasi PC berhasil. Menunggu Agent mengonfirmasi Connected.");
+  await refreshData().catch(()=>{});
+ }catch(e){
+  const code=String(e?.code||e?.message||"");
+  const messages={
+   ANDROIDDB_V0_COIN_BALANCE_EMPTY:"Saldo Coin tidak cukup.",
+   ANDROIDDB_V0_COIN_AGENT_OFFLINE:"Windows Agent sedang offline.",
+   ANDROIDDB_V0_COIN_PC_UNAVAILABLE:"PC tidak tersedia.",
+   ANDROIDDB_V0_STARDESK_INVITE_NOT_READY:"Link undangan StarDesk belum tersinkron.",
+   ANDROIDDB_V0_STARDESK_ALREADY_ACTIVE:"PC sudah memiliki sesi StarDesk aktif.",
+   ANDROIDDB_V0_COIN_SESSION_NO_LONGER_REQUESTABLE:"Reservasi lama sudah berakhir. Refresh daftar PC lalu coba lagi.",
+   ANDROIDDB_V0_AGENT_MONITOR_OFFLINE:"Pemantau Agent belum siap. Pastikan Agent Tray terbuka.",
+   STARDESK_PAIRING_PAYLOAD_INVALID:"Data undangan StarDesk tidak valid."
+  };
+  toast(messages[code]||("Play gagal: "+String(e?.message||e)));
+ }finally{
+  if(button&&document.body.contains(button)){button.disabled=false;button.textContent="PLAY"}
+ }
 }
 function renderRates(){
  const configured=(state.hosts||[]).filter(x=>x.rate_configured);
@@ -135,8 +262,8 @@ function renderRates(){
 function renderHistory(){
  $("lotList").innerHTML='<div class="title"><h2>Lot Koin Aktif</h2></div>'+(state.lots.length?state.lots.map(l=>'<div class="history"><b>'+dec(l.remaining_coins)+' koin tersisa</b><small>Expired: '+formatDate(l.expires_at)+'</small></div>').join(""):'<div class="history"><b>Tidak ada lot aktif</b><small>Top-up yang disetujui Owner akan muncul di sini.</small></div>');
  const entries=[];
- (state.orders||[]).forEach(o=>entries.push({date:o.created_at,title:"Top-up "+rupiah(o.amount_rupiah)+" • "+dec(o.coin_amount)+" koin",detail:"Status "+String(o.status||"").toUpperCase()+" • Expired "+o.expiry_days+" hari"}));
- (state.ledger||[]).forEach(l=>entries.push({date:l.created_at,title:String(l.event_type||"").replaceAll("_"," ").toUpperCase()+" • "+dec(l.amount_coins)+" koin",detail:"Saldo setelah transaksi "+dec(l.balance_after)+" koin"}));
+ (state.orders||[]).forEach(o=>entries.push({date:o.created_at,title:"Top-up "+rupiah(o.amount_rupiah)+" • "+coinText(o.coin_amount)+" koin",detail:"Status "+String(o.status||"").toUpperCase()+" • Expired "+o.expiry_days+" hari"}));
+ (state.ledger||[]).forEach(l=>entries.push({date:l.created_at,title:String(l.event_type||"").replaceAll("_"," ").toUpperCase()+" • "+coinText(l.amount_coins)+" koin",detail:"Saldo setelah transaksi "+coinText(l.balance_after)+" koin"}));
  entries.sort((a,b)=>new Date(b.date)-new Date(a.date));
  $("historyList").innerHTML='<div class="title"><h2>Riwayat Transaksi</h2></div>'+(entries.length?entries.map(x=>'<div class="history"><b>'+escapeHtml(x.title)+'</b><small>'+escapeHtml(x.detail)+' • '+formatDate(x.date)+'</small></div>').join(""):'<div class="history"><b>Belum ada transaksi</b><small>Riwayat berasal dari Android DB.</small></div>');
 }
@@ -149,10 +276,10 @@ async function refreshData(){
  ]);
  const scales=[dashboard.coin_unit_scale,wallet.coin_unit_scale,history.coin_unit_scale].map(Number);
  if(!scales.every(value=>value===COIN_UNIT_SCALE))throw new Error("COIN_UNIT_SCALE_MISMATCH: DB belum memakai AniCoin x100. Perbarui database StarDesk sebelum memakai Remote Coin x100.");
- state.account=dashboard.rental_account||null;state.hosts=Array.isArray(dashboard.hosts)?dashboard.hosts:[];state.canStart=!!dashboard.can_start&&state.hosts.some(host=>host.available===true);
+ state.account=dashboard.rental_account||null;state.hosts=Array.isArray(dashboard.hosts)?dashboard.hosts:[];state.activeSession=dashboard.active_session||null;state.activeSessionId=String(state.activeSession?.id||"");state.activeSessionStatus=String(state.activeSession?.status||"");state.canStart=!!dashboard.can_start&&state.hosts.some(host=>host.available===true);
  state.balance=Number(wallet.balance??dashboard.wallet?.balance??0);state.lots=Array.isArray(wallet.lots)?wallet.lots:[];
  state.ledger=Array.isArray(history.ledger)?history.ledger:[];state.orders=Array.isArray(history.orders)?history.orders:[];
- $("balance").textContent=dec(state.balance);renderProfile();renderPCs();renderRates();renderHistory();updateCalc();
+ $("balance").textContent=coinText(state.balance);renderProfile();renderPCs();renderRates();renderHistory();updateCalc();
  setConnectionBadge("ANDROID DB ONLINE",true);
 }
 async function refreshTokens(refreshToken){
@@ -225,7 +352,12 @@ async function confirmTopup(){
 $("loginForm").addEventListener("submit",login);
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>tab(b.dataset.tab)));
 document.querySelectorAll(".package").forEach(b=>b.addEventListener("click",()=>{selectedAmount=Number(b.dataset.amount);$("manualAmount").value="";updateCalc()}));
-$("pcList").addEventListener("click",e=>{const b=e.target.closest("[data-open-stardesk]");if(b)openStarDeskDevice(b.dataset.openStardesk)});
+$("pcList").addEventListener("click",e=>{const b=e.target.closest("[data-play-pc]");if(b)startRemoteSession(b.dataset.playPc)});
+document.querySelectorAll("[data-session-copy]").forEach(b=>b.addEventListener("click",()=>copySessionField(b.dataset.sessionCopy)));
+$("sessionOpenInvite").addEventListener("click",openSessionInvite);
+$("sessionRefresh").addEventListener("click",()=>refreshActiveSessionStatus(false));
+$("sessionClose").addEventListener("click",closeSessionPopup);
+$("sessionModal").addEventListener("click",e=>{if(e.target===$("sessionModal"))closeSessionPopup()});
 $("manualAmount").addEventListener("input",updateCalc);$("refresh").addEventListener("click",refreshClick);
 $("logout").addEventListener("click",logout);$("confirmWa").addEventListener("click",confirmTopup);
 $("copyAmount").addEventListener("click",()=>{const n=String(currentAmount());if(native?.copyText)native.copyText(n);else toast("Nominal: "+rupiah(n))});
