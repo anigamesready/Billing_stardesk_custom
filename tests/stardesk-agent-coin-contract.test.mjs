@@ -60,6 +60,7 @@ test("Agent pairing copy/sync is event-driven rather than a 4-second polling loo
   assert.match(tray, /var needCopy = appJustOpened \|\| sessionJustEnded \|\| pairChanged/);
   assert.match(tray, /ReadPartial\(forceCopy:\s*true\)/);
   assert.match(tray, /lastSyncedFingerprint/);
+  assert.match(tray, /GetProcessesByName\("StarDesk"\)/);
   assert.match(watcher, /SetWinEventHook/);
   assert.match(watcher, /EventObjectValueChange/);
   assert.match(watcher, /EnumWindows/);
